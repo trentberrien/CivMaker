@@ -4,7 +4,8 @@ Minecraft plugin that allows players to create competing civilizations
 Main idea: Clans work to be largest and wealthiest base/village
 
 Core principles: 
-	- Add incentives to continue playing while also working with/against other players 
+  
+  - Add incentives to continue playing while also working with/against other players 
 	
   - New mechanics should not impact core gameplay
 		
