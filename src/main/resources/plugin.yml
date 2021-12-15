@@ -1,0 +1,8 @@
+name: CivMaker
+version: '${project.version}'
+main: com.trentberrien.civmaker.Main
+api-version: 1.18
+load: STARTUP
+authors: [ trentberrien, aejester ]
+description: Minecraft plugin that allows players to create competing civilizations
+website: https://github.com/trentberrien/CivMaker
