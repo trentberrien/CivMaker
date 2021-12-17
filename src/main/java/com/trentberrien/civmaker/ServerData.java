@@ -34,7 +34,7 @@ public class ServerData {
         this.loadServerData();
     }
 
-    public void loadServerData() {
+    public void saveServerData() {
         //TODO: FINISH THIS WHEN IM NOT ABOUT TO GO SEE SPIDER MAN
         // THIS METHOD IS NOT FINISHED
         // DO NOT ATTEMPT TO USE THIS METHOD IT WILL LIKELY BREAK EVERYTHING UNTIL THIS COMMENT IS REMOVED
@@ -101,7 +101,7 @@ public class ServerData {
         }
     }
 
-    public void saveServerData() {
+    public void loadServerData() {
         if (!this.dataFolder.exists()) {
             this.dataFolder.mkdir();
         }
