@@ -2,20 +2,24 @@ package com.trentberrien.civmaker.clans;
 
 import com.trentberrien.civmaker.villages.Village;
 
+import org.bukkit.ChatColor;
+
 import java.util.*;
 
 public class Clan {
 
     private String name;
     private String chatTag;
+    private ChatColor chatTagColor;
     private List<ClanMember> members;
     private List<Village> village;
     private double clanBalance;
     private HashMap<String, Double> playerContributions;
 
-    public Clan(String name, String chatTag, List<ClanMember> members, double clanBalance) {
+    public Clan(String name, String chatTag, ChatColor chatTagColor, List<ClanMember> members, double clanBalance) {
         this.name = name;
         this.chatTag = chatTag;
+        this.chatTagColor = chatTagColor;
         this.members = members;
         this.clanBalance = clanBalance;
     }
@@ -23,6 +27,7 @@ public class Clan {
     public Clan(String name) {
         this.name = name;
         this.chatTag = chatTag;
+        this.chatTagColor = ChatColor.WHITE;
         this.members = new ArrayList<>();
     }
 
@@ -32,6 +37,10 @@ public class Clan {
 
     public String getChatTag() {
         return this.chatTag;
+    }
+
+    public ChatColor getChatTagColor() {
+        return this.chatTagColor;
     }
 
     public List<ClanMember> getMembers() {
@@ -48,6 +57,10 @@ public class Clan {
 
     public void setChatTag(String tag) {
         this.chatTag = tag;
+    }
+
+    public void setChatTagColor(ChatColor color) {
+        this.chatTagColor = color;
     }
 
     public List<Village> getVillages() {
