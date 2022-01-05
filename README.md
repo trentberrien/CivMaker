@@ -1,36 +1,36 @@
 # CivMaker
 Minecraft plugin that allows players to create competing civilizations
 
-Main idea: Clans work to be largest and wealthiest base/village
+**Main idea**: Clans work to be largest and wealthiest base/village
 
-Core principles:
+**Core principles**:
 
 - Add incentives to continue playing while also working with/against other players
 
 - New mechanics should not impact core gameplay
 
-  ○ All materials/ gear should be gathered by normal means
+  - All materials/ gear should be gathered by normal means
 
-  ○ Addition of new incentives should not make resources scarce for normal use
+  - Addition of new incentives should not make resources scarce for normal use
 
 - Players should feel like their work is not entirely vulnerable
 
-  ○ Raiding should take a significant investment to conduct
+  - Raiding should take a significant investment to conduct
 
-  ○ Mechanics should be added to increase the protection of players items and builds
+  - Mechanics should be added to increase the protection of players items and builds
 
----Planned features---
+# Planned features
 
-Core mechanics:
-Currency mechanics:
+#### Core mechanics
 
+##### Currency
 - Items will be traded in for currency
 
-○ Possibly 1 netherite scrap = $10000, 1 diamond = $1000 (can be tweaked)
+-  Possibly 1 netherite scrap = $10000, 1 diamond = $1000 (can be tweaked)
 
-○ Should not be materials that are easily farmed
+- Should not be materials that are easily farmed
 
-○ Possibly add money drop for mining naturally spawning ores like $1000 per emerald ore
+- Possibly add money drop for mining naturally spawning ores like $1000 per emerald ore
 
 - Shop at spawn to make transactions
 
@@ -40,7 +40,7 @@ Currency mechanics:
 
 - If a player is killed their money goes to the player who killed them
 
-Village mechanics:
+##### Village
 
 - Currency is used to start village and buy plots of land
 
@@ -52,9 +52,9 @@ Village mechanics:
 
 - Amount of plots that can be owned depend on amount of village members and other factors
 
-○ Villages at a certain size must add additional beacons
+-  Villages at a certain size must add additional beacons
 
-○ A certain number of villagers must have a bed within the village plots in order to expand the village further
+ - A certain number of villagers must have a bed within the village plots in order to expand the village further
 
 - Points will be assigned to the size of the village, number of villagers, and money owned by the village
 
@@ -62,7 +62,7 @@ Village mechanics:
 
 - Per beacon, a certain % of stored currency within the village will be taken when destroyed
 
-Item shop:
+##### Item Shop
 
 - Custom items will be added to the game to enhance added mechanics
 
@@ -74,23 +74,23 @@ Item shop:
 
 - "C4" like TNT can be used to break only building blocks in protected plots
 
----Possible features---
+# Possible Features
 
-Mechanics to prevent burnout/ high level of commitment:
+##### Mechanics to prevent burnout/ high level of commitment:
 
 - When a beacon is destroyed, the village will have x days to pay a repair cost before the protections go away
 
-Marketplace and economy:
+##### Marketplace and economy
 
 - Players can sell items to other players at a price they set themselves.
 
-War Mechanic:
+##### War Mechanic:
 
 - States that declare war can bypass destroy/grief protections, but also leave their village vulnerable to anyone
 
 - May have minimum requirement of defending players online (offline raids = bad)
 
-Further village requirements:
+##### Further village requirements:
 
 - Minimum # of players to start a village (likely 3)
 
@@ -98,18 +98,18 @@ Further village requirements:
 
 - Apply for village leadership
 
-Misc:
+##### Misc:
 
 - Death caused by other player would make you temp banned for a set amount of time
 
-○ +1 hour to make death significant
+- +1 hour to make death significant
 
-○ Can be skipped by payment (makes wealthy people who invested more time balanced with large groups who play less)
+-  Can be skipped by payment (makes wealthy people who invested more time balanced with large groups who play less)
 
 - Purchasable perk system?
 
-○ Hard to add perks that do not mess with base gameplay
+- Hard to add perks that do not mess with base gameplay
 
-○ Clash of clans shields???
+- Clash of clans shields???
 
-Start with smallish world boarder to force people to be relatively close!
+- Start with smallish world boarder to force people to be relatively close!
