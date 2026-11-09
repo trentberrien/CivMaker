@@ -1,8 +1,23 @@
 name: CivMaker
-version: '${project.version}'
-main: com.trentberrien.civmaker.Main
-api-version: 1.18
+version: '0.2.14'
+main: dev.civmaker.CivMaker
+api-version: '26.3'
 load: STARTUP
-authors: [ trentberrien, aejester ]
-description: Minecraft plugin that allows players to create competing civilizations
-website: https://github.com/trentberrien/CivMaker
+description: Village claims, mining payouts, and scheduled vault raids
+commands:
+  civ:
+    description: Manage your CivMaker wallet or village
+    usage: /civ help
+  trade:
+    description: Trade items with another player
+    usage: /trade <player|test|--recover>
+permissions:
+  civmaker.trade.test:
+    description: Open a test trade that offers 10 dirt
+    default: op
+  civmaker.admin:
+    description: Adjust wallets, manage raid windows, and disband villages
+    default: op
+  civmaker.admin.manage:
+    description: Grant or revoke the CivMaker admin role
+    default: op

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explore CivMaker territory, settlement claims, and village rankings.">
+  <title>CivMaker · World Atlas</title>
+  <link rel="stylesheet" href="./atlas.css">
+  <script type="module" src="./atlas.js"></script>
+</head>
+<body>
+  <svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="atlas-icon" viewBox="0 0 24 24"><path d="m12 2 9 5v10l-9 5-9-5V7zM3 7l9 5 9-5m-9 5v10m-4.5-7.5L12 17l4.5-2.5"/></symbol>
+    <symbol id="upload-icon" viewBox="0 0 24 24"><path d="M12 16V3m-4 4 4-4 4 4M4 15v5h16v-5"/></symbol>
+    <symbol id="search-icon" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 5 5"/></symbol>
+    <symbol id="fit-icon" viewBox="0 0 24 24"><path d="M9 4H4v5m11-5h5v5M4 15v5h5m11-5v5h-5"/><circle cx="12" cy="12" r="2"/></symbol>
+    <symbol id="layers-icon" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5zm-9 9 9 5 9-5m-18 4 9 5 9-5"/></symbol>
+    <symbol id="pin-icon" viewBox="0 0 24 24"><path d="M19 10c0 5-7 10-7 10S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/></symbol>
+  </svg>
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <div class="brand"><span class="brand-icon"><svg><use href="#atlas-icon"/></svg></span><strong>CivMaker</strong><span class="brand-divider"></span><span class="brand-label">ATLAS</span></div>
+      <div class="data-actions">
+        <span class="source-badge" id="source"><i></i><span>Loading data</span></span>
+        <button class="secondary" id="import" type="button"><svg><use href="#upload-icon"/></svg><span>Load server data</span></button>
+        <input type="file" id="export-file" accept=".json,application/json" hidden>
+        <button class="secondary" id="restore" type="button" hidden>Reset data</button>
+      </div>
+    </div>
+  </header>
+  <main class="shell">
+    <section class="intro" aria-labelledby="page-title">
+      <div>
+        <p class="eyebrow"><span></span> CIVMAKER WORLD RECORDS</p>
+        <h1 id="page-title">World Atlas</h1>
+        <p class="subtitle">Explore the world, its borders, and the villages that shape it.</p>
+      </div>
+      <p id="snapshot" class="snapshot" role="status"></p>
+    </section>
+    <dl class="overview" aria-label="Selected world totals">
+      <div><dt>Villages</dt><dd id="total-villages">—</dd></div>
+      <div><dt>Claimed chunks</dt><dd id="total-claims">—</dd></div>
+      <div><dt>Settlements</dt><dd id="total-settlements">—</dd></div>
+      <div><dt>Village members</dt><dd id="total-members">—</dd></div>
+    </dl>
+    <div class="workspace">
+      <section class="panel map-panel" aria-labelledby="map-title">
+        <div class="panel-head map-head">
+          <div><h2 id="map-title">Territory map</h2><p id="map-description">Drag to pan · scroll to zoom</p></div>
+          <select id="world" aria-label="World" disabled></select>
+        </div>
+        <div class="map" id="map" tabindex="0" role="region" aria-label="Territory map" aria-describedby="map-help">
+          <p class="sr-only" id="map-help">Use arrow keys to pan, plus or minus to zoom, and Home to fit the world. Choose a village from the directory to locate it.</p>
+          <canvas id="canvas" aria-hidden="true"></canvas>
+          <div id="markers" class="markers"></div>
+          <div class="compass" aria-label="North is up"><b>N</b><svg viewBox="0 0 28 30" aria-hidden="true"><path d="m14 2 8 24-8-6-8 6z" fill="#d8c694"/><path d="M14 2v18l8 6z" fill="#837651"/></svg></div>
+          <div class="map-controls" aria-label="Map controls">
+            <button id="zoom-in" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+            <button id="zoom-out" type="button" aria-label="Zoom out" title="Zoom out">−</button>
+            <button id="fit" type="button" aria-label="Fit map" title="Fit map"><svg><use href="#fit-icon"/></svg></button>
+          </div>
+          <div class="scale" aria-hidden="true"><span id="scale-label"></span><i id="scale-bar"></i></div>
+          <div class="coordinates" id="coordinates">X 0 · Z 0</div>
+        </div>
+        <div class="map-footer">
+          <div class="legend" aria-label="Map layers">
+            <svg aria-hidden="true"><use href="#layers-icon"/></svg>
+            <label><input id="claims-layer" type="checkbox" checked> Claims</label>
+            <label><input id="settlements-layer" type="checkbox" checked> Settlements</label>
+            <label><input id="beacons-layer" type="checkbox" checked> Beacons</label>
+          </div>
+          <span class="terrain-label" id="terrain-label"></span>
+        </div>
+      </section>
+      <aside class="panel directory" aria-labelledby="directory-title">
+        <div class="panel-head"><div><h2 id="directory-title">Village directory</h2><p>Ranked by village points</p></div><span class="directory-count" id="directory-count">0</span></div>
+        <div class="directory-body">
+          <label class="search"><svg aria-hidden="true"><use href="#search-icon"/></svg><input id="search" type="search" placeholder="Find a village…" aria-label="Find a village"></label>
+          <div class="list-header"><span>VILLAGE</span><span>POINTS</span></div>
+          <ul class="village-list" id="villages"></ul>
+          <section id="detail" class="detail" aria-label="Selected village" hidden></section>
+        </div>
+      </aside>
+    </div>
+    <footer class="site-footer"><span>CIVMAKER ATLAS</span><span>North ↑ <i></i> 1 chunk = 16 × 16 blocks</span></footer>
+  </main>
+</body>
+</html>

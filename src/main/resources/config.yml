@@ -1,0 +1,33 @@
+mining-payouts:
+  COAL_ORE: 10
+  DEEPSLATE_COAL_ORE: 10
+  COPPER_ORE: 15
+  DEEPSLATE_COPPER_ORE: 15
+  IRON_ORE: 20
+  DEEPSLATE_IRON_ORE: 20
+  NETHER_QUARTZ_ORE: 25
+  REDSTONE_ORE: 40
+  DEEPSLATE_REDSTONE_ORE: 40
+  LAPIS_ORE: 60
+  DEEPSLATE_LAPIS_ORE: 60
+  GOLD_ORE: 100
+  DEEPSLATE_GOLD_ORE: 100
+  NETHER_GOLD_ORE: 35
+  DIAMOND_ORE: 1000
+  DEEPSLATE_DIAMOND_ORE: 1000
+  EMERALD_ORE: 1000
+  DEEPSLATE_EMERALD_ORE: 1000
+  ANCIENT_DEBRIS: 10000
+
+village:
+  min-beacon-y: 64
+  chunk-price: 1000
+  settlement-price: 50000
+
+raid-protection:
+  enabled: true
+  price: 10000
+  cooldown-hours: 168
+
+export:
+  enabled: true
