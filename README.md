@@ -1,16 +1,21 @@
 # CivMaker
 
-CivMaker is a server-side plugin for Minecraft Java Edition 26.3 on Paper. Players connect with the standard Java client. CivMaker covers mining payouts, physical banknotes, protected village claims, secure vault raids, and a read-only export for the [World Atlas prototype](website/README.md).
+CivMaker is a Paper plugin for Minecraft Java Edition 26.3. Mine ore to fund a civilization, expand your capital, buy natural villages for their daily rewards, and defend your settlements during scheduled raids. The plugin also adds player trading, specialized gear, and a read-only feed for the World Atlas. Players can join with the standard Java client.
+
+- [Economy](#mining-and-banknotes) and [player trading](#trading-items)
+- [Capitals](#founding-and-expanding-villages), [settlements](#settlements-and-points), and [vaults](#secure-vaults)
+- [Raid windows and capture](#raid-windows) and the [equipment shop](#equipment-shop)
+- [Server administration](#admin-commands) and [World Atlas](#world-atlas)
 
 ## Build and install
 
-1. Install Java 25 and Maven, then run `mvn clean package` from this directory.
-2. Put `target/civmaker-0.2.14.jar` in the `plugins` directory of a Paper 26.3 server and start the server.
-3. Edit `plugins/CivMaker/config.yml` to tune payouts or claim costs. Restart after editing.
+1. Install JDK 25 and Maven, then run `mvn clean package` from this directory.
+2. Copy `target/civmaker-0.2.14.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+3. Edit `plugins/CivMaker/config.yml` to tune ore payouts, minimum beacon height, claim prices, or raid protection. Restart after editing. Set `export.enabled` to `false` to disable World Atlas export updates.
 
 ## Mining and banknotes
 
-- Mine ore in Survival with an appropriate tool to earn a payout per block. Coal starts at $10, iron at $20, diamond and emerald at $1,000 each, and ancient debris at $10,000. Check your wallet with `/civ balance`.
+- Mine eligible ore in Survival with the appropriate tool to earn a payout per block. Check your wallet with `/civ balance`.
 - CivMaker records ore locations as new Overworld and Nether chunks first load. Mining a recorded ore consumes its eligibility even with Silk Touch. Placed and piston-moved ores are ineligible. Fortune still affects normal drops.
 - Chunks generated before CivMaker was installed are ineligible because their natural and placed ores cannot be reliably distinguished. Use a fresh world or explore new chunks on an existing server.
 - `/civ withdraw 10` exchanges $10,000 for ten stackable $1,000 banknotes. `/civ deposit` redeems all banknotes in the main inventory, and `/civ deposit 3` redeems three. Genuine notes carry a server item tag. Renaming ordinary paper cannot create a note. Treat Creative access and world-editing tools as trusted admin access.
@@ -18,22 +23,43 @@ CivMaker is a server-side plugin for Minecraft Java Edition 26.3 on Paper. Playe
 - On death, you drop 10% of your wallet balance, rounded down to the nearest $1,000, plus the banknotes that drop with your inventory. If you keep your inventory, including with a Super Totem, the 10% applies to your wallet and carried banknotes combined. Large death payouts are condensed into high-value banknotes. Picking up one credits your wallet immediately, even with a full inventory. It stays on the ground if your wallet can't hold the full amount.
 - The **CivMaker** sidebar shows your village membership, wallet, current raid status, and the top five villages by points. `/civ help` appears at the bottom. The vanilla client displays the sidebar on the right. CivMaker leaves an existing custom scoreboard or sidebar in place.
 
+| Ore | Default payout per block |
+| --- | ---: |
+| Coal | $10 |
+| Copper | $15 |
+| Iron | $20 |
+| Nether quartz | $25 |
+| Nether gold | $35 |
+| Redstone | $40 |
+| Lapis lazuli | $60 |
+| Gold | $100 |
+| Diamond or emerald | $1,000 |
+| Ancient debris | $10,000 |
+
+Deepslate ores pay the same amount as their stone equivalents by default.
+
 ## Founding and expanding villages
 
-1. Buy a **Founding Beacon** for **$10,000** from `/civ shop` or with `/civ create`. Place it in an unclaimed Overworld chunk at Y 64 or higher with clear sky above it. Select **Choose a name** in the setup menu, enter a civilization name, and select **Found civilization**. The beacon becomes your capital and can grant normal beacon effects once powered. Close the menu anytime and right-click the beacon to resume.
-2. As the owner, run `/civ claim mode` and walk into an unclaimed chunk that shares an edge with your village. Sneak and right-click a block to buy the chunk you're standing in. The default price is $1,000, paid from your wallet. Run `/civ claim mode` again to leave buying mode, or use `/civ claim` any time for a single purchase.
-3. Use `/civ claim undo` to release your most recently purchased chunk and refund its original price. The founding chunk stays claimed until the village disbands.
-4. Use `/civ invite <online player>` to invite a player. They have ten minutes to run `/civ join`. Members can build and use containers in village territory. Members can use `/civ leave` to give up their membership. `/civ villages` shows public beacon coordinates, and `/civ info` describes the current claim or your own village.
+1. Buy a **Founding Beacon** for **$10,000** from `/civ shop` or with `/civ create`. Place it in an unclaimed Overworld chunk outside a natural village, at Y 64 or higher by default, with clear sky above it. Select **Choose a name** in the setup menu, enter a civilization name, and select **Found civilization**. The beacon becomes your capital and can grant normal beacon effects once powered. Close the menu anytime and right-click the beacon to resume.
+2. As the owner, run `/civ claim mode` and walk into an unclaimed chunk that shares an edge with your capital territory. Sneak and right-click to buy the chunk you're standing in. The default price is $1,000, paid from your wallet. Run `/civ claim mode` again to leave buying mode, or use `/civ claim` for a single purchase.
+3. Use `/civ claim undo` to release your most recently purchased expansion and refund its original price. Each purchase gives you one undo. The founding chunk stays claimed until the village disbands.
+4. Use `/civ invite <online player>` to invite a player. They have ten minutes to run `/civ join`. Members can build and use containers in village territory. Members can use `/civ leave` to give up their membership. An owner can leave by disbanding their village. `/civ villages` shows public beacon coordinates, and `/civ info` describes the current claim or your own village.
 
 Players without a civilization can buy multiple Founding Beacons. Each player can belong to one civilization at a time. A Founding Beacon unlocks its effects when it becomes a capital. Unused Founding Beacons stay locked, including when picked up and placed again. Leaving a civilization restores purchase eligibility. Ordinary beacons still work inside civilizations.
 
 Plot protection covers blocks from **Y=61 through Y=99** in all claimed chunks, including settlements. Capital beacons and registered settlement bells and vaults are protected at any height.
 
-Village owners can run `/civ disband` and then `/civ disband confirm` within 60 seconds. This releases the capital, expansions, and settlements and clears memberships and pending invites. A released Founding Beacon locks again and can be used to found a new civilization. Released capitals and expansions return to wilderness rules. Released natural villages regain unclaimed village protection. Land purchases are final.
+Village owners can run `/civ disband` and then `/civ disband confirm` within 60 seconds. This releases the capital, expansions, and settlements and clears memberships and pending invites. A released Founding Beacon locks again and can be used to found a new civilization. Released capitals and expansions return to wilderness rules. Released natural villages regain unclaimed village protection. Disbanding gives no refunds.
 
 In buying mode, the outline is blue for your village's land, green for an adjacent chunk you can afford, red for another village's land, and gray for unclaimed land you can't buy.
 
 Use `/civ borders` to toggle a personal border display. While you're inside any village, blue particles mark its outer edges within 32 blocks horizontally. The setting is saved with your player data.
+
+### Faction colors and banners
+
+Each faction gets a saved color for its floating beacon label, its members' names in the Tab list, and its territory boss bar. The boss bar shows points and vault balance, using the closest Minecraft boss-bar color for custom shades.
+
+The default faction banner uses the faction's color. To set a design, the owner holds a patterned or plain banner in their main hand and runs `/civ banner set`. Members can open **Faction Banner** in `/civ shop`, insert a banner or shield from their inventory, and pay **$100** to apply the design.
 
 ## Settlements and points
 
@@ -62,15 +88,16 @@ To test production, leave an empty slot, look at the vault from within five bloc
 
 Meadow settlements use the plains village structure and are identified by the bell's biome. Settlement currencies glint and work as shop payments. Muster Amethyst has a purple shard icon, and Settlement Iron has a raw iron icon.
 
-Put banknotes in a Secure Vault inside your claims to add them to the village balance. The balance reflects the banknotes currently in the vaults, including deductions when a member withdraws notes or a raider takes them. Floating **Secure Vault** nameplates identify the containers. Old registered treasury chests are converted when their chunks load, with their contents intact. Existing secure vaults in previously unloaded chunks are counted when those chunks first load.
+## Secure Vaults
 
-The registered beacon has a floating **<village>'s beacon** label. Each village gets a saved color for its beacon label, its members' names in the in-game Tab list, and the territory banner, which shows the village's current balance. The banner uses the closest of Minecraft's seven bar colors if a village has a custom shade.
+Use a **Secure Vault Kit** on a chest, barrel, or shulker box inside your own claim. The entire container, including both halves of a double chest, must be inside your village. A floating nameplate identifies the vault, and its banknotes count toward the village balance. Withdrawals and theft reduce that balance. Old registered treasury chests convert when their chunks load and keep their contents. Previously unloaded vaults are counted when their chunks load.
 
 ## Admin commands
 
 - `/civ admin add Alex` grants the CivMaker admin role. Use `/civ admin remove Alex` to revoke it. The server console and operators can manage this role using a known player name or UUID. Role assignments survive restarts and grant access to CivMaker wallet, raid, and village disband commands.
 - `/civ disbandvillage <village name>` previews disbanding any village, including villages whose owners are offline. Run `/civ disbandvillage --confirm` within 60 seconds to release its claims and clear memberships and pending invites. CivMaker admins and the server console can use this command.
 - `/civ setbalance Alex 10000` sets an online player's wallet to $10,000. Enter a whole number without commas or a dollar sign. Use `0` to empty the wallet.
+- `/civ locatemeadow` searches from your Overworld position for a village with a Meadow bell inside the world border and reports its coordinates.
 - `/civ allegiance Ashford` lets an admin test as a member of Ashford. Use `/civ allegiance --outsider` to raid your own village without a second village, and `/civ allegiance` to restore your original membership. Testing allegiance resets when the plugin restarts.
 - `/civ raids on` forces raids open, `/civ raids off` forces them closed, and `/civ raids auto` returns to scheduled windows. `/civ raids toggle` flips whether raids are active right now. The override is saved across restarts.
 - `/civ raidmode settlements` opens raids in settlement claims and limits guard combat to settlement posts and targets. `/civ raidmode all` opens all claims, and `/civ raidmode none` closes all claims. `/civ raidmode toggle` cycles through settlements, all, and none. Use `/civ raids auto` to resume the schedule.
@@ -85,7 +112,7 @@ A CivMaker admin or server operator can schedule one or more windows. Use ISO 86
 
 `/civ raids` shows current and upcoming windows in UTC. `/civ cancelraid <start>` cancels a window by its start time. Windows are saved across restarts, and can run while defenders are offline.
 
-During a raid, outsiders can use lockpicks to take items from Secure Vaults. Each lockpick gives one session with a five-slot limit.
+During a raid, outsiders can use lockpicks on eligible containers and Vault Doors. A successful pick on a Secure Vault or Settlement Vault reveals a loot menu with hidden slots. Left-click a slot to take its entire stack. You can loot up to five slots per session. Picked ordinary storage opens its usual inventory for the session.
 
 ### Nightly raids
 
@@ -106,11 +133,11 @@ An attacker captures in 60 seconds. Defenders alone erase progress at twice the 
 
 During a raid, a particle ring in the owner's color marks the 16-block radius at bell height. A second ring in the claimant's color shrinks toward the bell as capture advances, holds when progress pauses, and expands when progress is erased.
 
-Capture transfers the claims, points, vaults and contents, and future production to the winner. Guards posted by the former owner are removed. The former owner can try to reclaim the settlement in the same window. Capital beacons are outside the capture system.
+Capture transfers the claims, points, vaults and contents, Vault Doors, and future production to the winner. Former defenders lose their posts. The server announces the capture and launches a harmless firework in the winner's color. The former owner can try to reclaim the settlement in the same window. Capital beacons are outside the capture system.
 
 ### Raid Protection
 
-Buy a faction-bound Nether Star in `/civ shop` and right-click it in your main hand during a raid. It shields your village's claims from capture, lockpicking, and breaching for the rest of that window. The default price is $10,000. Each village has separate rolling seven-day cooldowns for purchases and activations.
+Buy a faction-bound Nether Star in `/civ shop`. A member of the faction that bought it can right-click with the star in their main hand in Survival during a raid. This consumes the star and shields the faction's claims from capture, lockpicking, and breaching for the rest of that window. The default price is $10,000. Each faction has separate rolling seven-day cooldowns for purchases and activations.
 
 - `/civ raidprotection` shows the current rules.
 - `/civ raidprotection on` or `off` controls purchases and activations. Active shields expire with their window.
@@ -119,7 +146,7 @@ Buy a faction-bound Nether Star in `/civ shop` and right-click it in your main h
 
 ## Equipment shop
 
-Run `/civ shop` in Survival to browse four rows of equipment: Raid Gear, Village Defense, Mount Upgrades, and Utility. Hover over an item to see its payment options. Left-click to pay from your wallet, normally **$10,000**, or right-click an eligible item to pay **5 of the matching settlement currency** from your inventory. Hold tools in your main hand.
+Run `/civ shop` in Survival to browse Raid Gear, Village Defense, Mount Upgrades, and Utility. Hover over an item to see its payment options. Left-click to pay from your wallet, normally **$10,000**, or right-click an eligible item to pay **5 of the matching settlement currency** from your inventory. Use raid tools from your main hand.
 
 | Item | Use |
 | --- | --- |
@@ -129,7 +156,7 @@ Run `/civ shop` in Survival to browse four rows of equipment: Raid Gear, Village
 | C4 | Right-click a block face to detonate at TNT strength. The blast can break unclaimed blocks at any time. Targeting a village claim requires an active raid against that village. The blast spares secure vaults and claim anchors, deals no direct damage to players or mobs, and cannot start a TNT chain. |
 | Grenade | Right-click to launch primed TNT in the direction you're looking, including from a Happy Ghast. After a five-second fuse it uses C4 block damage rules and can damage enemy Defender Golems during the same raid. To damage a village claim, throw it during a raid and have it detonate inside the enemy claim before that raid window ends. |
 | Blast Rockets | A stack of 64 fireworks with a flight duration of 2 and a large-ball burst. Fire one from a crossbow to damage entities in a TNT-sized blast. An unarmored player can be taken out in one close hit. |
-| Battering Ram | A glinting blaze rod. Breaks both halves of a door. |
+| Battering Ram | A glinting blaze rod. Breaks both halves of a door in a claim open to raids, outside the protected settlement center. |
 | Happy Harness | Equip this yellow harness on a Happy Ghast to give it five times its normal max health and double its flying speed while a player pilots it. |
 | Super Saddle | Equipped camels gain triple max health and match the fastest horse's normal riding speed under a player's control. They keep the boost when stepping down blocks. Charging and dashing suspend the speed boost. Equipped horses gain the highest natural movement speed (0.3375), jump strength (1.0), and 96 max health (48 hearts), matching a normal camel wearing the saddle. Right-click it in the shop to pay 5 Muster Amethyst. |
 | Secure Vault Kit | A glinting iron ingot. Reinforces a chest, barrel, or shulker box in your own village. Raiders see stained-glass placeholders and left-click to take an entire stack from each of up to five slots. Reinforced storage blocks hopper transfers while in a claim. |
@@ -137,7 +164,7 @@ Run `/civ shop` in Survival to browse four rows of equipment: Raid Gear, Village
 | Super Totem | Carry it anywhere in your inventory. When you die, one Super Totem is consumed and you respawn with the rest of your items. Death and experience loss follow the usual rules, even if you hold it in either hand. |
 | Radar | Hold this compass in either hand for a private chat map every second. The map covers your chunk and five chunks in each direction. North stays at the top, and the aqua arrow at the center points in the direction you're facing. Colored `#` tiles show each village's territory. Yellow `B` markers show registered settlement bells. Red `X` markers show outsiders outside their own village, and gold `G` markers show loaded enemy guards, including those inside their village. Hover over a tile for its block range and the exact coordinates of any marked bell. |
 
-Sneak-right-click one of your faction's settlement defenders to toggle between Always Hostile and Retaliate Only for the whole settlement. The golem and every guard posted in its claims share that setting, including newly deployed defenders. Settlements default to Retaliate Only. Guards in capital claims have individual settings and default to Always Hostile. In Retaliate Only mode, damage from an eligible raider makes the defender they hit hostile to the raider's entire faction for the raid. Unaffiliated raiders trigger retaliation individually. Player combat still follows raid and shield rules.
+Sneak-right-click one of your faction's settlement defenders to toggle between Always Hostile and Retaliate Only for the whole settlement. The golem and every guard posted in its claims share that setting, including newly deployed defenders. Settlements default to Retaliate Only. Guards in capital claims have individual settings and default to Always Hostile. In Retaliate Only mode, damage from an eligible raider makes the defender they hit hostile to the raider's entire faction for the raid. Unaffiliated raiders trigger retaliation individually. Changing the stance clears the settlement defenders' retaliation targets.
 
 Offensive tools can affect another village's claim while raids are active. A storage session ends when you close it, leave reach, or raiding stops.
 Leaving the lockpicking puzzle ends the attempt. Each correct click is accepted at least four server ticks after the previous one.
@@ -153,14 +180,14 @@ Run `/trade <player>` in Survival. The other player has one minute to click the 
 - Close the window to cancel and return offered items. If your inventory fills up, make room and run `/trade --recover` to collect the rest. If you die while trading, your offer follows the server's inventory-on-death rules.
 - Operators can run `/trade test` to trade with an imaginary player who offers 10 dirt and stays confirmed. Confirming the test trade exchanges any items you offer for the dirt.
 
-## Website data
+## World Atlas
 
-The plugin writes `plugins/CivMaker/public-v1.json`. The [local World Atlas](website/README.md) can load this file from the browser or follow it as the server updates it. The plugin does not start a web server. Publish the public export alone and keep `state.json` on the Minecraft server.
+Run `node website/server.mjs` and open `http://127.0.0.1:8787/` to preview the atlas with a demo map. Load `plugins/CivMaker/public-v1.json` in the atlas to view your server's claims, rankings, and beacon and bell locations. The local atlas server can also follow the file as Paper updates it. See the setup guide for live feeds and terrain renders. [World Atlas setup](website/README.md)
 
-The export has `schemaVersion`, `generatedAt`, a map of world IDs to names, village records, and raid windows. Village records include a stable village ID, name, hex color, owner ID and cached name when available, member and claim counts, public village balance, points, settlements, successful vault looting sessions and historical beacon raids, and beacon coordinates. Each settlement lists its structure type, bell location, and fixed plots. Claims use Minecraft chunk coordinates `x` and `z`, with the world UUID alongside them. A chunk at `x` spans block X coordinates `16*x` through `16*x+15`, including for negative coordinates. Raid windows include UTC `start` and `end` times. A consumer can compare those times to its own clock for the current status.
+The export includes `schemaVersion`, `generatedAt`, `worlds`, `villages`, `raidWindows`, and `raidMode`. Village records include IDs, owner IDs and cached names when available, hex colors, member and claim counts, public vault balances, points, settlements, beacon locations, and `timesRaided`. A looting session increments `timesRaided` on its first successful withdrawal from a vault. Each settlement lists its structure type, bell location, and fixed plots. Claims use chunk coordinates `x` and `z` with a world UUID. A chunk at `x` spans block X coordinates `16*x` through `16*x+15`, including for negative coordinates. Raid window timestamps are UTC.
 
-## Client requirements
+Review the export before sharing it. It includes player identifiers, vault balances, and in-game coordinates. Keep `plugins/CivMaker/state.json` with the private server data.
 
-The economy, claim rules, raid tools, shop, and future map data all run on Paper. Custom textures or models can use a resource pack. Adding new native client screens or client-side controls would require a client mod.
+## Server data and backups
 
 CivMaker periodically saves village records and cached balances, including the last known totals in unloaded chunks, and flushes them on a clean stop. Paper saves each wallet with its player's inventory, and stores vault contents and ore provenance with world data. Restore the plugin data and the world/player saves from the same backup when rolling back a server.
