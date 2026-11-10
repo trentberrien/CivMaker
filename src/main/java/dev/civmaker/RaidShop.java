@@ -33,6 +33,7 @@ final class RaidShop implements Listener {
     private static final int FIRST_PRODUCT_COLUMN = 3;
     private static final int FACTION_BANNER_SLOT = 3 * ROW_WIDTH + FIRST_PRODUCT_COLUMN + 2;
     private static final int FOUNDING_BEACON_SLOT = FACTION_BANNER_SLOT + 1;
+    private static final int WARP_PORTAL_SLOT = FOUNDING_BEACON_SLOT + 1;
 
     private record Section(String label, Material icon, NamedTextColor color, List<Tool> tools) {}
 
@@ -69,6 +70,8 @@ final class RaidShop implements Listener {
             }
             inventory.setItem(FACTION_BANNER_SLOT, button(new ItemStack(Material.WHITE_BANNER), "Faction Banner",
                     "Apply your faction design to a banner or shield for " + cashLabel(BANNER_PRICE) + "."));
+            products[WARP_PORTAL_SLOT] = Tool.WARP_PORTAL;
+            inventory.setItem(WARP_PORTAL_SLOT, product(equipment, shields, Tool.WARP_PORTAL));
             if (foundingBeacons.canBuy(player)) {
                 inventory.setItem(FOUNDING_BEACON_SLOT, button(new ItemStack(Material.BEACON), "Founding Beacon",
                         "Left-click to buy for " + FoundingBeacons.PRICE_LABEL + ".",

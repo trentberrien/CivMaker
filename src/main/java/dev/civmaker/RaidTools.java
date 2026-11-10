@@ -84,7 +84,8 @@ final class RaidTools implements Listener {
         Player player = event.getPlayer();
         Tool tool = equipment.identify(event.getItem());
         if (tool == Tool.VAULT_DOOR || tool == Tool.HAPPY_HARNESS || tool == Tool.BLAST_ROCKET
-                || tool == Tool.SUPER_TOTEM || tool == Tool.RADAR || tool == Tool.SUPER_SADDLE || tool == Tool.RAID_SHIELD) {
+                || tool == Tool.SUPER_TOTEM || tool == Tool.RADAR || tool == Tool.SUPER_SADDLE || tool == Tool.RAID_SHIELD
+                || tool == Tool.WARP_PORTAL) {
             return;
         }
         if (tool == null) {
@@ -149,7 +150,7 @@ final class RaidTools implements Listener {
             case C4 -> blast(player, target, event.getBlockFace(), village);
             case VAULT -> reinforce(player, target, village, member);
             case VAULT_DOOR, GRENADE, HAPPY_HARNESS, BLAST_ROCKET, PILLAGER_GUARD, DEFENDER_GOLEM,
-                    SUPER_TOTEM, RADAR, SUPER_SADDLE, RAID_SHIELD -> false;
+                    SUPER_TOTEM, RADAR, SUPER_SADDLE, RAID_SHIELD, WARP_PORTAL -> false;
         };
         if (consume) {
             consumeMainHand(player, held);

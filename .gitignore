@@ -1,6 +1,7 @@
 /target/
 /.run/
 /website/local-world/
+/website/node_modules/
 .idea/
 *.iml
 /logs/

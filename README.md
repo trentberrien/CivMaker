@@ -3,15 +3,16 @@
 CivMaker is a Paper plugin for Minecraft Java Edition 26.3. Mine ore to fund a civilization, expand your capital, buy natural villages for their daily rewards, and defend your settlements during scheduled raids. The plugin also adds player trading, specialized gear, and a read-only feed for the World Atlas. Players can join with the standard Java client.
 
 - [Economy](#mining-and-banknotes) and [player trading](#trading-items)
-- [Capitals](#founding-and-expanding-villages), [settlements](#settlements-and-points), and [vaults](#secure-vaults)
+- [Capitals](#founding-and-expanding-villages), [settlements](#settlements-and-points), [warp portals](#warp-portals), and [vaults](#secure-vaults)
+- [Unlocking the End](#unlocking-the-end)
 - [Raid windows and capture](#raid-windows) and the [equipment shop](#equipment-shop)
 - [Server administration](#admin-commands) and [World Atlas](#world-atlas)
 
 ## Build and install
 
 1. Install JDK 25 and Maven, then run `mvn clean package` from this directory.
-2. Copy `target/civmaker-0.2.14.jar` into your Paper 26.3 server's `plugins` directory and start the server.
-3. Edit `plugins/CivMaker/config.yml` to tune ore payouts, minimum beacon height, claim prices, or raid protection. Restart after editing. Set `export.enabled` to `false` to disable World Atlas export updates.
+2. Copy `target/civmaker-0.3.1.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
 
 ## Mining and banknotes
 
@@ -87,6 +88,28 @@ To test production, leave an empty slot, look at the vault from within five bloc
 | Meadow | 5 Muster Amethyst | Pillager Guards, Happy Harnesses, and Super Saddles |
 
 Meadow settlements use the plains village structure and are identified by the bell's biome. Settlement currencies glint and work as shop payments. Muster Amethyst has a purple shard icon, and Settlement Iron has a raw iron icon.
+
+## Unlocking the End
+
+Find the **End Portal Keeper** in a stronghold portal room. Once your faction reaches **500 points**, any member can right-click the keeper and confirm a **$1,000,000** payment from their own wallet. The keeper activates the portal, and the purchase permanently unlocks End travel for the whole faction.
+
+Members can ask a keeper to activate another stronghold portal for free. Entry through a lit portal requires an unlocked faction. Players can leave the End through its exit portal as usual.
+
+## Warp portals
+
+1. Build and light a Nether portal inside your faction's capital or purchased settlement.
+2. Buy a **Warp Portal** kit for **$10,000** under Utility in `/civ shop`. Hold it in your main hand and right-click the top of a solid floor block within four blocks of the portal. Leave two clear blocks above the floor for the trader and arriving players. Each capital and each settlement can host one warp trader.
+3. Right-click the trader and choose another destination in your faction. Both portals must be lit. Each successful warp starts a personal 60-second cooldown. Only members of the owning faction can use its traders.
+
+Your mount, mobs you’re leading, and nearby tamed pets that are standing can travel with you. Leave room by the destination trader for larger mobs. If you share a mount with another rider, dismount before warping.
+
+Faction owners can sneak and right-click their trader to recover the kit. If a settlement changes hands during a raid, its warp trader goes with it.
+
+Warp traders stay visible and show their faction's color in their nametag. An Eye of Ender marks a destination where raiders were inside the settlement's capture ring in the last five minutes.
+
+After a combat death, players respawn at their usual location and wait in place as spectators until the combat timeout ends. It applies to deaths caused by players or mobs, including projectiles, and to deaths within 10 seconds of taking combat damage. The timeout starts at death and lasts 60 seconds by default. Reconnecting doesn't reset either timer.
+
+Set `warp-portal.cooldown-seconds` and `warp-portal.combat-death-timeout-seconds` in `plugins/CivMaker/config.yml`. Set either value to `0` to disable that timer, then restart the server to apply the changes.
 
 ## Secure Vaults
 

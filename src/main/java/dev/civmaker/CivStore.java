@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -63,6 +64,12 @@ final class CivStore {
     }
 
     record ClaimPurchase(Plot plot, long price) {}
+    record WarpPortal(Position spot, Position portal) {
+        boolean touches(Plot plot) {
+            return spot.plot().equals(plot) || portal.plot().equals(plot);
+        }
+    }
+
     record Settlement(String structure, Position bell, Set<Plot> plots, SettlementVault vault,
                       SettlementDefense defense) {
         Settlement {
@@ -82,7 +89,9 @@ final class CivStore {
             if (structure == null) {
                 return "Settlement";
             }
-            if (SettlementResources.Reward.at(structure, bellBlock) == SettlementResources.Reward.AMETHYST) {
+            SettlementResources.Reward reward = bellBlock == null ? vault.reward
+                    : SettlementResources.Reward.at(structure, bellBlock);
+            if (reward == SettlementResources.Reward.AMETHYST) {
                 return "Meadow Settlement";
             }
             String type = structure.substring(structure.indexOf(':') + 1);
@@ -106,6 +115,12 @@ final class CivStore {
     }
     private record VaultFunds(Plot plot, long balance) {}
 
+    record FarmStation(Position position, UUID owner, String ownerName, String name) {
+        String displayName() {
+            return name == null ? "Farm Station" : name;
+        }
+    }
+
     enum RaidMode { AUTO, ON, OFF, SETTLEMENTS }
 
     static final class Village {
@@ -118,6 +133,7 @@ final class CivStore {
         final Set<UUID> members = new LinkedHashSet<>();
         final Set<Plot> plots = new LinkedHashSet<>();
         List<Settlement> settlements = new ArrayList<>();
+        List<WarpPortal> warpPortals = new ArrayList<>();
         final Set<Position> treasuries = new LinkedHashSet<>();
         Set<Position> vaultDoors;
         ClaimPurchase lastPurchase;
@@ -125,6 +141,7 @@ final class CivStore {
         long shieldBoughtAt;
         long shieldUsedAt;
         Long shieldWindow;
+        boolean endUnlocked;
 
         Village(String name, UUID owner, Position beacon) {
             this.name = name;
@@ -151,6 +168,7 @@ final class CivStore {
         final Set<UUID> admins = new LinkedHashSet<>();
         final Set<Position> naturalBells = new LinkedHashSet<>();
         List<VaultFunds> vaultFunds = List.of();
+        List<FarmStation> farmStations = List.of();
         RaidMode raidMode = RaidMode.AUTO;
         long manualRaidId;
         NightlyRaids nightly;
@@ -162,6 +180,7 @@ final class CivStore {
     private final Map<Plot, Settlement> settlementClaims = new HashMap<>();
     private final Map<Plot, Set<Position>> naturalBells = new HashMap<>();
     private final Map<Plot, Long> vaultBalances = new HashMap<>();
+    private final Map<Plot, FarmStation> farmStations = new HashMap<>();
     private final Map<UUID, Village> memberships = new HashMap<>();
     private final Map<UUID, Village> allegiances = new HashMap<>();
     boolean dirty = true;
@@ -186,6 +205,9 @@ final class CivStore {
             if (village.settlements == null) {
                 village.settlements = new ArrayList<>();
             }
+            if (village.warpPortals == null) {
+                village.warpPortals = new ArrayList<>();
+            }
             for (Settlement settlement : village.settlements) {
                 village.plots.addAll(settlement.plots());
                 settlement.plots().forEach(plot -> settlementClaims.put(plot, settlement));
@@ -197,6 +219,9 @@ final class CivStore {
             if (claims.containsKey(entry.plot())) {
                 vaultBalances.put(entry.plot(), entry.balance());
             }
+        }
+        for (FarmStation station : data.farmStations) {
+            farmStations.put(station.position().plot(), station);
         }
     }
 
@@ -238,6 +263,14 @@ final class CivStore {
 
     Settlement settlementAt(Plot plot) {
         return settlementClaims.get(plot);
+    }
+
+    Position warpSite(Village village, Plot plot) {
+        if (village == null || claimAt(plot) != village) {
+            return null;
+        }
+        Settlement settlement = settlementAt(plot);
+        return settlement == null ? village.beacon : settlement.bell();
     }
 
     Set<Position> naturalBellsAt(Plot plot) {
@@ -381,6 +414,13 @@ final class CivStore {
         defender.plots.removeAll(settlement.plots());
         settlement.defense().golem = null;
         addSettlement(attacker, settlement);
+        defender.warpPortals.removeIf(warp -> {
+            if (!settlement.plots().contains(warp.spot().plot())) {
+                return false;
+            }
+            attacker.warpPortals.add(warp);
+            return true;
+        });
         defender.treasuries.removeIf(position -> {
             if (!settlement.plots().contains(position.plot())) {
                 return false;
@@ -405,6 +445,7 @@ final class CivStore {
     void removePlot(Village village, Plot plot) {
         village.plots.remove(plot);
         claims.remove(plot, village);
+        village.warpPortals.removeIf(warp -> warp.touches(plot));
         vaultBalances.remove(plot);
         village.treasuries.removeIf(treasury -> treasury.plot().equals(plot));
         if (village.vaultDoors != null) {
@@ -421,6 +462,22 @@ final class CivStore {
     void updateVaultBalance(Plot plot, long balance) {
         Long previous = balance == 0 ? vaultBalances.remove(plot) : vaultBalances.put(plot, balance);
         dirty |= (previous == null ? 0L : previous) != balance;
+    }
+
+    Collection<FarmStation> farmStations() {
+        return farmStations.values();
+    }
+
+    FarmStation farmStationAt(Plot plot) {
+        return farmStations.get(plot);
+    }
+
+    void indexFarmStation(FarmStation station) {
+        dirty |= !station.equals(farmStations.put(station.position().plot(), station));
+    }
+
+    void removeFarmStation(Plot plot) {
+        dirty |= farmStations.remove(plot) != null;
     }
 
     RaidMode raidMode() {
@@ -506,6 +563,7 @@ final class CivStore {
     void save() throws IOException {
         data.vaultFunds = vaultBalances.entrySet().stream()
                 .map(entry -> new VaultFunds(entry.getKey(), entry.getValue())).toList();
+        data.farmStations = List.copyOf(farmStations.values());
         writeJson(directory.resolve("state.json"), data);
         dirty = false;
     }

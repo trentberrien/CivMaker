@@ -1,5 +1,5 @@
 name: CivMaker
-version: '0.2.14'
+version: '0.3.1'
 main: dev.civmaker.CivMaker
 api-version: '26.3'
 load: STARTUP

@@ -47,13 +47,15 @@ final class CivCommands implements TabExecutor {
     private final RaidShop raidShop;
     private final RaidShields shields;
     private final FoundingBeacons foundingBeacons;
+    private final FarmStationLoot farmStationLoot;
     private final Map<UUID, Invite> invites = new HashMap<>();
     private final Map<UUID, DisbandConfirmation> disbandConfirmations = new HashMap<>();
     private final Map<CommandSender, DisbandConfirmation> adminDisbandConfirmations = new HashMap<>();
 
     CivCommands(CivMaker plugin, CivStore store, Notes notes, Wallets wallets, ClaimBuying claimBuying,
                 SettlementBuying settlementBuying, NaturalVillages natural, VillageBorders villageBorders, RaidShop raidShop,
-                SettlementVaults settlementVaults, RaidShields shields, FoundingBeacons foundingBeacons) {
+                SettlementVaults settlementVaults, RaidShields shields, FoundingBeacons foundingBeacons,
+                FarmStationLoot farmStationLoot) {
         this.plugin = plugin;
         this.store = store;
         this.notes = notes;
@@ -66,6 +68,7 @@ final class CivCommands implements TabExecutor {
         this.raidShop = raidShop;
         this.shields = shields;
         this.foundingBeacons = foundingBeacons;
+        this.farmStationLoot = farmStationLoot;
     }
 
     @Override
@@ -80,6 +83,7 @@ final class CivCommands implements TabExecutor {
                 case "raidprotection" -> shields.configure(sender, args, isAdmin(sender));
                 case "raidmode" -> raidMode(sender, args);
                 case "testdeposit" -> testDeposit(sender, args);
+                case "farmstation" -> testFarmStation(sender, args);
                 case "locatemeadow" -> {
                     require(isAdmin(sender), "Only a CivMaker admin can locate Meadow villages.");
                     require(sender instanceof Player && args.length == 1, "In game, use /civ locatemeadow.");
@@ -152,6 +156,7 @@ final class CivCommands implements TabExecutor {
             sender.sendMessage("/civ schedule nightly <HH:mm> <HH:mm> [time zone] | nightly off");
             sender.sendMessage("/civ raidprotection <on|off|price amount|cooldown hours>");
             sender.sendMessage("/civ testdeposit (look at a Settlement Vault)");
+            sender.sendMessage("/civ farmstation test (gives one Farm Station)");
             sender.sendMessage("/civ locatemeadow");
             sender.sendMessage("/civ disbandvillage <village name>");
         }
@@ -180,6 +185,16 @@ final class CivCommands implements TabExecutor {
         require(isAdmin(sender), "Only a CivMaker admin can schedule a test deposit.");
         require(sender instanceof Player && args.length == 1, "In game, look at a Settlement Vault and use /civ testdeposit.");
         settlementVaults.testDeposit((Player) sender);
+    }
+
+    private void testFarmStation(CommandSender sender, String[] args) {
+        require(isAdmin(sender), "Only a CivMaker admin can spawn a test Farm Station.");
+        require(sender instanceof Player && args.length == 2 && args[1].equalsIgnoreCase("test"),
+                "In game, use /civ farmstation test.");
+        Player player = (Player) sender;
+        require(player.getInventory().addItem(farmStationLoot.createStation()).isEmpty(),
+                "Make room in your inventory for the Farm Station.");
+        player.sendMessage("Added one Farm Station to your inventory.");
     }
 
     private void allegiance(CommandSender sender, String[] args) {
@@ -573,6 +588,9 @@ final class CivCommands implements TabExecutor {
             if (isAdmin(sender)) {
                 options = Stream.concat(options, Stream.of("schedule", "cancelraid", "setbalance", "allegiance",
                         "disbandvillage", "raidmode", "testdeposit", "locatemeadow"));
+                if (sender instanceof Player) {
+                    options = Stream.concat(options, Stream.of("farmstation"));
+                }
             }
             if (manageAdmins) {
                 options = Stream.concat(options, Stream.of("admin"));
@@ -587,6 +605,8 @@ final class CivCommands implements TabExecutor {
             options = Stream.of("on", "off", "price", "cooldown");
         } else if (args.length == 2 && action.equals("raidmode") && isAdmin(sender)) {
             options = Stream.of("settlements", "all", "none", "toggle");
+        } else if (args.length == 2 && action.equals("farmstation") && sender instanceof Player && isAdmin(sender)) {
+            options = Stream.of("test");
         } else if (args.length >= 2 && (action.equals("allegiance") || action.equals("disbandvillage")) && isAdmin(sender)) {
             String entered = String.join(" ", Arrays.copyOfRange(args, 1, args.length - 1));
             if (!entered.isEmpty()) {

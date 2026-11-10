@@ -99,8 +99,11 @@ final class Radar {
                 Plot plot = new Plot(center.world(), x, z);
                 var settlement = store.settlementAt(plot);
                 Position bell = settlement != null && settlement.bell().plot().equals(plot) ? settlement.bell() : null;
+                var station = store.farmStationAt(plot);
+                Component farmOwner = station == null ? null : FarmStations.ownerLabel(store, station);
                 grid.append(cell(plot, store.claimAt(plot), plot.equals(center) ? viewerMarker : null,
-                        enemies.contains(plot), guardPosts.contains(plot), bell));
+                        enemies.contains(plot), guardPosts.contains(plot), bell, farmOwner,
+                        station == null ? null : station.displayName()));
             }
             grid.append(ROW_EDGE);
         }
@@ -108,13 +111,15 @@ final class Radar {
     }
 
     private static Component cell(Plot plot, Village village, Component viewerMarker, boolean enemy, boolean guard,
-                                  Position bell) {
+                                  Position bell, Component farmOwner, String farmName) {
         // Each marker and the padding space advance four pixels in the vanilla uniform font.
         Component tile;
         if (viewerMarker != null) {
             tile = viewerMarker;
         } else if (guard) {
             tile = Component.text("G", NamedTextColor.GOLD);
+        } else if (farmOwner != null) {
+            tile = Component.text("F", farmOwner.color());
         } else if (village != null) {
             tile = Component.text("#", TextColor.color(village.color));
         } else {
@@ -127,10 +132,14 @@ final class Radar {
         if (bell != null) {
             details += "\nSettlement bell at " + bell.x() + ", " + bell.y() + ", " + bell.z();
         }
+        Component tooltip = Component.text(details);
+        if (farmOwner != null) {
+            tooltip = tooltip.appendNewline().append(Component.text(farmName + " • ")).append(farmOwner);
+        }
         return Component.empty().append(tile)
                 .append(Component.text(bell != null ? "B" : " ", NamedTextColor.YELLOW))
                 .append(Component.text(enemy ? "X" : " ", NamedTextColor.RED))
                 .append(Component.text(viewerMarker != null && guard ? "G" : " ", NamedTextColor.GOLD))
-                .hoverEvent(Component.text(details));
+                .hoverEvent(tooltip);
     }
 }

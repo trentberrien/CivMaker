@@ -75,6 +75,9 @@ final class RaidEquipment implements Listener {
         RADAR("radar", "Radar", Material.COMPASS, NamedTextColor.AQUA,
                 "Hold in either hand to scan nearby chunks in chat.",
                 "Shows village borders, exposed enemies, and enemy guards."),
+        WARP_PORTAL("warp_portal", "Warp Portal", Material.ENDER_EYE, NamedTextColor.LIGHT_PURPLE,
+                "Right-click the floor beside a lit Nether portal in your claim.",
+                "Faction members can use the trader to travel between their claims."),
         SUPER_SADDLE("super_saddle", "Super Saddle", Material.SADDLE, NamedTextColor.GOLD,
                 "Camels gain triple max health and top horse speed while ridden.",
                 "Horses gain the highest natural speed and jump strength.",
@@ -133,7 +136,6 @@ final class RaidEquipment implements Listener {
                         .with(FireworkEffect.Type.BALL_LARGE)
                         .withColor(Color.fromRGB(11743532), Color.fromRGB(15435844))
                         .withFade(Color.fromRGB(14602026))
-                        .trail(true)
                         .build());
             }
             meta.displayName(Component.text(tool.label, tool.color).decoration(TextDecoration.ITALIC, false));

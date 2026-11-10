@@ -38,11 +38,15 @@ final class SettlementCapture implements Listener {
     private static final int CAPTURE_FIREWORK_FUSE_TICKS = 20;
     static final int RADIUS = 16;
     private static final double PARTICLE_VIEW_RANGE = 32;
+    private static final long RECENT_CONTEST_MILLIS = 5 * 60 * 1_000L;
     private final CivStore store;
     private final DefenderGolems defenders;
     private final NamespacedKey captureFireworkKey;
     private final Map<Position, Fight> fights = new HashMap<>();
+    private final Map<Position, ContestAlert> contestAlerts = new HashMap<>();
     private Window window;
+
+    private record ContestAlert(Village defender, long until) {}
 
     private static final class Fight {
         final Village defender;
@@ -87,7 +91,9 @@ final class SettlementCapture implements Listener {
     }
 
     void refresh() {
-        Window active = store.activeWindow(System.currentTimeMillis());
+        long now = System.currentTimeMillis();
+        contestAlerts.values().removeIf(alert -> alert.until() <= now);
+        Window active = store.activeWindow(now);
         if (!java.util.Objects.equals(window, active)) {
             clear();
             window = active;
@@ -116,6 +122,12 @@ final class SettlementCapture implements Listener {
             entry.getValue().hide();
             return true;
         });
+    }
+
+    boolean recentlyContested(Position bell, Village defender) {
+        ContestAlert alert = contestAlerts.get(bell);
+        return alert != null && alert.defender() == defender && alert.until() > System.currentTimeMillis()
+                && store.claimAt(bell.plot()) == defender;
     }
 
     private void update(Settlement settlement, Village defender) {
@@ -160,6 +172,9 @@ final class SettlementCapture implements Listener {
         }
 
         boolean enemies = factions.stream().anyMatch(faction -> faction != defender);
+        if (enemies) {
+            contestAlerts.put(bell, new ContestAlert(defender, System.currentTimeMillis() + RECENT_CONTEST_MILLIS));
+        }
         if (fight == null && !enemies) {
             return;
         }

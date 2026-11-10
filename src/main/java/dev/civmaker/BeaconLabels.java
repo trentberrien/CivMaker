@@ -2,6 +2,7 @@ package dev.civmaker;
 
 import dev.civmaker.CivStore.Position;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -49,6 +50,10 @@ final class BeaconLabels {
                             Component.text("Settlement Vault • " + vault.reward.label, color));
                 }
             }
+        }
+        for (var station : store.farmStations()) {
+            refreshLabel(visible, station.position(), Material.LODESTONE, Component.text(station.displayName(), NamedTextColor.GOLD)
+                    .append(Component.newline()).append(FarmStations.ownerLabel(store, station)));
         }
         labels.entrySet().removeIf(entry -> {
             if (visible.contains(entry.getKey())) {

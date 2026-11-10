@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Edit the local CivMaker server configuration.">
+  <title>CivMaker · Config Editor</title>
+  <link rel="stylesheet" href="./editor.css">
+  <script type="module" src="./editor.js"></script>
+</head>
+<body>
+  <svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-cube" viewBox="0 0 24 24"><path d="m12 2 9 5v10l-9 5-9-5V7zm-9 5 9 5 9-5m-9 5v10M7.5 4.5l9 5"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s7-3.5 7-10V5l-7-3-7 3v7c0 6.5 7 10 7 10Z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-portal" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 17V7m3 7 3-4m0 4v3"/></symbol>
+    <symbol id="i-village" viewBox="0 0 24 24"><path d="m3 11 9-7 9 7m-2-1v10H5V10m5 10v-6h4v6"/></symbol>
+    <symbol id="i-map" viewBox="0 0 24 24"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Zm6-3v15m6-12v15"/></symbol>
+    <symbol id="i-pick" viewBox="0 0 24 24"><path d="M14 6 4 17l3 3L17 9M10 3c4 .3 9 3 11 8l-2 2A19 19 0 0 0 8 5Z"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10Zm0 0v7h7M8 15h8"/></symbol>
+    <symbol id="i-reload" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2 6m2-12v6h-6"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M4 4h13l3 3v13H4Zm4 0v6h8V4m-8 16v-6h8v6"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></symbol>
+  </svg>
+  <template id="cooldown-presets">
+    <label class="filter preset"><span class="sr-only">Shield cooldown preset</span>
+      <select>
+        <option value="">Preset</option>
+        <option value="24">1 day</option>
+        <option value="72">3 days</option>
+        <option value="168">1 week</option>
+        <option value="336">2 weeks</option>
+      </select>
+      <svg><use href="#i-chevron"/></svg>
+    </label>
+  </template>
+  <header class="topbar">
+    <div class="shell topbar-content">
+      <div class="brand"><span class="brand-mark"><svg><use href="#i-cube"/></svg></span><strong>CivMaker</strong><span class="brand-caption">SERVER TOOLS</span></div>
+      <span class="local-badge"><i></i> Local editor</span>
+    </div>
+  </header>
+  <main class="shell">
+    <div class="intro">
+      <div>
+        <p class="eyebrow">SERVER ADMINISTRATION</p>
+        <h1>Configuration</h1>
+        <p>Tune the rules, costs, and mechanics for your CivMaker world.</p>
+      </div>
+      <div class="actions">
+        <button id="reload" type="button" class="button secondary" disabled><svg><use href="#i-reload"/></svg>Reload file</button>
+        <button id="save" type="submit" form="editor" class="button primary" disabled><svg><use href="#i-save"/></svg>Save changes</button>
+      </div>
+    </div>
+    <div class="workspace">
+      <aside class="sidebar">
+        <nav aria-label="Settings sections">
+          <p class="eyebrow">SETTINGS</p>
+          <a href="#raids"><svg><use href="#i-shield"/></svg>Raid protection</a>
+          <a href="#portals"><svg><use href="#i-portal"/></svg>Warp portals</a>
+          <a href="#village"><svg><use href="#i-village"/></svg>Village rules</a>
+          <a href="#export"><svg><use href="#i-map"/></svg>Atlas export</a>
+          <a href="#mining"><svg><use href="#i-pick"/></svg>Mining payouts</a>
+        </nav>
+        <div class="file-card">
+          <div><svg><use href="#i-file"/></svg><strong id="filename">Configuration file</strong></div>
+          <p id="filepath">Connecting to the local server…</p>
+        </div>
+      </aside>
+      <div class="settings">
+        <div class="status-bar">
+          <p><svg><use href="#i-info"/></svg>Restart Paper after saving to apply changes.</p>
+          <p id="status" role="status" data-tone="neutral">Loading config…</p>
+        </div>
+        <form id="editor" aria-label="CivMaker configuration" novalidate>
+          <fieldset id="fields" disabled>
+            <section class="card" id="raids" aria-labelledby="raid-heading">
+              <header><span class="card-icon shield"><svg><use href="#i-shield"/></svg></span><div><h2 id="raid-heading">Raid protection</h2><p>Control the shield villagers can buy and activate during raids.</p></div></header>
+              <div class="rows" data-section="raid-protection"></div>
+            </section>
+            <section class="card" id="portals" aria-labelledby="portal-heading">
+              <header><span class="card-icon portal"><svg><use href="#i-portal"/></svg></span><div><h2 id="portal-heading">Warp portals</h2><p>Set how long players wait before they can warp again.</p></div></header>
+              <div class="rows" data-section="warp-portal"></div>
+            </section>
+            <section class="card" id="village" aria-labelledby="village-heading">
+              <header><span class="card-icon village"><svg><use href="#i-village"/></svg></span><div><h2 id="village-heading">Village rules</h2><p>Set founding requirements and the cost of expanding territory.</p></div></header>
+              <div class="rows" data-section="village"></div>
+            </section>
+            <section class="card" id="export" aria-labelledby="export-heading">
+              <header><span class="card-icon atlas"><svg><use href="#i-map"/></svg></span><div><h2 id="export-heading">Atlas export</h2><p>Control updates to the World Atlas data feed.</p></div></header>
+              <div class="rows" data-section="export"></div>
+            </section>
+            <section class="card mining" id="mining" aria-labelledby="mining-heading">
+              <header>
+                <span class="card-icon ore"><svg><use href="#i-pick"/></svg></span>
+                <div><h2 id="mining-heading">Mining payouts</h2><p>Set the reward for naturally generated ore. Enter 0 to disable a payout.</p></div>
+                <label class="filter"><span class="sr-only">Filter ores by type</span>
+                  <select id="ore-filter">
+                    <option value="all">All ores</option>
+                    <option value="overworld">Overworld ores</option>
+                    <option value="deepslate">Deepslate ores</option>
+                    <option value="nether">Nether ores</option>
+                  </select>
+                  <svg><use href="#i-chevron"/></svg>
+                </label>
+              </header>
+              <div class="ore-grid" data-section="mining-payouts"></div>
+            </section>
+          </fieldset>
+        </form>
+        <footer><span>CIVMAKER CONFIG EDITOR</span><span>Changes are written to the file shown here.</span></footer>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

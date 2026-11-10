@@ -29,5 +29,9 @@ raid-protection:
   price: 10000
   cooldown-hours: 168
 
+warp-portal:
+  cooldown-seconds: 60
+  combat-death-timeout-seconds: 60
+
 export:
   enabled: true

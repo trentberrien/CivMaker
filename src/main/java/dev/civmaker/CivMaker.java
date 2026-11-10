@@ -26,6 +26,9 @@ public class CivMaker extends JavaPlugin {
     private Trading trading;
     private SettlementCapture capture;
     private DefenderGolems defenders;
+    private CombatTimeout combatTimeout;
+    private WarpPortals warpPortals;
+    private EndPortals endPortals;
     private boolean exportPending;
     private long nextNightlyExport;
 
@@ -110,12 +113,20 @@ public class CivMaker extends JavaPlugin {
         Radar radar = new Radar(this, store, equipment, guards);
         raidTools = new RaidTools(this, store, equipment, protection, vaultDoors, guards, defenders, settlementVaults);
         trading = new Trading(this);
+        combatTimeout = new CombatTimeout(this);
+        warpPortals = new WarpPortals(this, store, equipment, combatTimeout, capture);
+        endPortals = new EndPortals(this, store, wallets);
         hud = new PlayerHud(this, store, wallets);
         beaconLabels = new BeaconLabels(this, store);
         vaultTracking = new VaultTracking(this, store, equipment, notes);
+        FarmStationLoot farmStationLoot = new FarmStationLoot(this);
+        FarmStations farmStations = new FarmStations(this, store, farmStationLoot);
         var events = getServer().getPluginManager();
         events.registerEvents(new Mining(this, wallets), this);
+        events.registerEvents(farmStationLoot, this);
         events.registerEvents(protection, this);
+        events.registerEvents(farmStations, this);
+        events.registerEvents(new FarmHarvests(this, farmStations), this);
         events.registerEvents(foundingBeacons, this);
         events.registerEvents(vaultDoors, this);
         events.registerEvents(notes, this);
@@ -136,7 +147,14 @@ public class CivMaker extends JavaPlugin {
         events.registerEvents(new MoneyStorage(notes, store, equipment), this);
         events.registerEvents(equipment, this);
         events.registerEvents(vaultTracking, this);
+        events.registerEvents(combatTimeout, this);
+        events.registerEvents(warpPortals, this);
+        events.registerEvents(endPortals, this);
         for (var world : getServer().getWorlds()) {
+            for (var chunk : world.getLoadedChunks()) {
+                farmStations.indexChunk(chunk);
+                endPortals.queue(chunk);
+            }
             world.getEntitiesByClass(HappyGhast.class).forEach(equipment::syncHarness);
             world.getEntitiesByClass(AbstractHorse.class).forEach(equipment::syncSaddle);
             world.getEntitiesByClass(Pillager.class).forEach(guards::track);
@@ -144,7 +162,7 @@ public class CivMaker extends JavaPlugin {
         }
         Objects.requireNonNull(getCommand("civ")).setExecutor(
                 new CivCommands(this, store, notes, wallets, claimBuying, settlementBuying, natural, villageBorders, raidShop,
-                        settlementVaults, shields, foundingBeacons));
+                        settlementVaults, shields, foundingBeacons, farmStationLoot));
         Objects.requireNonNull(getCommand("trade")).setExecutor(trading);
 
         getServer().getScheduler().runTaskTimer(this, capture::refresh,
@@ -164,10 +182,22 @@ public class CivMaker extends JavaPlugin {
         getServer().getScheduler().runTaskTimer(this, defenders::tickBoulders, 1, 1);
         getServer().getScheduler().runTaskTimer(this, radar::refresh, 1, 20);
         getServer().getScheduler().runTaskTimer(this, equipment::refreshRiddenSpeeds, 1, 1);
+        getServer().getScheduler().runTaskTimer(this, combatTimeout::refresh, 1, 20);
+        getServer().getScheduler().runTaskTimer(this, warpPortals::refresh, 1, 20);
+        getServer().getScheduler().runTaskTimer(this, endPortals::discoverRooms, 1, 1);
     }
 
     @Override
     public void onDisable() {
+        if (endPortals != null) {
+            endPortals.closeAll();
+        }
+        if (warpPortals != null) {
+            warpPortals.closeAll();
+        }
+        if (combatTimeout != null) {
+            combatTimeout.close();
+        }
         if (capture != null) {
             capture.clear();
         }
@@ -207,11 +237,15 @@ public class CivMaker extends JavaPlugin {
         }
     }
 
+    void saveState() throws IOException {
+        store.save();
+        exportPending = true;
+    }
+
     private void flush() {
         if (store.dirty) {
             try {
-                store.save();
-                exportPending = true;
+                saveState();
             } catch (IOException error) {
                 getLogger().log(Level.SEVERE, "Could not save CivMaker state. Will retry.", error);
             }

@@ -23,6 +23,21 @@ The atlas checks for an updated export every 15 seconds. CivMaker publishes its 
 
 The default terrain is illustrated demo scenery. A server export supplies claims, villages and beacon positions. The atlas shows a coordinate grid for any exported dimension without a matching terrain image.
 
+## Edit the CivMaker config
+
+From the CivMaker folder, install the editor's YAML dependency once, then launch the editor with the config you want to change. This example edits the installed Paper plugin's file.
+
+```powershell
+pnpm --dir website install
+node .\website\config-server.mjs "C:\path\to\Paper\plugins\CivMaker\config.yml"
+```
+
+You can also install with `npm install --prefix website`. Run `node .\website\config-server.mjs` without a path to edit the project's `src/main/resources/config.yml`. The optional second argument sets the port.
+
+Open [the local config editor](http://127.0.0.1:8788/) and check the file path in the sidebar. Toggle raid protection, Atlas exports, or either warp timer. Use the number fields for prices, durations, beacon height, and ore rewards. The shield cooldown dropdown offers common durations, and the ore dropdown filters the list. A payout of zero disables the reward for that ore.
+
+Stop Paper before editing its config. Select **Save changes** to write the file, then start Paper to apply the changes. **Reload file** reads the current file from disk. The editor checks for changes made elsewhere before saving and keeps additional YAML settings and comments. It listens only on `127.0.0.1`.
+
 ## Use a real world save
 
 Render a north-up surface image from a copy of the Minecraft world. For example, run [uNmINeD CLI](https://unmined.net/docs/cli/getting-started/) with an explicit block rectangle and leave trimming off so the image edges keep their original coordinates. This example covers 2,048 × 2,048 blocks around X 0, Z 0. Adjust the rectangle to cover the part of the world you want to show.

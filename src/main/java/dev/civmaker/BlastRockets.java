@@ -3,6 +3,7 @@ package dev.civmaker;
 import dev.civmaker.RaidEquipment.Tool;
 import io.papermc.paper.event.entity.EntityLoadCrossbowEvent;
 import net.kyori.adventure.text.Component;
+import org.bukkit.FireworkEffect;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
@@ -17,9 +18,11 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.entity.FireworkExplodeEvent;
+import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.CrossbowMeta;
+import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
@@ -96,6 +99,34 @@ final class BlastRockets implements Listener {
                 && equipment.identify(event.getConsumable()) == Tool.BLAST_ROCKET) {
             firework.getPersistentDataContainer().set(rocketKey, PersistentDataType.BYTE, ARMED);
         }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    void reduceBurstParticles(ProjectileLaunchEvent event) {
+        if (!(event.getEntity() instanceof Firework firework)) {
+            return;
+        }
+        var item = firework.getItem();
+        if (equipment.identify(item) != Tool.BLAST_ROCKET) {
+            return;
+        }
+        // Update old ammo on the launched rocket, preserving its fuse and the player's items.
+        var meta = (FireworkMeta) item.getItemMeta();
+        var effects = meta.getEffects();
+        if (effects.stream().noneMatch(FireworkEffect::hasTrail)) {
+            return;
+        }
+        meta.clearEffects();
+        for (var effect : effects) {
+            meta.addEffect(effect.hasTrail() ? FireworkEffect.builder()
+                    .with(effect.getType())
+                    .withColor(effect.getColors())
+                    .withFade(effect.getFadeColors())
+                    .flicker(effect.hasFlicker())
+                    .build() : effect);
+        }
+        item.setItemMeta(meta);
+        firework.setItem(item);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

@@ -51,7 +51,7 @@ final class SettlementResources {
                 case VAULT, VAULT_DOOR -> IRON;
                 case LOCKPICK, RAM -> COPPER;
                 case PILLAGER_GUARD, HAPPY_HARNESS, SUPER_SADDLE -> AMETHYST;
-                case SUPER_TOTEM, RADAR, RAID_SHIELD, DEFENDER_GOLEM -> null;
+                case SUPER_TOTEM, RADAR, RAID_SHIELD, DEFENDER_GOLEM, WARP_PORTAL -> null;
             };
         }
     }
