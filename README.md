@@ -1,25 +1,37 @@
 # CivMaker
 
-CivMaker is a Paper plugin for Minecraft Java Edition 26.3. Mine ore to fund a civilization, expand your capital, buy natural villages for their daily rewards, and defend your settlements during scheduled raids. The plugin also adds player trading, specialized gear, and a read-only feed for the World Atlas. Players can join with the standard Java client.
+CivMaker is a Paper plugin for Minecraft Java Edition 26.3 that adds faction progression, territorial conflict, and discoverable farms. Mine ore to fund a civilization, expand your capital, buy settlements for daily rewards, and defend them during scheduled raids. Players can join with the standard Java client.
 
-- [Economy](#mining-and-banknotes) and [player trading](#trading-items)
-- [Capitals](#founding-and-expanding-villages), [settlements](#settlements-and-points), [warp portals](#warp-portals), and [vaults](#secure-vaults)
-- [Unlocking the End](#unlocking-the-end)
-- [Raid windows and capture](#raid-windows) and the [equipment shop](#equipment-shop)
-- [Server administration](#admin-commands) and [World Atlas](#world-atlas)
+## Major gameplay changes
 
-## Build and install
+- **Money comes from mining.** Eligible natural ores pay into a wallet. Banknotes let players carry and store money, and deaths put some of that wealth at risk.
+- **Civilizations own territory and earn points.** Found a capital for $10,000, expand into neighboring chunks, and purchase natural villages for $50,000 to gain daily rewards and points.
+- **Automation requires exploration.** Rare Farm Stations unlock unattended mob item drops and automatic crop harvesting in one chunk. Hostile sweep kills also require the killer to qualify for that station's faction benefit.
+- **End access is faction progression.** Reach 500 points and pay an End Portal Keeper $1,000,000 to unlock End travel for your faction.
+- **Raids create scheduled conflict.** Raid windows let outsiders breach eligible defenses, lockpick vaults, and capture settlements. Members can prepare guards, golems, and Raid Protection.
+- **Travel, trade, and equipment support your faction.** Warp between faction portals, exchange items through a confirmed trade, and buy tools, defenses, and mount upgrades from the shop.
 
-1. Install JDK 25 and Maven, then run `mvn clean package` from this directory.
-2. Copy `target/civmaker-0.3.1.jar` into your Paper 26.3 server's `plugins` directory and start the server.
-3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
+## Getting started
+
+1. Mine eligible ore in Survival and check `/civ balance`.
+2. Save $10,000, buy a Founding Beacon with `/civ create` or `/civ shop`, and place it to found your civilization.
+3. Invite friends with `/civ invite <player>` and expand with `/civ claim mode`.
+4. Explore for Farm Stations and save for settlements. Use `/civ points` to compare factions and `/civ raids` to check the next raid window.
+5. Equip your faction, build up your settlements, and work toward unlocking the End.
+
+Use `/civ help` for commands. The sections below explain each system and its default prices and limits.
+
+- [Economy](#mining-and-banknotes), [founding a civilization](#founding-and-expanding-villages), and [settlements](#settlements-and-points)
+- [Farm Stations](#farm-stations), [Secure Vaults](#secure-vaults), and [player trading](#trading-items)
+- [Warp portals](#warp-portals), [unlocking the End](#unlocking-the-end), and [combat deaths](#combat-deaths)
+- [Raids and capture](#raid-windows) and the [equipment shop](#equipment-shop)
+- [Server administration](#server-administration)
 
 ## Mining and banknotes
 
 - Mine eligible ore in Survival with the appropriate tool to earn a payout per block. Check your wallet with `/civ balance`.
 - CivMaker records ore locations as new Overworld and Nether chunks first load. Mining a recorded ore consumes its eligibility even with Silk Touch. Placed and piston-moved ores are ineligible. Fortune still affects normal drops.
-- Chunks generated before CivMaker was installed are ineligible because their natural and placed ores cannot be reliably distinguished. Use a fresh world or explore new chunks on an existing server.
-- `/civ withdraw 10` exchanges $10,000 for ten stackable $1,000 banknotes. `/civ deposit` redeems all banknotes in the main inventory, and `/civ deposit 3` redeems three. Genuine notes carry a server item tag. Renaming ordinary paper cannot create a note. Treat Creative access and world-editing tools as trusted admin access.
+- `/civ withdraw 10` exchanges $10,000 for ten stackable $1,000 banknotes. `/civ deposit` redeems all banknotes in the main inventory, and `/civ deposit 3` redeems three. Genuine notes carry a server item tag. Renaming ordinary paper cannot create a note.
 - Carry banknotes yourself or deposit them in a Secure Vault inside your village. Ordinary storage, Ender Chests, and bundles reject banknote deposits. Hoppers and hopper minecarts cannot collect dropped banknotes. Banknotes on the ground can despawn like other dropped items. Banknotes already in ordinary storage can still be withdrawn.
 - On death, you drop 10% of your wallet balance, rounded down to the nearest $1,000, plus the banknotes that drop with your inventory. If you keep your inventory, including with a Super Totem, the 10% applies to your wallet and carried banknotes combined. Large death payouts are condensed into high-value banknotes. Picking up one credits your wallet immediately, even with a full inventory. It stays on the ground if your wallet can't hold the full amount.
 - The **CivMaker** sidebar shows your village membership, wallet, current raid status, and the top five villages by points. `/civ help` appears at the bottom. The vanilla client displays the sidebar on the right. CivMaker leaves an existing custom scoreboard or sidebar in place.
@@ -76,8 +88,6 @@ The nameplate below the bell shows the settlement type and its owning village. T
 
 Once placed, the vault produces its reward every Minecraft day (24,000 world ticks, about 20 minutes at normal speed). Currency settlements produce five items per day, worth $2,000 each toward eligible shop purchases. Each daily batch occupies its own slot. Five slots hold five days of currency deposits, for 25 items worth $50,000 in total. Production follows the world's day-night clock, so sleeping or advancing world time can bring the next deposit sooner. An unloaded vault catches up when its chunk loads, up to five daily batches. Production for days when it is full is lost. Village members can open it and click a batch to withdraw it. During a raid, outsiders can use a lockpick to loot it. Hoppers and players cannot deposit items, and hoppers cannot withdraw them.
 
-To test production, leave an empty slot, look at the vault from within five blocks, and run `/civ testdeposit` as a CivMaker admin. The targeted vault's next stack is due in 1,200 world ticks (about one minute at normal speed). Its Minecraft-day cycle then continues from that test deposit. Vaults upgraded from the real-time schedule start their new cycle when first loaded and keep their stored items.
-
 | Village type | Daily reward | Use |
 | --- | --- | --- |
 | Desert | 5 Settlement Gunpowder | Grenades, C4, and Blast Rockets |
@@ -89,11 +99,66 @@ To test production, leave an empty slot, look at the vault from within five bloc
 
 Meadow settlements use the plains village structure and are identified by the bell's biome. Settlement currencies glint and work as shop payments. Muster Amethyst has a purple shard icon, and Settlement Iron has a raw iron icon.
 
-## Unlocking the End
+## Farm Stations
 
-Find the **End Portal Keeper** in a stronghold portal room. Once your faction reaches **500 points**, any member can right-click the keeper and confirm a **$1,000,000** payment from their own wallet. The keeper activates the portal, and the purchase permanently unlocks End travel for the whole faction.
+A **Farm Station** is a tagged lodestone with an enchanted glint. It has a **5% chance** to appear as bonus loot in a regular Ancient City chest, any of the four Bastion chest types, or an ominous Trial Chamber vault unlocked with an **Ominous Trial Key**.
 
-Members can ask a keeper to activate another stronghold portal for free. Entry through a lit portal requires an unlocked faction. Players can leave the End through its exit portal as usual.
+### Placement and ownership
+
+Place the station to activate its chunk. Each chunk can contain one station, and its benefit covers that chunk's full height. You can place a station in wilderness and own one without belonging to a faction. The player who places it owns it, and its faction identity follows that player's current membership.
+
+The lodestone is protected against other players breaking it, explosions, pistons, and mob destruction. Its protection applies to the station block itself. The owner can mine it with a suitable pickaxe between raid windows to recover the tagged item. Recovering it ends the chunk's farming benefit. The station's name survives recovery and placement.
+
+### Mob drops and sword sweeps
+
+Outside a Farm Station chunk, mobs drop items when they took player-caused damage within the last **100 game ticks**, about **five seconds** at normal tick speed. A station allows normal mob item drops from unattended kills in its chunk. The check uses the chunk where the mob dies.
+
+Secondary sword sweep kills have an additional rule for mobs capable of attacking players. This includes hostile mobs and neutral mobs such as calm Endermen, spiders, piglins, wolves, and iron golems.
+
+| Kill | Item drops and XP |
+| --- | --- |
+| Player directly kills a mob | Normal rewards |
+| Secondary sword sweep kills a hostile or neutral mob outside a station chunk | Both suppressed |
+| Secondary sword sweep kills a hostile or neutral mob inside a station chunk | Normal rewards for members of the station owner's faction |
+| Secondary sword sweep kills a hostile or neutral mob in an unaffiliated owner's station chunk | Normal rewards for the player who placed that station |
+| Secondary sword sweep kills a passive animal such as a cow or sheep | Normal rewards |
+
+The sweep rule applies to secondary hits from any sword. The mob directly targeted by the swing follows the direct-kill rule. The faction check uses actual membership. Other players' hostile sweep kills in a station chunk yield neither items nor XP.
+
+### Crop harvesting
+
+Automatic harvesting of supported crops produces items in a Farm Station chunk. Outside those chunks, automated breaks such as pistons, water harvesting, and unsupported crop collapses suppress the crop drops. The check uses the plant's chunk, so each growing chunk of a larger farm needs its own station. Collection systems can carry harvested items across chunk borders.
+
+Hand harvesting works throughout the world. Breaking a lower bamboo or sugar cane segment by hand also allows the upper segments that fall as a result to drop their items.
+
+Supported crops include bamboo, sugar cane, cactus, kelp, wheat, carrots, potatoes, beetroot, nether wart, cocoa, pumpkins, melons, sweet berries, glow berries, mushrooms, chorus plants, twisting vines, and weeping vines. Pumpkin and melon stems are included. Other renewable outputs, such as logs, eggs, dispenser-sheared wool, honey, bartering rewards, and furnace XP, use separate production paths outside these crop and mob-death rules.
+
+### Naming and finding stations
+
+As the owner, hold a supported crop item or mob drop in your **main hand** and right-click the station to set its name. The item stays in your hand. Crop items use the crop name, and mob drops use a corresponding mob name.
+
+| Held item | Station name |
+| --- | --- |
+| Bamboo | Bamboo Farm |
+| Sugar cane | Sugar Cane Farm |
+| Bone | Skeleton Farm |
+| Ender pearl | Enderman Farm |
+| Gunpowder | Creeper Farm |
+| Iron ingot | Iron Golem Farm |
+
+A floating nametag shows the farm name above the owner's faction name in that faction's color. For an unaffiliated owner, it shows the player's name in gray when available. The Radar marks the chunk with an `F` in the faction's color, using the same map slot as a territory `#`. Hover over the tile to see the farm name and owner.
+
+## Secure Vaults
+
+Use a **Secure Vault Kit** on a chest, barrel, or shulker box inside your own claim. The entire container, including both halves of a double chest, must be inside your village. A floating nameplate identifies the vault, and its banknotes count toward the village balance. Withdrawals and theft reduce that balance. Previously unloaded vaults are counted when their chunks load.
+
+## Trading items
+
+Run `/trade <player>` in Survival. The other player has one minute to click the request in chat or run `/trade <your name>` to accept.
+
+- Click an inventory stack to offer it on the left. Click your own offer to take it back. Left-click moves a stack and right-click moves one item. The other player's offer appears on the right.
+- Click the red confirm button in the middle to turn it green. The trade completes once both players confirm and have room for what they will receive. Changing either offer clears both confirmations.
+- Close the window to cancel and return offered items. If your inventory fills up, make room and run `/trade --recover` to collect the rest. If you die while trading, your offer follows the server's inventory-on-death rules.
 
 ## Warp portals
 
@@ -107,46 +172,21 @@ Faction owners can sneak and right-click their trader to recover the kit. If a s
 
 Warp traders stay visible and show their faction's color in their nametag. An Eye of Ender marks a destination where raiders were inside the settlement's capture ring in the last five minutes.
 
+## Unlocking the End
+
+Find the **End Portal Keeper** in a stronghold portal room. Once your faction reaches **500 points**, any member can right-click the keeper and confirm a **$1,000,000** payment from their own wallet. The keeper activates the portal, and the purchase permanently unlocks End travel for the whole faction.
+
+Members can ask a keeper to activate another stronghold portal for free. Entry through a lit portal requires an unlocked faction. Players can leave the End through its exit portal as usual.
+
+## Combat deaths
+
 After a combat death, players respawn at their usual location and wait in place as spectators until the combat timeout ends. It applies to deaths caused by players or mobs, including projectiles, and to deaths within 10 seconds of taking combat damage. The timeout starts at death and lasts 60 seconds by default. Reconnecting doesn't reset either timer.
-
-Set `warp-portal.cooldown-seconds` and `warp-portal.combat-death-timeout-seconds` in `plugins/CivMaker/config.yml`. Set either value to `0` to disable that timer, then restart the server to apply the changes.
-
-## Secure Vaults
-
-Use a **Secure Vault Kit** on a chest, barrel, or shulker box inside your own claim. The entire container, including both halves of a double chest, must be inside your village. A floating nameplate identifies the vault, and its banknotes count toward the village balance. Withdrawals and theft reduce that balance. Old registered treasury chests convert when their chunks load and keep their contents. Previously unloaded vaults are counted when their chunks load.
-
-## Admin commands
-
-- `/civ admin add Alex` grants the CivMaker admin role. Use `/civ admin remove Alex` to revoke it. The server console and operators can manage this role using a known player name or UUID. Role assignments survive restarts and grant access to CivMaker wallet, raid, and village disband commands.
-- `/civ disbandvillage <village name>` previews disbanding any village, including villages whose owners are offline. Run `/civ disbandvillage --confirm` within 60 seconds to release its claims and clear memberships and pending invites. CivMaker admins and the server console can use this command.
-- `/civ setbalance Alex 10000` sets an online player's wallet to $10,000. Enter a whole number without commas or a dollar sign. Use `0` to empty the wallet.
-- `/civ locatemeadow` searches from your Overworld position for a village with a Meadow bell inside the world border and reports its coordinates.
-- `/civ allegiance Ashford` lets an admin test as a member of Ashford. Use `/civ allegiance --outsider` to raid your own village without a second village, and `/civ allegiance` to restore your original membership. Testing allegiance resets when the plugin restarts.
-- `/civ raids on` forces raids open, `/civ raids off` forces them closed, and `/civ raids auto` returns to scheduled windows. `/civ raids toggle` flips whether raids are active right now. The override is saved across restarts.
-- `/civ raidmode settlements` opens raids in settlement claims and limits guard combat to settlement posts and targets. `/civ raidmode all` opens all claims, and `/civ raidmode none` closes all claims. `/civ raidmode toggle` cycles through settlements, all, and none. Use `/civ raids auto` to resume the schedule.
 
 ## Raid windows
 
-A CivMaker admin or server operator can schedule one or more windows. Use ISO 8601 times with an explicit offset. For example, this window runs from Saturday at 1 p.m. through Sunday at 10 p.m. in New York on the dates shown.
-
-```text
-/civ schedule 2026-11-07T13:00:00-05:00 2026-11-08T22:00:00-05:00
-```
-
-`/civ raids` shows current and upcoming windows in UTC. `/civ cancelraid <start>` cancels a window by its start time. Windows are saved across restarts, and can run while defenders are offline.
+Run `/civ raids` to see the current raid status and upcoming windows in UTC. Windows follow the server's saved schedule and can run while defenders are offline.
 
 During a raid, outsiders can use lockpicks on eligible containers and Vault Doors. A successful pick on a Secure Vault or Settlement Vault reveals a loot menu with hidden slots. Left-click a slot to take its entire stack. You can loot up to five slots per session. Picked ordinary storage opens its usual inventory for the session.
-
-### Nightly raids
-
-Admins can set a daily window with one command. This example opens raids from 8 to 10 p.m. New York time.
-
-```text
-/civ schedule nightly 20:00 22:00 America/New_York
-/civ raids auto
-```
-
-The time zone defaults to the server's time zone. Windows can cross midnight. A one-off window replaces any nightly occurrence it overlaps. Use `/civ schedule nightly off` to remove the daily schedule and `/civ raids` to see upcoming times.
 
 ### Settlement capture
 
@@ -162,10 +202,7 @@ Capture transfers the claims, points, vaults and contents, Vault Doors, and futu
 
 Buy a faction-bound Nether Star in `/civ shop`. A member of the faction that bought it can right-click with the star in their main hand in Survival during a raid. This consumes the star and shields the faction's claims from capture, lockpicking, and breaching for the rest of that window. The default price is $10,000. Each faction has separate rolling seven-day cooldowns for purchases and activations.
 
-- `/civ raidprotection` shows the current rules.
-- `/civ raidprotection on` or `off` controls purchases and activations. Active shields expire with their window.
-- `/civ raidprotection price 10000` sets the cash price.
-- `/civ raidprotection cooldown 168` sets both cooldowns in hours.
+Use `/civ raidprotection` to see the current rules.
 
 ## Equipment shop
 
@@ -185,7 +222,7 @@ Run `/civ shop` in Survival to browse Raid Gear, Village Defense, Mount Upgrades
 | Secure Vault Kit | A glinting iron ingot. Reinforces a chest, barrel, or shulker box in your own village. Raiders see stained-glass placeholders and left-click to take an entire stack from each of up to five slots. Reinforced storage blocks hopper transfers while in a claim. |
 | Vault Door | A glinting iron door that can be placed in your own village. Village members can open and close it by hand. A lockpick can open it during a raid, and a ram can break it. Visitors can operate ordinary doors in claims. |
 | Super Totem | Carry it anywhere in your inventory. When you die, one Super Totem is consumed and you respawn with the rest of your items. Death and experience loss follow the usual rules, even if you hold it in either hand. |
-| Radar | Hold this compass in either hand for a private chat map every second. The map covers your chunk and five chunks in each direction. North stays at the top, and the aqua arrow at the center points in the direction you're facing. Colored `#` tiles show each village's territory. Yellow `B` markers show registered settlement bells. Red `X` markers show outsiders outside their own village, and gold `G` markers show loaded enemy guards, including those inside their village. Hover over a tile for its block range and the exact coordinates of any marked bell. |
+| Radar | Hold this compass in either hand for a private chat map every second. The map covers your chunk and five chunks in each direction. North stays at the top, and the aqua arrow at the center points in the direction you're facing. Colored `#` tiles show each village's territory. Farm Station chunks use `F` in the owning faction's color, or gray for an unaffiliated owner. Yellow `B` markers show registered settlement bells. Red `X` markers show outsiders outside their own village, and gold `G` markers show loaded enemy guards, including those inside their village. Hover over a tile for its block range, any marked bell coordinates, and its Farm Station name and owner. |
 
 Sneak-right-click one of your faction's settlement defenders to toggle between Always Hostile and Retaliate Only for the whole settlement. The golem and every guard posted in its claims share that setting, including newly deployed defenders. Settlements default to Retaliate Only. Guards in capital claims have individual settings and default to Always Hostile. In Retaliate Only mode, damage from an eligible raider makes the defender they hit hostile to the raider's entire faction for the raid. Unaffiliated raiders trigger retaliation individually. Changing the stance clears the settlement defenders' retaliation targets.
 
@@ -194,16 +231,72 @@ Leaving the lockpicking puzzle ends the attempt. Each correct click is accepted 
 
 Loading fireworks into a Multishot crossbow consumes three rockets. If you have fewer than three, the crossbow stays unloaded and you keep your rockets.
 
-## Trading items
+## Server administration
 
-Run `/trade <player>` in Survival. The other player has one minute to click the request in chat or run `/trade <your name>` to accept.
+### Build and install
 
-- Click an inventory stack to offer it on the left. Click your own offer to take it back. Left-click moves a stack and right-click moves one item. The other player's offer appears on the right.
-- Click the red confirm button in the middle to turn it green. The trade completes once both players confirm and have room for what they will receive. Changing either offer clears both confirmations.
-- Close the window to cancel and return offered items. If your inventory fills up, make room and run `/trade --recover` to collect the rest. If you die while trading, your offer follows the server's inventory-on-death rules.
+1. Install JDK 25 and Maven, then run `mvn clean package` from this directory.
+2. Copy `target/civmaker-0.3.1.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
+
+### Configuration and upgrades
+
+Default prices, mining payouts, claim settings, Raid Protection, and warp timers are configured in `plugins/CivMaker/config.yml`. Restart after editing the file.
+
+Set `warp-portal.cooldown-seconds` and `warp-portal.combat-death-timeout-seconds` in `plugins/CivMaker/config.yml`. Set either value to `0` to disable that timer, then restart the server to apply the changes.
+
+Chunks generated before CivMaker was installed are ineligible because their natural and placed ores cannot be reliably distinguished. Use a fresh world or explore new chunks on an existing server.
+
+Old registered treasury chests convert when their chunks load and keep their contents. Vaults upgraded from the real-time production schedule start their Minecraft-day cycle when first loaded and keep their stored items.
+
+Registered Farm Stations from earlier builds are indexed when their chunks load. Lodestones placed before station registration was added must be replaced using a tagged Farm Station.
+
+Treat Creative access and world-editing tools as trusted admin access.
+
+### Admin commands
+
+- `/civ admin add Alex` grants the CivMaker admin role. Use `/civ admin remove Alex` to revoke it. The server console and operators can manage this role using a known player name or UUID. Role assignments survive restarts and grant access to CivMaker wallet, raid, and village disband commands.
+- `/civ disbandvillage <village name>` previews disbanding any village, including villages whose owners are offline. Run `/civ disbandvillage --confirm` within 60 seconds to release its claims and clear memberships and pending invites. CivMaker admins and the server console can use this command.
+- `/civ setbalance Alex 10000` sets an online player's wallet to $10,000. Enter a whole number without commas or a dollar sign. Use `0` to empty the wallet.
+- `/civ locatemeadow` searches from your Overworld position for a village with a Meadow bell inside the world border and reports its coordinates.
+- `/civ allegiance Ashford` lets an admin test as a member of Ashford. Use `/civ allegiance --outsider` to raid your own village without a second village, and `/civ allegiance` to restore your original membership. Testing allegiance resets when the plugin restarts.
+- `/civ raids on` forces raids open, `/civ raids off` forces them closed, and `/civ raids auto` returns to scheduled windows. `/civ raids toggle` flips whether raids are active right now. The override is saved across restarts.
+- `/civ raidmode settlements` opens raids in settlement claims and limits guard combat to settlement posts and targets. `/civ raidmode all` opens all claims, and `/civ raidmode none` closes all claims. `/civ raidmode toggle` cycles through settlements, all, and none. Use `/civ raids auto` to resume the schedule.
+
+### Testing commands
+
+- `/civ farmstation test` gives an in-game CivMaker admin one tagged, glinting Farm Station. Make room in your inventory before running it.
+- To test production, leave an empty slot, look at the vault from within five blocks, and run `/civ testdeposit` as a CivMaker admin. The targeted vault's next stack is due in 1,200 world ticks (about one minute at normal speed). Its Minecraft-day cycle then continues from that test deposit.
 - Operators can run `/trade test` to trade with an imaginary player who offers 10 dirt and stays confirmed. Confirming the test trade exchanges any items you offer for the dirt.
 
-## World Atlas
+### Scheduling raid windows
+
+A CivMaker admin or server operator can schedule one or more windows. Use ISO 8601 times with an explicit offset. For example, this window runs from Saturday at 1 p.m. through Sunday at 10 p.m. in New York on the dates shown.
+
+```text
+/civ schedule 2026-11-14T13:00:00-05:00 2026-11-15T22:00:00-05:00
+```
+
+`/civ cancelraid <start>` cancels a window by its start time. Windows are saved across restarts, and can run while defenders are offline.
+
+#### Nightly raids
+
+Admins can set a daily window with one command. This example opens raids from 8 to 10 p.m. New York time.
+
+```text
+/civ schedule nightly 20:00 22:00 America/New_York
+/civ raids auto
+```
+
+The time zone defaults to the server's time zone. Windows can cross midnight. A one-off window replaces any nightly occurrence it overlaps. Use `/civ schedule nightly off` to remove the daily schedule and `/civ raids` to see upcoming times.
+
+### Raid Protection controls
+
+- `/civ raidprotection on` or `off` controls purchases and activations. Active shields expire with their window.
+- `/civ raidprotection price 10000` sets the cash price.
+- `/civ raidprotection cooldown 168` sets both cooldowns in hours.
+
+### World Atlas
 
 Run `node website/server.mjs` and open `http://127.0.0.1:8787/` to preview the atlas with a demo map. Load `plugins/CivMaker/public-v1.json` in the atlas to view your server's claims, rankings, and beacon and bell locations. The local atlas server can also follow the file as Paper updates it. See the setup guide for live feeds and terrain renders. [World Atlas setup](website/README.md)
 
@@ -211,6 +304,6 @@ The export includes `schemaVersion`, `generatedAt`, `worlds`, `villages`, `raidW
 
 Review the export before sharing it. It includes player identifiers, vault balances, and in-game coordinates. Keep `plugins/CivMaker/state.json` with the private server data.
 
-## Server data and backups
+### Server data and backups
 
-CivMaker periodically saves village records and cached balances, including the last known totals in unloaded chunks, and flushes them on a clean stop. Paper saves each wallet with its player's inventory, and stores vault contents and ore provenance with world data. Restore the plugin data and the world/player saves from the same backup when rolling back a server.
+CivMaker periodically saves village records and cached balances, including the last known totals in unloaded chunks, and flushes them on a clean stop. Paper saves each wallet with its player's inventory, and stores vault contents, ore provenance, and Farm Station positions, owners, and names with world data. The plugin also saves its Farm Station lookup index in `state.json`. Restore the plugin data and the world/player saves from the same backup when rolling back a server.
