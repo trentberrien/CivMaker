@@ -1,0 +1,4 @@
+# When true, the villager must also be inside a purchased CivMaker settlement
+# owned by the player trading. Requires CivMaker 0.2.2 or newer.
+# Change this in game with /villagerrework settlement true or false.
+require-owned-settlement: false

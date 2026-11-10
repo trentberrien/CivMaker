@@ -25,6 +25,7 @@ Use `/civ help` for commands. The sections below explain each system and its def
 - [Farm Stations](#farm-stations), [Secure Vaults](#secure-vaults), and [player trading](#trading-items)
 - [Warp portals](#warp-portals), [unlocking the End](#unlocking-the-end), and [combat deaths](#combat-deaths)
 - [Raids and capture](#raid-windows) and the [equipment shop](#equipment-shop)
+- [VillagerRework companion plugin](#villagerrework)
 - [Server administration](#server-administration)
 
 ## Mining and banknotes
@@ -98,6 +99,25 @@ Once placed, the vault produces its reward every Minecraft day (24,000 world tic
 | Meadow | 5 Muster Amethyst | Pillager Guards, Happy Harnesses, and Super Saddles |
 
 Meadow settlements use the plains village structure and are identified by the bell's biome. Settlement currencies glint and work as shop payments. Muster Amethyst has a purple shard icon, and Settlement Iron has a raw iron icon.
+
+## VillagerRework
+
+[VillagerRework](VillagerRework/README.md) is an optional companion plugin included in this repository for Paper 26.3 and Java 25. It loads its trade pack automatically in existing and new worlds.
+
+- **Trades depend on location.** Villagers normally trade only in their home biome group. With CivMaker, Jungle villagers trade inside Savanna settlements and Swamp villagers inside Meadow settlements. Regional trade pools follow the settlement footprint, including natural villages before purchase.
+- **Librarians and armorers use regional offers.** The plugin applies Minecraft's bundled Villager Trade Rebalance tables with custom Master librarian books: Efficiency V in Desert, Unbreaking III in Jungle and Savanna, Protection IV in Plains, Silk Touch in Snow, Mending in Swamp and Meadow, and Fortune III in Taiga. Savanna villagers can also roll Jungle offers, and Meadow villagers can roll Swamp offers.
+- **Settlement ownership can be required.** Standalone trading is the default. Operators or players with `villagerrework.admin` can run `/villagerrework settlement true` to restrict trading to purchased settlements they personally own. Faction members and visitors cannot trade under this rule. Use `/villagerrework settlement false` to disable it or `/villagerrework settlement` to check it. Changes apply immediately and are saved in `plugins/VillagerRework/config.yml`.
+
+The first eligible interaction rebuilds saved librarian, armorer, and cartographer offers while preserving profession, level, experience, and reputation. Refreshed offers have fresh stock and can replace custom trades. Wandering traders are outside the villager restrictions.
+
+To build both plugins, run these commands from the repository root with JDK 25 and Maven:
+
+```sh
+mvn clean install
+mvn -f VillagerRework/pom.xml clean package
+```
+
+Copy `target/civmaker-0.3.1.jar` and `VillagerRework/target/villager-rework-0.2.2.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
 
 ## Farm Stations
 

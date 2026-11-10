@@ -1,0 +1,16 @@
+name: VillagerRework
+version: '0.2.2'
+main: dev.villagerrework.VillagerRework
+bootstrapper: dev.villagerrework.TradeBootstrap
+api-version: '26.3'
+description: Biome-based villager trades with optional CivMaker settlement ownership
+dependencies:
+  server:
+    CivMaker:
+      load: BEFORE
+      required: false
+      join-classpath: true
+permissions:
+  villagerrework.admin:
+    description: View or change the VillagerRework settlement requirement
+    default: op
