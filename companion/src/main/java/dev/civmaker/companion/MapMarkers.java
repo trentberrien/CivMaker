@@ -39,10 +39,12 @@ final class MapMarkers {
         shown = visible;
         Map<String, Integer> colors = new HashMap<>();
         view.snapshot().villages().forEach(village -> colors.put(village.id(), village.color()));
-        for (var marker : view.snapshot().markers()) {
-            Waypoint waypoint = new Waypoint(marker.x(), marker.y(), marker.z(), marker.name(), marker.symbol(),
-                    nearestColor(colors.getOrDefault(marker.village(), 0xffffff)));
-            installed.add(marker.id(), waypoint);
+        if (MapState.INSTANCE.claimsAvailable()) {
+            for (var marker : view.snapshot().markers()) {
+                Waypoint waypoint = new Waypoint(marker.x(), marker.y(), marker.z(), marker.name(), marker.symbol(),
+                        nearestColor(colors.getOrDefault(marker.village(), 0xffffff)));
+                installed.add(marker.id(), waypoint);
+            }
         }
         if (MapState.INSTANCE.farmsEnabled()) {
             for (var farm : view.farms().values()) {

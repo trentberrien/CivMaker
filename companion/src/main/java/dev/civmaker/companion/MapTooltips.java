@@ -42,7 +42,8 @@ public final class MapTooltips {
             lines.add(title(claim));
             lines.add(Component.literal((farm == null ? "Owner: " : "Land owner: ") + claim.village().ownerName()));
         } else if (farm != null) {
-            lines.add(Component.literal("Territory: Wilderness").withStyle(ChatFormatting.GRAY));
+            lines.add(Component.literal(MapState.INSTANCE.claimsAvailable() ? "Territory: Wilderness"
+                    : "Territory: Carry a Radar to view claims").withStyle(ChatFormatting.GRAY));
         }
         return lines;
     }

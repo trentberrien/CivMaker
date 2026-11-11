@@ -63,6 +63,7 @@ public final class CivMakerCompanion implements ClientModInitializer {
                 reset();
                 level = client.level;
             }
+            MapState.INSTANCE.setRadarServer(level != null && ClientPlayNetworking.canSend(MapPayload.Hello.TYPE));
             if (level != null && helloTicks-- <= 0) {
                 request();
                 helloTicks = MapState.INSTANCE.view().snapshot() == null ? 40 : 600;
@@ -93,6 +94,11 @@ public final class CivMakerCompanion implements ClientModInitializer {
                             : "CivMaker map: " + view.claims().size() + " plots, "
                             + view.snapshot().villages().size() + " villages, " + view.farms().size() + " farms. Raids: " + view.snapshot().raidStatus()
                             + ". Overlays " + (MapState.INSTANCE.enabled() ? "on" : "off") + "."));
+                    if (view.snapshot() != null && !MapState.INSTANCE.claimsAvailable()) {
+                        context.getSource().sendFeedback(Component.literal(view.snapshot().radar() == null
+                                ? "Update the CivMaker server to unlock Radar map access."
+                                : "Carry a CivMaker Radar in your inventory or offhand to see claims and enemy players."));
+                    }
                     return 1;
                 })).then(literal("refresh").executes(context -> {
                     request();
@@ -124,6 +130,7 @@ public final class CivMakerCompanion implements ClientModInitializer {
     private void reset() {
         markers.clear();
         MapState.INSTANCE.clear();
+        MapState.INSTANCE.setRadarServer(false);
         assembler.clear();
         level = null;
         helloTicks = 10;

@@ -117,7 +117,7 @@ public class CivMaker extends JavaPlugin {
         combatTimeout = new CombatTimeout(this);
         warpPortals = new WarpPortals(this, store, equipment, combatTimeout, capture);
         endPortals = new EndPortals(this, store, wallets);
-        CompanionMaps companionMaps = new CompanionMaps(this, store);
+        CompanionMaps companionMaps = new CompanionMaps(this, store, equipment);
         hud = new PlayerHud(this, store, wallets);
         beaconLabels = new BeaconLabels(this, store);
         vaultTracking = new VaultTracking(this, store, equipment, notes);

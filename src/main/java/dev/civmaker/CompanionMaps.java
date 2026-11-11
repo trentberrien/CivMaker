@@ -28,6 +28,7 @@ final class CompanionMaps implements Listener, PluginMessageListener {
     private static final int FRAMES_PER_TICK = 4;
     private final CivMaker plugin;
     private final CivStore store;
+    private final RaidEquipment equipment;
     private final Map<UUID, Client> clients = new HashMap<>();
     private int ticks;
     private int generation;
@@ -38,11 +39,13 @@ final class CompanionMaps implements Listener, PluginMessageListener {
         List<byte[]> pending = List.of();
         int next;
         long lastHello;
+        MapSnapshot.RadarAccess access;
     }
 
-    CompanionMaps(CivMaker plugin, CivStore store) {
+    CompanionMaps(CivMaker plugin, CivStore store, RaidEquipment equipment) {
         this.plugin = plugin;
         this.store = store;
+        this.equipment = equipment;
         var messenger = plugin.getServer().getMessenger();
         messenger.registerIncomingPluginChannel(plugin, MapProtocol.HELLO, this);
         messenger.registerOutgoingPluginChannel(plugin, MapProtocol.DATA);
@@ -74,12 +77,14 @@ final class CompanionMaps implements Listener, PluginMessageListener {
             client.world = null;
             client.previous = null;
             client.pending = List.of();
+            client.next = 0;
+            client.access = null;
         }
     }
 
     void tick() {
         boolean refresh = ticks++ % 60 == 0;
-        Map<UUID, byte[]> snapshots = new HashMap<>();
+        Map<UUID, MapSnapshot> snapshots = new HashMap<>();
         for (Player player : plugin.getServer().getOnlinePlayers()) {
             Client client = clients.get(player.getUniqueId());
             if (client == null) {
@@ -89,9 +94,24 @@ final class CompanionMaps implements Listener, PluginMessageListener {
             if (!world.equals(client.world)) {
                 client.previous = null;
                 client.pending = List.of();
+                client.next = 0;
+            }
+            boolean radar = !player.isDead() && equipment.hasRadar(player);
+            if (client.access == null || client.access.allowed() != radar || refresh) {
+                MapSnapshot.RadarAccess access = access(player, radar);
+                if (!access.equals(client.access)) {
+                    client.access = access;
+                    client.previous = null;
+                    client.pending = List.of();
+                    client.next = 0;
+                }
             }
             if ((refresh || client.previous == null) && client.next >= client.pending.size()) {
-                byte[] data = snapshots.computeIfAbsent(world, ignored -> snapshot(player.getWorld()));
+                MapSnapshot publicMap = snapshots.computeIfAbsent(world, ignored -> snapshot(player.getWorld()));
+                MapSnapshot viewerMap = new MapSnapshot(publicMap.world(), publicMap.dimension(), publicMap.raidStatus(),
+                        radar ? publicMap.villages() : List.of(), radar ? publicMap.claims() : List.of(),
+                        radar ? publicMap.markers() : List.of(), publicMap.farms(), client.access);
+                byte[] data = JSON.toJson(viewerMap).getBytes(StandardCharsets.UTF_8);
                 if (!Arrays.equals(data, client.previous)) {
                     try {
                         client.pending = MapProtocol.frames(data, ++generation);
@@ -115,7 +135,22 @@ final class CompanionMaps implements Listener, PluginMessageListener {
         }
     }
 
-    private byte[] snapshot(World world) {
+    private MapSnapshot.RadarAccess access(Player viewer, boolean radar) {
+        var faction = store.memberOf(viewer.getUniqueId());
+        List<String> friendly = new ArrayList<>();
+        friendly.add(viewer.getUniqueId().toString());
+        if (faction != null) {
+            for (Player target : plugin.getServer().getOnlinePlayers()) {
+                if (!target.getUniqueId().equals(viewer.getUniqueId()) && store.memberOf(target.getUniqueId()) == faction) {
+                    friendly.add(target.getUniqueId().toString());
+                }
+            }
+        }
+        friendly.sort(String::compareTo);
+        return new MapSnapshot.RadarAccess(radar, friendly);
+    }
+
+    private MapSnapshot snapshot(World world) {
         List<MapSnapshot.Village> villages = new ArrayList<>();
         Map<Plot, MapSnapshot.Claim> claims = new LinkedHashMap<>();
         List<MapSnapshot.Marker> markers = new ArrayList<>();
@@ -168,8 +203,8 @@ final class CompanionMaps implements Listener, PluginMessageListener {
         }
         String raids = store.raidMode() == CivStore.RaidMode.SETTLEMENTS ? "Active (settlements)"
                 : store.activeWindow(System.currentTimeMillis()) != null ? "Active" : "Inactive";
-        return JSON.toJson(new MapSnapshot(world.getUID().toString(), world.getKey().toString(), raids,
-                villages, new ArrayList<>(claims.values()), markers, farms)).getBytes(StandardCharsets.UTF_8);
+        return new MapSnapshot(world.getUID().toString(), world.getKey().toString(), raids,
+                villages, new ArrayList<>(claims.values()), markers, farms);
     }
 
     private void addClaim(Map<Plot, MapSnapshot.Claim> claims, World world, CivStore.Village village, Plot plot) {

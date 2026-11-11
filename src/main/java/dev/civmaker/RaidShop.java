@@ -31,9 +31,7 @@ final class RaidShop implements Listener {
     private static final int ROW_WIDTH = 9;
     private static final int HEADER_COLUMN = 1;
     private static final int FIRST_PRODUCT_COLUMN = 3;
-    private static final int FACTION_BANNER_SLOT = 3 * ROW_WIDTH + FIRST_PRODUCT_COLUMN + 2;
-    private static final int FOUNDING_BEACON_SLOT = FACTION_BANNER_SLOT + 1;
-    private static final int WARP_PORTAL_SLOT = FOUNDING_BEACON_SLOT + 1;
+    private static final int FACTION_SLOT = ROW_WIDTH / 2;
 
     private record Section(String label, Material icon, NamedTextColor color, List<Tool> tools) {}
 
@@ -45,17 +43,19 @@ final class RaidShop implements Listener {
             new Section("Mount Upgrades", Material.LEAD, NamedTextColor.GOLD,
                     List.of(Tool.HAPPY_HARNESS, Tool.SUPER_SADDLE)),
             new Section("Utility", Material.BOOK, NamedTextColor.AQUA,
-                    List.of(Tool.RADAR, Tool.SUPER_TOTEM)));
+                    List.of(Tool.RADAR, Tool.SUPER_TOTEM, Tool.WARP_PORTAL)));
 
     private static final class Menu implements InventoryHolder {
-        private final Inventory inventory = Bukkit.createInventory(this, SECTIONS.size() * ROW_WIDTH,
+        private final Inventory inventory = Bukkit.createInventory(this, (SECTIONS.size() + 1) * ROW_WIDTH,
                 Component.text("CivMaker Shop"));
         private final Tool[] products = new Tool[inventory.getSize()];
+        private final boolean factionBanner;
 
-        Menu(RaidEquipment equipment, RaidShields shields, FoundingBeacons foundingBeacons, Player player) {
+        Menu(RaidEquipment equipment, RaidShields shields, FoundingBeacons foundingBeacons, CivStore store, Player player) {
+            factionBanner = store.registeredVillage(player.getUniqueId()) != null;
             for (int row = 0; row < SECTIONS.size(); row++) {
                 Section section = SECTIONS.get(row);
-                int rowStart = row * ROW_WIDTH;
+                int rowStart = (row + 1) * ROW_WIDTH;
                 var header = new ItemStack(section.icon());
                 header.editMeta(meta -> meta.displayName(Component.text(section.label(), section.color())
                         .decoration(TextDecoration.ITALIC, false)));
@@ -68,12 +68,11 @@ final class RaidShop implements Listener {
                     slot++;
                 }
             }
-            inventory.setItem(FACTION_BANNER_SLOT, button(new ItemStack(Material.WHITE_BANNER), "Faction Banner",
-                    "Apply your faction design to a banner or shield for " + cashLabel(BANNER_PRICE) + "."));
-            products[WARP_PORTAL_SLOT] = Tool.WARP_PORTAL;
-            inventory.setItem(WARP_PORTAL_SLOT, product(equipment, shields, Tool.WARP_PORTAL));
-            if (foundingBeacons.canBuy(player)) {
-                inventory.setItem(FOUNDING_BEACON_SLOT, button(new ItemStack(Material.BEACON), "Founding Beacon",
+            if (factionBanner) {
+                inventory.setItem(FACTION_SLOT, button(new ItemStack(Material.WHITE_BANNER), "Faction Banner",
+                        "Apply your faction design to a banner or shield for " + cashLabel(BANNER_PRICE) + "."));
+            } else if (foundingBeacons.canBuy(player)) {
+                inventory.setItem(FACTION_SLOT, button(new ItemStack(Material.BEACON), "Founding Beacon",
                         "Left-click to buy for " + FoundingBeacons.PRICE_LABEL + ".",
                         foundingBeacons.placementHint(), "Give it clear sky above and follow the setup menu."));
             }
@@ -147,7 +146,7 @@ final class RaidShop implements Listener {
     }
 
     void open(Player player) {
-        player.openInventory(new Menu(equipment, shields, foundingBeacons, player).getInventory());
+        player.openInventory(new Menu(equipment, shields, foundingBeacons, store, player).getInventory());
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -169,13 +168,14 @@ final class RaidShop implements Listener {
                 || !(event.getWhoClicked() instanceof Player player) || player.getGameMode() != GameMode.SURVIVAL) {
             return;
         }
-        if (event.getRawSlot() == FOUNDING_BEACON_SLOT) {
-            if (!alternate && event.getCurrentItem() != null) {
-                foundingBeacons.buy(player);
+        if (event.getRawSlot() == FACTION_SLOT) {
+            if (alternate || event.getCurrentItem() == null) {
+                return;
             }
-            return;
-        }
-        if (event.getRawSlot() == FACTION_BANNER_SLOT && !alternate) {
+            if (!menu.factionBanner) {
+                foundingBeacons.buy(player);
+                return;
+            }
             Bukkit.getScheduler().runTask(plugin, () -> {
                 var top = player.getOpenInventory().getTopInventory();
                 if (top == null || top.getHolder() != menu) {

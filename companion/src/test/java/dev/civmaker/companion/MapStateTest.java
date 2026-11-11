@@ -110,4 +110,32 @@ class MapStateTest {
         state.replace(decoded);
         assertTrue(state.view().farms().isEmpty());
     }
+
+    @Test void radarPolicyHidesEnemyPlayersAndClaimsButKeepsFarmsAndTeammates() {
+        var state = new MapState();
+        var friend = java.util.UUID.randomUUID();
+        var enemy = java.util.UUID.randomUUID();
+        var base = withFarms(List.of(claim(0, 0, "a")), List.of(farm(8, 8)));
+        state.setRadarServer(true);
+        assertTrue(state.hidePlayer(enemy), "Hide enemies while waiting for the server's first verdict");
+        state.replace(new MapSnapshot(base.world(), base.dimension(), base.raidStatus(), base.villages(),
+                base.claims(), base.markers(), base.farms(), new MapSnapshot.RadarAccess(false, List.of(friend.toString()))));
+        assertFalse(state.claimsAvailable());
+        assertNull(state.claim(DIM, 0, 0));
+        assertEquals(MapState.xaeroColor(MapState.FARM_FILL_COLOR, 50), state.colors(DIM, 0, 0, 50, 230)[0]);
+        assertNotNull(state.farm(DIM, 0, 0));
+        assertTrue(state.hidePlayer(enemy));
+        assertFalse(state.hidePlayer(friend));
+        state.setEnabled(false);
+        assertTrue(state.hidePlayer(enemy), "Display toggles must not bypass the inventory requirement");
+        state.setEnabled(true);
+        state.replace(new MapSnapshot(base.world(), base.dimension(), base.raidStatus(), base.villages(),
+                base.claims(), base.markers(), base.farms(), new MapSnapshot.RadarAccess(true, List.of(friend.toString()))));
+        assertTrue(state.claimsAvailable());
+        assertNotNull(state.claim(DIM, 0, 0));
+        assertFalse(state.hidePlayer(enemy));
+        state.clear();
+        state.setRadarServer(false);
+        assertFalse(state.hidePlayer(enemy), "Other servers are unaffected");
+    }
 }

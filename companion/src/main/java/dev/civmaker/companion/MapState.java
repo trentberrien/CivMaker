@@ -20,6 +20,7 @@ public final class MapState {
     private volatile View view = new View(null, Map.of(), Map.of(), Set.of(), 0);
     private volatile boolean enabled = true;
     private volatile boolean farmsEnabled = true;
+    private volatile boolean radarServer;
 
     public static long key(int x, int z) {
         return ((long) x << 32) | (z & 0xffffffffL);
@@ -28,6 +29,29 @@ public final class MapState {
     public View view() { return view; }
     public boolean enabled() { return enabled; }
     public boolean farmsEnabled() { return farmsEnabled; }
+
+    public void setRadarServer(boolean required) {
+        if (radarServer != required) {
+            radarServer = required;
+            View old = view;
+            view = new View(old.snapshot(), old.claims(), old.farms(), old.regions(), old.revision() + 1);
+        }
+    }
+
+    public boolean claimsAvailable() { return claimsAvailable(view); }
+
+    private boolean claimsAvailable(View current) {
+        return current.snapshot() != null && (current.snapshot().radar() == null
+                ? !radarServer : current.snapshot().radar().allowed());
+    }
+
+    /** This policy is independent of the optional overlay display toggle. */
+    public boolean hidePlayer(UUID player) {
+        View current = view;
+        var access = current.snapshot() == null ? null : current.snapshot().radar();
+        if (access == null) { return radarServer; }
+        return !access.allowed() && !access.friendlyPlayers().contains(player.toString());
+    }
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
@@ -50,6 +74,12 @@ public final class MapState {
         UUID.fromString(snapshot.world());
         text(snapshot.dimension());
         text(snapshot.raidStatus());
+        if (snapshot.radar() != null) {
+            if (snapshot.radar().friendlyPlayers().size() > 10_000) {
+                throw new IllegalArgumentException("Too many friendly players");
+            }
+            snapshot.radar().friendlyPlayers().forEach(UUID::fromString);
+        }
         if (snapshot.villages().size() > 10_000 || snapshot.claims().size() > 100_000
                 || snapshot.markers().size() > 10_000 || snapshot.farms().size() > 10_000) {
             throw new IllegalArgumentException("Too many map entries");
@@ -109,7 +139,7 @@ public final class MapState {
 
     public OwnedClaim claim(String dimension, int x, int z) {
         View current = view;
-        return enabled && current.snapshot() != null && current.snapshot().dimension().equals(dimension)
+        return enabled && claimsAvailable(current) && current.snapshot().dimension().equals(dimension)
                 ? current.claims().get(key(x, z)) : null;
     }
 
@@ -140,7 +170,7 @@ public final class MapState {
         if (!enabled || current.snapshot() == null || !current.snapshot().dimension().equals(dimension)) {
             return null;
         }
-        OwnedClaim claim = current.claims().get(key(x, z));
+        OwnedClaim claim = claimsAvailable(current) ? current.claims().get(key(x, z)) : null;
         if (farmsEnabled && current.farms().containsKey(key(x, z))) {
             int fill = xaeroColor(claim == null ? FARM_FILL_COLOR : claim.village().color(), fillAlpha);
             int border = xaeroColor(FARM_BORDER_COLOR, borderAlpha);

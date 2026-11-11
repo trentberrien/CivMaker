@@ -38,6 +38,7 @@ class CompanionMapsTest {
     private World world;
     private World other;
     private YamlConfiguration config;
+    private RaidEquipment equipment;
     private final List<byte[]> packets = new ArrayList<>();
 
     @BeforeEach void setup() throws Exception {
@@ -60,7 +61,9 @@ class CompanionMapsTest {
         when(server.getOfflinePlayer(any(UUID.class))).thenReturn(owner);
         doAnswer(invocation -> { packets.add(invocation.getArgument(2)); return null; })
                 .when(player).sendPluginMessage(eq(plugin), eq(MapProtocol.DATA), any(byte[].class));
-        maps = new CompanionMaps(plugin, store);
+        equipment = mock(RaidEquipment.class);
+        when(equipment.hasRadar(any(Player.class))).thenReturn(true);
+        maps = new CompanionMaps(plugin, store, equipment);
     }
 
     private World world(UUID id, String name) {
@@ -167,5 +170,41 @@ class CompanionMapsTest {
         store.removeFarmStation(position.plot());
         refresh();
         assertTrue(latest().farms().isEmpty());
+    }
+
+    @Test void radarInventoryChangesImmediatelyReplaceClaimsButKeepFarmsAndFriendlyIds() throws Exception {
+        var faction = village(worldId, 0);
+        store.addMember(faction, player.getUniqueId());
+        Player teammate = mock(Player.class);
+        when(teammate.getUniqueId()).thenReturn(UUID.randomUUID());
+        Player enemy = mock(Player.class);
+        when(enemy.getUniqueId()).thenReturn(UUID.randomUUID());
+        store.addMember(faction, teammate.getUniqueId());
+        Server server = plugin.getServer();
+        doReturn(List.of(player, teammate, enemy)).when(server).getOnlinePlayers();
+        store.indexFarmStation(new CivStore.FarmStation(new CivStore.Position(worldId, 48, 70, 0),
+                faction.owner, "Alice", "Wheat Farm"));
+        when(equipment.hasRadar(player)).thenReturn(false);
+        maps.onPluginMessageReceived(MapProtocol.HELLO, player, MapProtocol.hello());
+        maps.tick();
+        assertFalse(latest().radar().allowed());
+        assertTrue(latest().claims().isEmpty());
+        assertTrue(latest().villages().isEmpty());
+        assertTrue(latest().markers().isEmpty());
+        assertEquals(1, latest().farms().size());
+        assertTrue(latest().radar().friendlyPlayers().contains(teammate.getUniqueId().toString()));
+        assertFalse(latest().radar().friendlyPlayers().contains(enemy.getUniqueId().toString()));
+
+        when(equipment.hasRadar(player)).thenReturn(true);
+        maps.tick();
+        assertTrue(latest().radar().allowed());
+        assertEquals(1, latest().claims().size());
+        assertEquals(1, latest().markers().size());
+
+        when(equipment.hasRadar(player)).thenReturn(false);
+        maps.tick();
+        assertTrue(latest().claims().isEmpty());
+        assertTrue(latest().markers().isEmpty());
+        assertEquals(1, latest().farms().size());
     }
 }

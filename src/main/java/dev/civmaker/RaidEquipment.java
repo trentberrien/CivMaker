@@ -74,7 +74,8 @@ final class RaidEquipment implements Listener {
                 "Consumed on death to keep your items.", "You still drop 10% of carried money, rounded down to $1,000."),
         RADAR("radar", "Radar", Material.COMPASS, NamedTextColor.AQUA,
                 "Hold in either hand to scan nearby chunks in chat.",
-                "Shows village borders, exposed enemies, and enemy guards."),
+                "Shows village borders, exposed enemies, and enemy guards.",
+                "Carry in your inventory to unlock companion claims and enemy map markers."),
         WARP_PORTAL("warp_portal", "Warp Portal", Material.ENDER_EYE, NamedTextColor.LIGHT_PURPLE,
                 "Right-click the floor beside a lit Nether portal in your claim.",
                 "Faction members can use the trader to travel between their claims."),
@@ -331,6 +332,15 @@ final class RaidEquipment implements Listener {
             maxHealth.removeModifier(modifier.getKey());
         }
         mount.setHealth(maxHealth.getValue() * healthFraction);
+    }
+
+    boolean hasRadar(Player player) {
+        for (ItemStack item : player.getInventory().getStorageContents()) {
+            if (identify(item) == Tool.RADAR) {
+                return true;
+            }
+        }
+        return identify(player.getInventory().getItemInOffHand()) == Tool.RADAR;
     }
 
     Tool identify(ItemStack item) {

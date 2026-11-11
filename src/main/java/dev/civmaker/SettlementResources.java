@@ -48,10 +48,10 @@ final class SettlementResources {
         static Reward paymentFor(Tool tool) {
             return switch (tool) {
                 case GRENADE, C4, BLAST_ROCKET -> GUNPOWDER;
-                case VAULT, VAULT_DOOR -> IRON;
+                case VAULT, VAULT_DOOR, DEFENDER_GOLEM -> IRON;
                 case LOCKPICK, RAM -> COPPER;
                 case PILLAGER_GUARD, HAPPY_HARNESS, SUPER_SADDLE -> AMETHYST;
-                case SUPER_TOTEM, RADAR, RAID_SHIELD, DEFENDER_GOLEM, WARP_PORTAL -> null;
+                case SUPER_TOTEM, RADAR, RAID_SHIELD, WARP_PORTAL -> null;
             };
         }
     }

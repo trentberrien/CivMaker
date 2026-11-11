@@ -92,7 +92,7 @@ Once placed, the vault produces its reward every Minecraft day (24,000 world tic
 | Village type | Daily reward | Use |
 | --- | --- | --- |
 | Desert | 5 Settlement Gunpowder | Grenades, C4, and Blast Rockets |
-| Plains | 5 Settlement Iron | Secure Vault Kits and Vault Doors |
+| Plains | 5 Settlement Iron | Secure Vault Kits, Vault Doors, and Defender Golems |
 | Savanna | 5 Settlement Copper | Lockpicks and Battering Rams |
 | Taiga | 1 Super Totem | Keep your items on death and drop 10% of carried money |
 | Snowy plains | 64 Obsidian | Ordinary building material |
@@ -120,7 +120,7 @@ mvn install
 mvn -f VillagerRework/pom.xml package
 ```
 
-Copy `target/civmaker-0.5.0.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
+Copy `target/civmaker-0.8.0.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
 
 ## Farm Stations
 
@@ -233,10 +233,12 @@ Use `/civ raidprotection` to see the current rules.
 
 Run `/civ shop` in Survival to browse Raid Gear, Village Defense, Mount Upgrades, and Utility. Hover over an item to see its payment options. Left-click to pay from your wallet, normally **$10,000**, or right-click an eligible item to pay **5 of the matching settlement currency** from your inventory. Use raid tools from your main hand.
 
+The Founding Beacon appears alone in the center of the top row before you join or create a faction. Once you belong to a faction, the Faction Banner station replaces it in the same slot.
+
 | Item | Use |
 | --- | --- |
 | Pillager Guard | Right-click the top of a solid block inside your own village to post a pillager with a visible `guard` nametag. During active raids, it fires at eligible raiders it can see within four chunks (64 blocks), even across the village border. Rockets damage only targeted enemies and mobs they're riding. |
-| Defender Golem | Buy a kit for $10,000 under Village Defense, then right-click your faction's settlement bell with it in your main hand. Each bell can have one defender. Leave a clear 3-by-3 spot with six blocks of headroom near the bell. The golem is twice normal size, has 100 health (50 hearts), and stays within 16 blocks of the bell. It swings in melee and throws 1½-block-wide boulders at targets up to 24 blocks away. Both attacks deal normal iron golem hit damage. The golem is immune to arrows and to splash and lingering potions. A living golem in the ring contests enemy capture in either mode. Its boss health bar appears at the top of the screen within 32 blocks. |
+| Defender Golem | Buy a kit for $10,000 or 5 Settlement Iron under Village Defense, then right-click your faction's settlement bell with it in your main hand. Each bell can have one defender. Leave a clear 3-by-3 spot with six blocks of headroom near the bell. The golem is twice normal size, has 100 health (50 hearts), and stays within 16 blocks of the bell. It swings in melee and throws 1½-block-wide boulders at targets up to 24 blocks away. Both attacks deal normal iron golem hit damage. The golem is immune to arrows and to splash and lingering potions. A living golem in the ring contests enemy capture in either mode. Its boss health bar appears at the top of the screen within 32 blocks. |
 | Lockpick | A glinting stick. Spend one to start a puzzle with a fixed 14-pane trail. Click the glowing yellow pane in order as completed panes turn green. Each correct click has a 5% break chance, giving one lockpick a 48.77% chance of finishing all 14 steps. Solving it opens a Vault Door or grants one session of storage access. |
 | C4 | Right-click a block face to detonate at TNT strength. The blast can break unclaimed blocks at any time. Targeting a village claim requires an active raid against that village. The blast spares secure vaults and claim anchors, deals no direct damage to players or mobs, and cannot start a TNT chain. |
 | Grenade | Right-click to launch primed TNT in the direction you're looking, including from a Happy Ghast. After a five-second fuse it uses C4 block damage rules and can damage enemy Defender Golems during the same raid. To damage a village claim, throw it during a raid and have it detonate inside the enemy claim before that raid window ends. |
@@ -261,12 +263,14 @@ Loading fireworks into a Multishot crossbow consumes three rockets. If you have 
 ### Build and install
 
 1. Install JDK 25 and Maven, then run `mvn package` from this directory. This preserves older versioned JARs in `target/`.
-2. Copy `target/civmaker-0.7.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+2. Copy `target/civmaker-0.8.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
 3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
 
 ### Optional Xaero map companion
 
-The [CivMaker Companion](companion/README.md) adds village-colored plot overlays, ownership details, Farm Station chunk highlights, and capital/settlement/farm markers to Xaero's Minimap and World Map. It is a client-only Fabric mod for the Minecraft 26.3 CurseForge profile. Install the companion JAR in the profile's `mods` folder and use CivMaker 0.5.0 or newer on the Paper server. Players without the companion can keep playing normally.
+The [CivMaker Companion](companion/README.md) adds village-colored plot overlays, ownership details, Farm Station chunk highlights, and capital/settlement/farm markers to Xaero's Minimap and World Map. It is a client-only Fabric mod for the Minecraft 26.3 CurseForge profile. Install companion 0.3.0 in the profile's `mods` folder and use CivMaker 0.8.0 or newer on the Paper server. Players without the companion can keep playing normally.
+
+Village claim overlays, capital/settlement markers, and enemy players on Xaero's maps require a genuine CivMaker Radar in the main inventory, hotbar, or offhand. Farm highlights and faction teammates remain visible without one. The server checks possession every tick and withdraws claim data when the item is lost. A renamed compass does not count. Holding the Radar in either hand is still required for its chat scan.
 
 Use `/civmap` to toggle overlays, `/civmap farms` to toggle farm highlights and markers, `/civmap markers` to toggle landmarks, `/civmap status` to check the connection, and `/civmap refresh` to request an update. Farm chunks have gold borders and `F` waypoints showing the station name, owner, and owner's faction. The server sends public ownership and registered farm information for the current world; vault contents, balances, and unpurchased natural settlements are excluded. Set `companion-map.enabled: false` in the server config to disable map data.
 

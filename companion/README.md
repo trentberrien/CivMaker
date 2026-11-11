@@ -13,12 +13,12 @@ This release matches the existing **CivMaker** profile:
 | Fabric API | 0.166.0+26.3 or newer |
 | Xaero's Minimap | 26.6.2 |
 | Xaero's World Map (optional) | 1.47.2 |
-| CivMaker Paper server plugin | 0.5.0 or newer |
+| CivMaker Paper server plugin | 0.8.0 or newer |
 
 1. Close Minecraft. In CurseForge, open the profile's three-dot menu and choose **Open Folder**.
-2. Put **`civmaker-companion-fabric-26.3-0.2.0.jar`** in its **`mods`** folder. Use the normal JAR, not the `-sources.jar`.
+2. Put **`civmaker-companion-fabric-26.3-0.3.0.jar`** in its **`mods`** folder. Use the normal JAR, not the `-sources.jar`.
 3. Keep Fabric API and Xaero's Minimap installed. World Map is optional. Your current profile already has these dependencies.
-4. On the server, replace the old CivMaker plugin JAR with **`civmaker-0.5.0.jar`**, then restart the server. Keep only one CivMaker server JAR in `plugins`.
+4. On the server, replace the old CivMaker plugin JAR with **`civmaker-0.8.0.jar`**, then restart the server. Keep only one CivMaker server JAR in `plugins`.
 5. Launch the profile and join the server. Run **`/civmap status`** to confirm the connection.
 
 The local profile's mod folder is `C:\Users\trber\curseforge\minecraft\Instances\CivMaker\mods`.
@@ -41,7 +41,15 @@ The World Map shows ownership details using Xaero's highlight tooltips. The mini
 
 Farm Station chunks get a gold outline. On village territory they retain the village's fill color; in wilderness they have a green fill. Each station gets an `F` waypoint in its owner's faction color (gray when unaffiliated). Tooltips show the farm name, station owner, owner's faction, and the underlying land ownership separately. Renaming or removing a station, or changing its owner's faction, updates the map automatically. Farms remain visible outside village claims and in unloaded chunks using CivMaker's registered station index. Ordinary crop fields and unregistered lodestones are not classified as farms.
 
-Companion 0.2.0 can still display claims from CivMaker 0.4.0; farm data requires CivMaker 0.5.0. The older companion can connect to the newer server and ignores the added farm information.
+### Radar requirement
+
+Carry a genuine **CivMaker Radar** in the main inventory, hotbar, or offhand to see village claim fills/outlines, capital/settlement markers, and enemy players on Xaero's Minimap and World Map. Holding it is not required for the companion. A plain compass renamed Radar does not qualify. Items in chests, shulker boxes, ender chests, or the inventory cursor do not count.
+
+Without a Radar, farm highlights and farm waypoints remain available, and your own faction's player markers remain visible. All other players are treated as enemies, including unaffiliated players. Farm tooltips do not reveal underlying territory ownership while claim access is locked. The existing chat Radar still requires holding the item in either hand.
+
+The server checks Radar possession every tick and replaces the player's map snapshot immediately when access changes. It withholds village claim data and territorial landmarks entirely without the item. The companion also filters nearby entity-radar markers and tracked-player markers, using server-provided faction membership. The `/civmap` display toggle does not bypass these requirements. Removing, dropping, storing, or losing the Radar hides the restricted information as soon as the server update arrives. Other servers and normal in-world player rendering are unaffected.
+
+Radar-controlled maps require **companion 0.3.0 and CivMaker 0.8.0**. Update both. The new client keeps restricted information hidden when connected to an older CivMaker server that cannot provide a Radar verdict. Older companions receive the server's filtered claims but do not implement enemy-player filtering. This integration governs Xaero displays in the companion; it is not an anti-cheat for other client mods.
 
 Markers use Xaero's session-only third-party waypoints. They never change your personal waypoints. Xaero's normal waypoint visibility settings still apply; the default waypoint set displays third-party markers. Ownership changes, disbands, world switches, and disconnects remove stale overlays and markers.
 
@@ -59,7 +67,7 @@ Client settings are stored in `config/civmaker-companion.json`:
 
 Opacity ranges from 0 to 100. Edit while Minecraft is closed. Commands save toggle settings automatically.
 
-Server administrators can set `companion-map.enabled: false` in `plugins/CivMaker/config.yml` and restart to disable the integration. The bridge sends owned plot locations, village IDs/names/colors/points, owner UUIDs/names, capital coordinates, purchased settlement bell coordinates, registered Farm Station coordinates/names/owners/factions, and public raid status. It excludes wallets, vault contents/locations, members, and unpurchased natural settlements. It does not enable claiming, teleporting, or other server actions from the map.
+Server administrators can set `companion-map.enabled: false` in `plugins/CivMaker/config.yml` and restart to disable map data. The bridge sends registered Farm Station coordinates/names/owners/factions and public raid status, plus a Radar-access verdict and friendly-player UUIDs. With a Radar it also sends owned plot locations, village IDs/names/colors/points, owner UUIDs/names, capital coordinates, and purchased settlement bell coordinates. It excludes wallets, vault contents/locations, full membership lists, and unpurchased natural settlements. It does not enable claiming, teleporting, or other server actions from the map.
 
 ## Build
 
@@ -69,7 +77,7 @@ Install JDK 25, then from this directory run:
 .\gradlew.bat build
 ```
 
-The installable JAR is `build/libs/civmaker-companion-fabric-26.3-0.2.0.jar`. Build the Paper plugin separately with `mvn package` from the repository root. These commands preserve older versioned JARs. The Gradle wrapper downloads its pinned Gradle version and build dependencies on first use. Xaero dependencies are compile-time dependencies, not bundled redistributions.
+The installable JAR is `build/libs/civmaker-companion-fabric-26.3-0.3.0.jar`. Build the Paper plugin separately with `mvn package` from the repository root. These commands preserve older versioned JARs. The Gradle wrapper downloads its pinned Gradle version and build dependencies on first use. Xaero dependencies are compile-time dependencies, not bundled redistributions.
 
 The protocol source in `../src/main/java/dev/civmaker/map/protocol` is shared with the Paper plugin. The client registers small hooks before Xaero freezes its highlight registries, then uses Xaero's own chunk-highlighter and third-party-waypoint interfaces. Xaero versions are pinned because these interfaces can change between releases.
 
