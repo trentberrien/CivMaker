@@ -59,7 +59,7 @@ final class SettlementBuying implements Listener {
                     "Daily vault reward: " + Reward.at(settlement.structure(), bell).label));
             inventory.setItem(BUY_SLOT, item(Material.EMERALD, "Buy village for " + cost,
                     String.format(Locale.US, "Wallet balance: $%,d", balance),
-                    "Purchase requires a village owner in Survival."));
+                    "Purchase requires an elder or owner in Survival."));
             inventory.setItem(CANCEL_SLOT, item(Material.BARRIER, "Cancel"));
         }
 
@@ -156,6 +156,10 @@ final class SettlementBuying implements Listener {
     }
 
     private void buy(Player player, Village village, Block bell, Settlement settlement, Location spot) {
+        if (store.registeredVillage(player.getUniqueId()) != village || !village.canManage(player.getUniqueId())) {
+            player.sendMessage(ClaimBuying.PROMOTION_MESSAGE);
+            return;
+        }
         long balance = wallets.balance(player);
         if (balance < price) {
             player.sendMessage("Your wallet needs " + cost + " to buy this settlement.");
@@ -335,9 +339,9 @@ final class SettlementBuying implements Listener {
             player.sendMessage("Switch to Survival to buy a settlement.");
             return;
         }
-        Village village = store.memberOf(player.getUniqueId());
-        if (village == null || !village.owner.equals(player.getUniqueId())) {
-            player.sendMessage("Only a village owner can buy a settlement.");
+        Village village = store.registeredVillage(player.getUniqueId());
+        if (village == null || !village.canManage(player.getUniqueId())) {
+            player.sendMessage(ClaimBuying.PROMOTION_MESSAGE);
             return;
         }
         Block bell = loadedBell(menu.bell);

@@ -55,9 +55,9 @@ Deepslate ores pay the same amount as their stone equivalents by default.
 ## Founding and expanding villages
 
 1. Buy a **Founding Beacon** for **$10,000** from `/civ shop` or with `/civ create`. Place it in an unclaimed Overworld chunk outside a natural village, at Y 64 or higher by default, with clear sky above it. Select **Choose a name** in the setup menu, enter a civilization name, and select **Found civilization**. The beacon becomes your capital and can grant normal beacon effects once powered. Close the menu anytime and right-click the beacon to resume.
-2. As the owner, run `/civ claim mode` and walk into an unclaimed chunk that shares an edge with your capital territory. Sneak and right-click to buy the chunk you're standing in. The default price is $1,000, paid from your wallet. Run `/civ claim mode` again to leave buying mode, or use `/civ claim` for a single purchase.
+2. As an owner or elder, run `/civ claim mode` and walk into an unclaimed chunk that shares an edge with your capital territory. Sneak and right-click to buy the chunk you're standing in. The default price is $1,000, paid from your wallet. Run `/civ claim mode` again to leave buying mode, or use `/civ claim` for a single purchase. Ordinary members must be promoted to elder before buying plots.
 3. Use `/civ claim undo` to release your most recently purchased expansion and refund its original price. Each purchase gives you one undo. The founding chunk stays claimed until the village disbands.
-4. Use `/civ invite <online player>` to invite a player. They have ten minutes to run `/civ join`. Members can build and use containers in village territory. Members can use `/civ leave` to give up their membership. An owner can leave by disbanding their village. `/civ villages` shows public beacon coordinates, and `/civ info` describes the current claim or your own village.
+4. Owners and elders can use `/civ invite <online player>` to invite a player. They have ten minutes to run `/civ join`. Owners can use `/civ promote <player>` to make a faction member an elder and `/civ demote <player>` to return an elder to ordinary membership. Owners and elders can use `/civ kick <player>`: owners can remove members or elders, while elders can only remove ordinary members. The owner cannot be kicked. Promotion, demotion, and kicking also work for offline members using their cached name or UUID. Elder roles are saved across restarts and cleared when a player leaves or is kicked. Members can build and use containers in village territory. Members can use `/civ leave` to give up their membership. An owner can leave by disbanding their village. `/civ villages` shows public beacon coordinates, and `/civ info` describes the current claim or your own village.
 
 Players without a civilization can buy multiple Founding Beacons. Each player can belong to one civilization at a time. A Founding Beacon unlocks its effects when it becomes a capital. Unused Founding Beacons stay locked, including when picked up and placed again. Leaving a civilization restores purchase eligibility. Ordinary beacons still work inside civilizations.
 
@@ -77,8 +77,8 @@ The default faction banner uses the faction's color. To set a design, the owner 
 
 ## Settlements and points
 
-- A beacon capital starts with **100 points**, including its founding chunk. Each purchased capital chunk adds **1 point**, up to **100 expansion chunks** per capital. Settlements and the founding chunk are separate from this limit. Undoing a purchase removes its point and frees an expansion slot. Use `/civ info` to see the current count.
-- Right-click the purchasing villager beside the meeting-point bell. Its nameplate shows the village type, such as **Meadow Settlement - Right-click to claim**, so Meadow villages can be distinguished from Plains villages. The purchase menu shows the price, protected chunks, and daily vault reward. A capital owner in Survival can confirm the purchase for **$50,000** from their wallet. Purchases add **100 points** and place the Settlement Vault where the villager stood. Owners can also preview or purchase at the bell with `/civ settlement` and `/civ settlement buy`.
+- A beacon capital starts with **100 points**, including its founding chunk. Each purchased capital chunk adds **1 point**, with an initial limit of **100 expansion chunks** per capital. An owner or elder in Survival can **sneak and right-click their capital beacon** to open a settlement-style upgrade menu. Select **Buy upgrade for $100,000** to permanently raise the civilization's limit to **200 expansion chunks**, paid from your wallet, or select **Cancel** to leave without paying. Opening the menu does not spend money. This upgrade can only be purchased once and survives restarts. Settlements and the founding chunk are separate from this limit. Undoing a purchase removes its point and frees an expansion slot. Use `/civ info` to see the current count and limit.
+- Right-click the purchasing villager beside the meeting-point bell. Its nameplate shows the village type, such as **Meadow Settlement - Right-click to claim**, so Meadow villages can be distinguished from Plains villages. The purchase menu shows the price, protected chunks, and daily vault reward. An owner or elder in Survival can confirm the purchase for **$50,000** from their wallet. Purchases add **100 points** and place the Settlement Vault where the villager stood. Owners and elders can also preview or purchase at the bell with `/civ settlement` and `/civ settlement buy`.
 - Unclaimed natural villages are protected across the chunks intersecting their generated pieces. Players can enter, open ordinary doors, ring the bell, and trade with villagers. The whole footprint must be unclaimed to purchase it, and settlement chunks cannot be used as expansion anchors.
 - Blocks within a **16-block horizontal radius**, starting **three blocks below the bell** and extending to the world height limit, are protected from building and breaking before and after purchase, including during raids.
 - The territory banner shows village points alongside wealth. Use `/civ points` to see the top villages by points.
@@ -87,7 +87,7 @@ The default faction banner uses the faction's color. To set a design, the owner 
 
 The nameplate below the bell shows the settlement type and its owning village. The vault has its own floating label. Owners of older settlements without a placed vault can look at their bell and run `/civ settlement vault` to place one in a clear spot nearby.
 
-Once placed, the vault produces its reward every Minecraft day (24,000 world ticks, about 20 minutes at normal speed). Currency settlements produce five items per day, worth $2,000 each toward eligible shop purchases. Each daily batch occupies its own slot. Five slots hold five days of currency deposits, for 25 items worth $50,000 in total. Production follows the world's day-night clock, so sleeping or advancing world time can bring the next deposit sooner. An unloaded vault catches up when its chunk loads, up to five daily batches. Production for days when it is full is lost. Village members can open it and click a batch to withdraw it. During a raid, outsiders can use a lockpick to loot it. Hoppers and players cannot deposit items, and hoppers cannot withdraw them.
+Once placed, the vault produces its reward every Minecraft day (24,000 world ticks, about 20 minutes at normal speed). Currency settlements produce five items per day, worth $2,000 each toward eligible shop purchases. Each daily batch occupies its own slot. Five slots hold five days of currency deposits, for 25 items worth $50,000 in total. Production follows the world's day-night clock, so sleeping or advancing world time can bring the next deposit sooner. An unloaded vault catches up when its chunk loads, up to five daily batches. Production for days when it is full is lost. Village members can open it, but only elders and owners can withdraw settlement currency such as Settlement Copper, Iron, Gunpowder, and Muster Amethyst. Ordinary members can still withdraw non-currency rewards such as Obsidian and Super Totems. During a raid, outsiders can use a lockpick to loot it. Hoppers and players cannot deposit items, and hoppers cannot withdraw them.
 
 | Village type | Daily reward | Use |
 | --- | --- | --- |
@@ -175,6 +175,8 @@ A floating nametag shows the farm name above the owner's faction name in that fa
 
 Use a **Secure Vault Kit** on a chest, barrel, or shulker box inside your own claim. The entire container, including both halves of a double chest, must be inside your village. A floating nameplate identifies the vault, and its banknotes count toward the village balance. Withdrawals and theft reduce that balance. Previously unloaded vaults are counted when their chunks load.
 
+Only elders and owners can take banknotes or settlement currency out of their civilization's Secure Vaults. Ordinary members can still deposit funds and use non-currency contents. This restriction also covers shift-clicks, hotbar swaps, double-click collection, and containers holding currency. Breaking a vault containing currency cannot bypass the rank requirement. Raid lockpicking keeps its existing loot rules.
+
 ## Trading items
 
 Run `/trade <player>` in Survival. The other player has one minute to click the request in chat or run `/trade <your name>` to accept.
@@ -259,7 +261,7 @@ Loading fireworks into a Multishot crossbow consumes three rockets. If you have 
 ### Build and install
 
 1. Install JDK 25 and Maven, then run `mvn package` from this directory. This preserves older versioned JARs in `target/`.
-2. Copy `target/civmaker-0.5.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+2. Copy `target/civmaker-0.7.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
 3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
 
 ### Optional Xaero map companion
@@ -271,6 +273,8 @@ Use `/civmap` to toggle overlays, `/civmap farms` to toggle farm highlights and 
 ### Configuration and upgrades
 
 Default prices, mining payouts, claim settings, Raid Protection, and warp timers are configured in `plugins/CivMaker/config.yml`. Restart after editing the file.
+
+Existing civilizations keep their claims and memberships when upgrading to 0.7.0. Their expansion limit stays at 100 until an elder or owner purchases the beacon upgrade. Elder roles and purchased upgrades are saved automatically; no manual data migration is needed.
 
 Set `warp-portal.cooldown-seconds` and `warp-portal.combat-death-timeout-seconds` in `plugins/CivMaker/config.yml`. Set either value to `0` to disable that timer, then restart the server to apply the changes.
 

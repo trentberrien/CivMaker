@@ -20,6 +20,7 @@ public class CivMaker extends JavaPlugin {
     private VaultTracking vaultTracking;
     private RaidEquipment equipment;
     private RaidShop raidShop;
+    private ClaimBuying claimBuying;
     private SettlementVaults settlementVaults;
     private SettlementBuying settlementBuying;
     private RaidTools raidTools;
@@ -96,7 +97,7 @@ public class CivMaker extends JavaPlugin {
         Wallets wallets = new Wallets(this);
         NaturalVillages natural = new NaturalVillages(this, store);
         naturalVillages = natural;
-        ClaimBuying claimBuying = new ClaimBuying(this, store, wallets, natural);
+        claimBuying = new ClaimBuying(this, store, wallets, natural);
         VillageBorders villageBorders = new VillageBorders(this, store);
         equipment = new RaidEquipment(this);
         SettlementResources resources = new SettlementResources(this, equipment);
@@ -145,7 +146,7 @@ public class CivMaker extends JavaPlugin {
         events.registerEvents(new BlastRockets(this, equipment), this);
         events.registerEvents(trading, this);
         events.registerEvents(new WalletDrops(wallets, notes, trading), this);
-        events.registerEvents(new MoneyStorage(notes, store, equipment), this);
+        events.registerEvents(new MoneyStorage(notes, store, equipment, resources), this);
         events.registerEvents(equipment, this);
         events.registerEvents(vaultTracking, this);
         events.registerEvents(combatTimeout, this);
@@ -192,6 +193,9 @@ public class CivMaker extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (claimBuying != null) {
+            claimBuying.closeAll();
+        }
         if (endPortals != null) {
             endPortals.closeAll();
         }

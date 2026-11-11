@@ -339,20 +339,33 @@ final class SettlementVaults implements Listener {
                 || (event.getCursor() != null && !event.getCursor().isEmpty())) {
             return;
         }
-        Inventory source = available(player, menu.position);
+        Inventory source = withdraw(player, menu.position, slot, event.getCurrentItem());
+        if (source != null) {
+            menu.refresh(source);
+        }
+    }
+
+    Inventory withdraw(Player player, Position position, int slot, ItemStack expected) {
+        Inventory source = available(player, position);
         ItemStack item = source == null ? null : source.getItem(slot);
-        if (item == null || !item.equals(event.getCurrentItem())) {
-            return;
+        if (item == null || !item.equals(expected)) {
+            return null;
+        }
+        Village village = store.claimAt(position.plot());
+        if (resources.isCurrency(item) && (village == null
+                || store.registeredVillage(player.getUniqueId()) != village || !village.canManage(player.getUniqueId()))) {
+            player.sendMessage(MoneyStorage.WITHDRAW_MESSAGE);
+            return null;
         }
         var inventory = player.getInventory();
         var contents = inventory.getStorageContents().clone();
         if (ItemTransfers.insert(contents, item, inventory.getMaxStackSize()) > 0) {
             player.sendMessage("Free up inventory space to withdraw this stack.");
-            return;
+            return null;
         }
         source.setItem(slot, null);
         inventory.setStorageContents(contents);
-        menu.refresh(source);
+        return source;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

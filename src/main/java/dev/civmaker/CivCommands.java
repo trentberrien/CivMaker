@@ -28,7 +28,7 @@ import java.util.stream.StreamSupport;
 
 final class CivCommands implements TabExecutor {
     private static final List<String> PLAYER_COMMANDS = List.of("help", "balance", "withdraw", "deposit",
-            "create", "claim", "settlement", "points", "borders", "invite", "join", "leave", "disband", "info", "villages", "raids", "shop", "banner", "raidprotection");
+            "create", "claim", "settlement", "points", "borders", "invite", "promote", "demote", "kick", "join", "leave", "disband", "info", "villages", "raids", "shop", "banner", "raidprotection");
     private static final long INVITE_DURATION = 10 * 60 * 1000;
     private static final long DISBAND_DURATION = 60_000;
 
@@ -110,6 +110,8 @@ final class CivCommands implements TabExecutor {
                         }
                         case "info" -> info(player, village);
                         case "leave" -> leave(player, args);
+                        case "promote", "demote" -> changeElder(player, args, action.equals("promote"));
+                        case "kick" -> kick(player, args);
                         case "disband" -> disband(player, args);
                         case "banner" -> setBanner(player, args);
                         case "withdraw", "deposit", "create", "claim", "settlement", "invite", "join", "shop" -> {
@@ -121,9 +123,9 @@ final class CivCommands implements TabExecutor {
                                     require(args.length == 1, "Use /civ create to buy a Founding Beacon. Name your civilization when you place it.");
                                     foundingBeacons.buy(player);
                                 }
-                                case "claim" -> claimBuying.command(player, owned(player, village), args);
-                                case "settlement" -> settlementBuying.command(player, owned(player, village), args);
-                                case "invite" -> invite(player, owned(player, village), args);
+                                case "claim" -> claimBuying.command(player, store.registeredVillage(id), args);
+                                case "settlement" -> settlementBuying.command(player, landManager(player), args);
+                                case "invite" -> invite(player, managed(player), args);
                                 case "join" -> join(player, village);
                                 case "shop" -> raidShop.open(player);
                             }
@@ -143,8 +145,11 @@ final class CivCommands implements TabExecutor {
         sender.sendMessage("/civ create buys a Founding Beacon for " + FoundingBeacons.PRICE_LABEL + ". Place it to start a civilization.");
         sender.sendMessage("/civ claim | info | villages");
         sender.sendMessage("/civ claim mode | claim undo | borders");
+        sender.sendMessage("Sneak and right-click your capital beacon to upgrade to 200 expansion claims for $100,000 (elder or owner).");
         sender.sendMessage("/civ settlement [buy|vault] | points");
         sender.sendMessage("/civ invite <player> | join | leave");
+        sender.sendMessage("/civ promote <player> | demote <player> (owner only)");
+        sender.sendMessage("/civ kick <player> (owner or elder; elders can only kick ordinary members)");
         sender.sendMessage("/civ disband");
         sender.sendMessage("/civ raids | shop");
         sender.sendMessage("/civ banner set (owner, hold a banner in your main hand)");
@@ -301,6 +306,77 @@ final class CivCommands implements TabExecutor {
         player.sendMessage("Invitation sent to " + invited.getName() + ".");
     }
 
+    private Village managed(Player player) {
+        UUID id = player.getUniqueId();
+        Village village = store.registeredVillage(id);
+        require(village != null && village.canManage(id),
+                "Only a faction owner or elder can use this command.");
+        return village;
+    }
+
+    private Village landManager(Player player) {
+        Village village = store.registeredVillage(player.getUniqueId());
+        require(village != null, "You must belong to a civilization to buy plots.");
+        require(village.canManage(player.getUniqueId()), ClaimBuying.PROMOTION_MESSAGE);
+        return village;
+    }
+
+    private OfflinePlayer factionMember(Village village, String name) {
+        OfflinePlayer target = plugin.getServer().getPlayerExact(name);
+        if (target == null) {
+            target = plugin.getServer().getOfflinePlayerIfCached(name);
+        }
+        if (target == null) {
+            try {
+                UUID id = UUID.fromString(name);
+                require(village.members.contains(id), "That player is not a member of your faction.");
+                target = plugin.getServer().getOfflinePlayer(id);
+            } catch (IllegalArgumentException error) {
+                throw new IllegalArgumentException("That player is not a member of your faction. Use their name or UUID.");
+            }
+        }
+        require(village.members.contains(target.getUniqueId()), "That player is not a member of your faction.");
+        return target;
+    }
+
+    private static String memberName(OfflinePlayer player) {
+        return player.getName() == null ? player.getUniqueId().toString() : player.getName();
+    }
+
+    private void changeElder(Player player, String[] args, boolean promote) {
+        String action = promote ? "promote" : "demote";
+        require(args.length == 2, "Use /civ " + action + " <player>.");
+        Village village = owned(player, store.registeredVillage(player.getUniqueId()));
+        OfflinePlayer target = factionMember(village, args[1]);
+        UUID id = target.getUniqueId();
+        require(!village.owner.equals(id), "The faction owner cannot be promoted or demoted.");
+        require(store.setElder(village, id, promote),
+                memberName(target) + (promote ? " is already an elder." : " is not an elder."));
+        String change = promote ? "promoted to elder" : "demoted to member";
+        player.sendMessage(memberName(target) + " was " + change + " in " + village.name + ".");
+        Player online = plugin.getServer().getPlayer(id);
+        if (online != null) {
+            online.sendMessage("You were " + change + " in " + village.name + " by " + player.getName() + ".");
+        }
+    }
+
+    private void kick(Player player, String[] args) {
+        require(args.length == 2, "Use /civ kick <player>.");
+        Village village = managed(player);
+        OfflinePlayer target = factionMember(village, args[1]);
+        UUID id = target.getUniqueId();
+        require(!village.owner.equals(id), "The faction owner cannot be kicked.");
+        require(village.owner.equals(player.getUniqueId()) || !village.elders.contains(id),
+                "Elders cannot kick other elders. Only the faction owner can kick an elder.");
+        store.removeMember(village, id);
+        invites.remove(id);
+        player.sendMessage("Kicked " + memberName(target) + " from " + village.name + ".");
+        Player online = plugin.getServer().getPlayer(id);
+        if (online != null) {
+            online.sendMessage("You were kicked from " + village.name + " by " + player.getName() + ".");
+        }
+    }
+
     private void join(Player player, Village current) {
         UUID id = player.getUniqueId();
         require(current == null && store.registeredVillage(id) == null, "You already belong to a village.");
@@ -393,7 +469,7 @@ final class CivCommands implements TabExecutor {
         require(village != null, "This chunk is unclaimed and you don't belong to a village.");
         player.sendMessage(summary(village));
         player.sendMessage("Capital expansion: " + village.capitalExpansionCount() + "/"
-                + CivStore.CAPITAL_EXPANSION_LIMIT + " chunks.");
+                + village.capitalExpansionLimit() + " chunks.");
     }
 
     private void villages(CommandSender sender) {
@@ -633,6 +709,20 @@ final class CivCommands implements TabExecutor {
             options = Stream.of("buy", "vault");
         } else if (args.length == 2 && action.equals("admin") && manageAdmins) {
             options = Stream.of("add", "remove");
+        } else if (args.length == 2 && (action.equals("promote") || action.equals("demote") || action.equals("kick"))
+                && sender instanceof Player player) {
+            Village village = store.registeredVillage(player.getUniqueId());
+            boolean owner = village != null && village.owner.equals(player.getUniqueId());
+            if (village != null && (owner || (action.equals("kick") && village.elders.contains(player.getUniqueId())))) {
+                options = village.members.stream()
+                        .filter(id -> !village.owner.equals(id))
+                        .filter(id -> switch (action) {
+                            case "promote" -> !village.elders.contains(id);
+                            case "demote" -> village.elders.contains(id);
+                            default -> owner || !village.elders.contains(id);
+                        })
+                        .map(id -> memberName(plugin.getServer().getOfflinePlayer(id)));
+            }
         } else if ((args.length == 2 && (action.equals("invite") || (action.equals("setbalance") && isAdmin(sender))))
                 || (args.length == 3 && action.equals("admin") && manageAdmins)) {
             options = plugin.getServer().getOnlinePlayers().stream().map(Player::getName);

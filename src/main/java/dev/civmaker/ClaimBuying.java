@@ -2,10 +2,18 @@ package dev.civmaker;
 
 import dev.civmaker.CivStore.ClaimPurchase;
 import dev.civmaker.CivStore.Plot;
+import dev.civmaker.CivStore.Position;
 import dev.civmaker.CivStore.Village;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.GameMode;
+import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Particle;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -13,14 +21,48 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
 final class ClaimBuying implements Listener {
+    static final String PROMOTION_MESSAGE = "You must be promoted to elder to buy plots for your civilization. Ask your owner to use /civ promote <player>.";
+    static final long UPGRADE_PRICE = 100_000;
+    private static final int BUY_SLOT = 11;
+    private static final int CANCEL_SLOT = 15;
+
+    private static final class UpgradeMenu implements InventoryHolder {
+        final Village village;
+        final Inventory inventory;
+
+        UpgradeMenu(Village village, long balance) {
+            this.village = village;
+            inventory = Bukkit.createInventory(this, 27, Component.text("Upgrade Land Claims"));
+            inventory.setItem(4, item(Material.BEACON, "Expand " + village.name,
+                    "Increase the expansion limit from 100 to 200 chunks.",
+                    "One upgrade for your entire civilization.",
+                    "Current expansions: " + village.capitalExpansionCount() + "/" + village.capitalExpansionLimit()));
+            inventory.setItem(BUY_SLOT, item(Material.EMERALD, "Buy upgrade for $100,000",
+                    String.format(Locale.US, "Wallet balance: $%,d", balance),
+                    "Requires an elder or owner in Survival."));
+            inventory.setItem(CANCEL_SLOT, item(Material.BARRIER, "Cancel"));
+        }
+
+        @Override
+        public Inventory getInventory() {
+            return inventory;
+        }
+    }
+
     private enum Status {
         OWNED(Color.BLUE), FOR_SALE(Color.LIME), OTHER_VILLAGE(Color.RED), NATURAL_VILLAGE(Color.RED),
         NOT_ADJACENT(Color.GRAY), AT_CAPACITY(Color.GRAY), TOO_EXPENSIVE(Color.GRAY);
@@ -48,6 +90,9 @@ final class ClaimBuying implements Listener {
     }
 
     void command(Player player, Village village, String[] args) {
+        if (!canBuy(player, village)) {
+            return;
+        }
         if (args.length == 1) {
             buy(player, village);
         } else if (args.length == 2) {
@@ -75,17 +120,120 @@ final class ClaimBuying implements Listener {
     void click(PlayerInteractEvent event) {
         Player player = event.getPlayer();
         if ((event.getAction() != Action.RIGHT_CLICK_BLOCK && event.getAction() != Action.RIGHT_CLICK_AIR)
-                || !buying.contains(player.getUniqueId()) || !player.isSneaking() || player.getGameMode() != GameMode.SURVIVAL) {
+                || !player.isSneaking()) {
             return;
         }
-        Village village = store.memberOf(player.getUniqueId());
-        if (village == null || !village.owner.equals(player.getUniqueId())) {
+        Block block = event.getClickedBlock();
+        Village capital = block == null || block.getType() != Material.BEACON ? null : store.claimAt(block);
+        if (capital != null && capital.beacon.equals(Position.at(block))) {
+            event.setCancelled(true);
+            if (event.getHand() == EquipmentSlot.HAND && canUpgrade(player, capital)) {
+                player.openInventory(new UpgradeMenu(capital, wallets.balance(player)).inventory);
+            }
+            return;
+        }
+        if (!buying.contains(player.getUniqueId()) || player.getGameMode() != GameMode.SURVIVAL) {
             return;
         }
         event.setCancelled(true);
         if (event.getHand() == EquipmentSlot.HAND) {
-            buy(player, village);
+            Village village = store.registeredVillage(player.getUniqueId());
+            if (canBuy(player, village)) {
+                buy(player, village);
+            } else {
+                stop(player.getUniqueId());
+            }
         }
+    }
+
+    private boolean canBuy(Player player, Village village) {
+        if (village == null || store.registeredVillage(player.getUniqueId()) != village) {
+            player.sendMessage("You must belong to this civilization to buy plots.");
+            return false;
+        }
+        if (!village.canManage(player.getUniqueId())) {
+            player.sendMessage(PROMOTION_MESSAGE);
+            return false;
+        }
+        return true;
+    }
+
+    private boolean canUpgrade(Player player, Village village) {
+        if (!canBuy(player, village)) {
+            return false;
+        }
+        if (player.getGameMode() != GameMode.SURVIVAL) {
+            player.sendMessage("Switch to Survival to upgrade your land claims.");
+            return false;
+        }
+        if (village.expandedClaims) {
+            player.sendMessage("Your civilization already has the maximum of 200 expansion claims.");
+            return false;
+        }
+        return true;
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    void menuClick(InventoryClickEvent event) {
+        if (!(event.getView().getTopInventory().getHolder() instanceof UpgradeMenu menu)) {
+            return;
+        }
+        event.setCancelled(true);
+        int slot = event.getRawSlot();
+        if (!(event.getWhoClicked() instanceof Player player) || !event.getClick().isLeftClick()
+                || (slot != BUY_SLOT && slot != CANCEL_SLOT)) {
+            return;
+        }
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (!player.isOnline() || player.getOpenInventory().getTopInventory().getHolder() != menu) {
+                return;
+            }
+            player.closeInventory();
+            if (slot == BUY_SLOT) {
+                purchaseUpgrade(player, menu.village);
+            }
+        });
+    }
+
+    private void purchaseUpgrade(Player player, Village village) {
+        if (!store.hasVillage(village.id) || !canUpgrade(player, village)) {
+            return;
+        }
+        Position position = village.beacon;
+        if (!player.getWorld().getUID().equals(position.world())
+                || !player.getWorld().isChunkLoaded(position.x() >> 4, position.z() >> 4)
+                || player.getWorld().getBlockAt(position.x(), position.y(), position.z()).getType() != Material.BEACON
+                || player.getEyeLocation().distanceSquared(new Location(player.getWorld(),
+                        position.x() + 0.5, position.y() + 0.5, position.z() + 0.5)) > 36) {
+            player.sendMessage("Move closer to your capital beacon and open the upgrade menu again.");
+            return;
+        }
+        long balance = wallets.balance(player);
+        if (balance < UPGRADE_PRICE) {
+            player.sendMessage("Your wallet needs $100,000 to upgrade your civilization's land claims.");
+            return;
+        }
+        wallets.setBalance(player, balance - UPGRADE_PRICE);
+        village.expandedClaims = true;
+        store.dirty = true;
+        player.sendMessage("Upgraded " + village.name + " to 200 expansion claims for $100,000.");
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    void menuDrag(InventoryDragEvent event) {
+        if (event.getView().getTopInventory().getHolder() instanceof UpgradeMenu) {
+            event.setCancelled(true);
+        }
+    }
+
+    private static ItemStack item(Material material, String name, String... lines) {
+        ItemStack item = new ItemStack(material);
+        item.editMeta(meta -> {
+            meta.displayName(Component.text(name, NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false));
+            meta.lore(List.of(lines).stream().map(line ->
+                    Component.text(line, NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)).toList());
+        });
+        return item;
     }
 
     @EventHandler
@@ -95,6 +243,15 @@ final class ClaimBuying implements Listener {
 
     void stop(UUID player) {
         buying.remove(player);
+    }
+
+    void closeAll() {
+        buying.clear();
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            if (player.getOpenInventory().getTopInventory().getHolder() instanceof UpgradeMenu) {
+                player.closeInventory();
+            }
+        }
     }
 
     private Status status(Player player, Village village, Plot plot, long balance) {
@@ -108,7 +265,7 @@ final class ClaimBuying implements Listener {
         if (plot.neighbors().stream().noneMatch(neighbor -> store.isCapitalClaim(village, neighbor))) {
             return Status.NOT_ADJACENT;
         }
-        if (village.capitalExpansionCount() >= CivStore.CAPITAL_EXPANSION_LIMIT) {
+        if (village.capitalExpansionCount() >= village.capitalExpansionLimit()) {
             return Status.AT_CAPACITY;
         }
         return balance >= price ? Status.FOR_SALE : Status.TOO_EXPENSIVE;
@@ -122,7 +279,8 @@ final class ClaimBuying implements Listener {
             case OTHER_VILLAGE -> "Another village already owns this chunk.";
             case NATURAL_VILLAGE -> "This chunk is reserved for a natural village. Talk to the villager by its bell.";
             case NOT_ADJACENT -> "Stand in an unclaimed chunk that shares an edge with your capital's territory.";
-            case AT_CAPACITY -> "Your capital has reached its limit of " + CivStore.CAPITAL_EXPANSION_LIMIT + " expansion chunks.";
+            case AT_CAPACITY -> "Your capital has reached its limit of " + village.capitalExpansionLimit() + " expansion chunks."
+                    + (village.expandedClaims ? "" : " Sneak and right-click your capital beacon to upgrade to 200 for $100,000.");
             case TOO_EXPENSIVE -> "Your wallet needs $" + price + " for this claim.";
             case FOR_SALE -> null;
         };
@@ -157,8 +315,8 @@ final class ClaimBuying implements Listener {
     void showBorders() {
         for (UUID id : buying) {
             Player player = plugin.getServer().getPlayer(id);
-            Village village = store.memberOf(id);
-            if (player != null && player.getGameMode() == GameMode.SURVIVAL && village != null && village.owner.equals(id)) {
+            Village village = store.registeredVillage(id);
+            if (player != null && player.getGameMode() == GameMode.SURVIVAL && village != null && village.canManage(id)) {
                 showBorder(player, village);
             }
         }

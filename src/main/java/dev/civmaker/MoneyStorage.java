@@ -37,14 +37,17 @@ import java.util.Arrays;
 
 final class MoneyStorage implements Listener {
     private static final String STORAGE_MESSAGE = "Store banknotes in your inventory or in a Secure Vault inside your village.";
+    static final String WITHDRAW_MESSAGE = "Only elders and owners can withdraw banknotes or settlement currency from faction vaults. Ask your owner to promote you to elder.";
     private final Notes notes;
     private final CivStore store;
     private final RaidEquipment equipment;
+    private final SettlementResources resources;
 
-    MoneyStorage(Notes notes, CivStore store, RaidEquipment equipment) {
+    MoneyStorage(Notes notes, CivStore store, RaidEquipment equipment, SettlementResources resources) {
         this.notes = notes;
         this.store = store;
         this.equipment = equipment;
+        this.resources = resources;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -52,6 +55,12 @@ final class MoneyStorage implements Listener {
         Inventory top = event.getView().getTopInventory();
         Inventory clicked = event.getClickedInventory();
         if (clicked == null) {
+            return;
+        }
+
+        if (restrictedVault(top, event.getWhoClicked()) && takesCurrency(event, top, clicked)) {
+            event.setCancelled(true);
+            event.getWhoClicked().sendMessage(WITHDRAW_MESSAGE);
             return;
         }
 
@@ -75,6 +84,50 @@ final class MoneyStorage implements Listener {
             event.setCancelled(true);
             event.getWhoClicked().sendMessage(STORAGE_MESSAGE);
         }
+    }
+
+    private boolean restrictedVault(Inventory inventory, HumanEntity player) {
+        var blocks = Protection.inventoryBlocks(inventory);
+        if (blocks.stream().noneMatch(equipment::isVault)) {
+            return false;
+        }
+        var village = store.registeredVillage(player.getUniqueId());
+        return village == null || !village.canManage(player.getUniqueId())
+                || blocks.stream().anyMatch(block -> store.protectedClaimAt(block) != village);
+    }
+
+    private boolean takesCurrency(InventoryClickEvent event, Inventory top, Inventory clicked) {
+        if (event.getAction() == org.bukkit.event.inventory.InventoryAction.COLLECT_TO_CURSOR) {
+            ItemStack cursor = event.getCursor();
+            return isVaultCurrency(cursor) && Arrays.stream(top.getContents())
+                    .anyMatch(item -> isVaultCurrency(item) && item.isSimilar(cursor));
+        }
+        if (clicked != top || !isVaultCurrency(event.getCurrentItem())) {
+            return false;
+        }
+        return switch (event.getAction()) {
+            case NOTHING, PLACE_ALL, PLACE_SOME, PLACE_ONE, PLACE_FROM_BUNDLE,
+                    PLACE_ALL_INTO_BUNDLE, PLACE_SOME_INTO_BUNDLE -> false;
+            default -> true;
+        };
+    }
+
+    private boolean isVaultCurrency(ItemStack item) {
+        if (item == null || item.isEmpty()) {
+            return false;
+        }
+        if (notes.isNote(item) || resources.isCurrency(item)) {
+            return true;
+        }
+        var meta = item.getItemMeta();
+        if (meta instanceof BundleMeta bundle) {
+            return bundle.getItems().stream().anyMatch(this::isVaultCurrency);
+        }
+        if (meta instanceof org.bukkit.inventory.meta.BlockStateMeta blockMeta
+                && blockMeta.getBlockState() instanceof org.bukkit.inventory.InventoryHolder holder) {
+            return Arrays.stream(holder.getInventory().getContents()).anyMatch(this::isVaultCurrency);
+        }
+        return false;
     }
 
     private ItemStack hotbarItem(InventoryClickEvent event, PlayerInventory inventory) {
@@ -166,6 +219,16 @@ final class MoneyStorage implements Listener {
     private boolean containsCashShulker(Block block) {
         return Tag.SHULKER_BOXES.isTagged(block.getType()) && block.getState(false) instanceof ShulkerBox box
                 && Arrays.stream(box.getInventory().getStorageContents()).anyMatch(notes::isNote);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    void breakVault(BlockBreakEvent event) {
+        var storage = equipment.storageAt(event.getBlock());
+        if (storage != null && restrictedVault(storage.getInventory(), event.getPlayer())
+                && Arrays.stream(storage.getInventory().getContents()).anyMatch(this::isVaultCurrency)) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(WITHDRAW_MESSAGE);
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

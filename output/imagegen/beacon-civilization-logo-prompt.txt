@@ -1,0 +1,4 @@
+Generated with the built-in image_gen tool. Exported to 500 x 500 px using high-quality bicubic downsampling, preserving transparency.
+
+Use case: logo-brand.
+Create one polished clean modern logo, a square 500 x 500 px asset. Primary symbol: a stylized beacon tower emitting a strong upward light beam. Integrate a minimal geometric city skyline and a simple civic arch into its base to represent civilization, community, and progress. The beacon must dominate; architectural elements should feel like one coherent iconic mark, not a collection of illustrations. Flat vector-like geometry, bold refined silhouettes, balanced proportions, crisp edges, generous negative space, readable at small sizes. Restrained sophisticated colors with strong contrast. Center the complete mark with comfortable padding on a truly transparent background. No text, no letters, no words, no watermark, no mockup, no border, no shadows, no 3D, no gradients. Deliver the finished logo only.

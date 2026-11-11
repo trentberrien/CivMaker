@@ -30,6 +30,7 @@ final class CivStore {
     private static final Gson JSON = new GsonBuilder().setPrettyPrinting().create();
     static final int CAPITAL_POINTS = 100;
     static final int CAPITAL_EXPANSION_LIMIT = 100;
+    static final int UPGRADED_CAPITAL_EXPANSION_LIMIT = 200;
     static final int SETTLEMENT_POINTS = 100;
 
     record Plot(UUID world, int x, int z) {
@@ -131,6 +132,8 @@ final class CivStore {
         int color;
         FactionBanner banner;
         final Set<UUID> members = new LinkedHashSet<>();
+        Set<UUID> elders = new LinkedHashSet<>();
+        boolean expandedClaims;
         final Set<Plot> plots = new LinkedHashSet<>();
         List<Settlement> settlements = new ArrayList<>();
         List<WarpPortal> warpPortals = new ArrayList<>();
@@ -154,6 +157,14 @@ final class CivStore {
         int capitalExpansionCount() {
             int settlementPlots = settlements.stream().mapToInt(settlement -> settlement.plots().size()).sum();
             return plots.size() - 1 - settlementPlots;
+        }
+
+        int capitalExpansionLimit() {
+            return expandedClaims ? UPGRADED_CAPITAL_EXPANSION_LIMIT : CAPITAL_EXPANSION_LIMIT;
+        }
+
+        boolean canManage(UUID player) {
+            return members.contains(player) && (owner.equals(player) || elders.contains(player));
         }
 
         long points() {
@@ -208,6 +219,11 @@ final class CivStore {
             if (village.warpPortals == null) {
                 village.warpPortals = new ArrayList<>();
             }
+            if (village.elders == null) {
+                village.elders = new LinkedHashSet<>();
+            }
+            village.elders.retainAll(village.members);
+            village.elders.remove(village.owner);
             for (Settlement settlement : village.settlements) {
                 // Refresh saved rewards when upgrading existing Taiga and Snowy vaults.
                 if ("minecraft:village_taiga".equals(settlement.structure())
@@ -395,9 +411,19 @@ final class CivStore {
 
     void removeMember(Village village, UUID player) {
         village.members.remove(player);
+        village.elders.remove(player);
         memberships.remove(player, village);
         clearAllegiance(player);
         dirty = true;
+    }
+
+    boolean setElder(Village village, UUID player, boolean elder) {
+        if (!village.members.contains(player) || village.owner.equals(player)) {
+            return false;
+        }
+        boolean changed = elder ? village.elders.add(player) : village.elders.remove(player);
+        dirty |= changed;
+        return changed;
     }
 
     void addPlot(Village village, Plot plot) {
