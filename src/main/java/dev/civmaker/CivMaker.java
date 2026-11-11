@@ -116,6 +116,7 @@ public class CivMaker extends JavaPlugin {
         combatTimeout = new CombatTimeout(this);
         warpPortals = new WarpPortals(this, store, equipment, combatTimeout, capture);
         endPortals = new EndPortals(this, store, wallets);
+        CompanionMaps companionMaps = new CompanionMaps(this, store);
         hud = new PlayerHud(this, store, wallets);
         beaconLabels = new BeaconLabels(this, store);
         vaultTracking = new VaultTracking(this, store, equipment, notes);
@@ -150,6 +151,7 @@ public class CivMaker extends JavaPlugin {
         events.registerEvents(combatTimeout, this);
         events.registerEvents(warpPortals, this);
         events.registerEvents(endPortals, this);
+        events.registerEvents(companionMaps, this);
         for (var world : getServer().getWorlds()) {
             for (var chunk : world.getLoadedChunks()) {
                 farmStations.indexChunk(chunk);
@@ -185,6 +187,7 @@ public class CivMaker extends JavaPlugin {
         getServer().getScheduler().runTaskTimer(this, combatTimeout::refresh, 1, 20);
         getServer().getScheduler().runTaskTimer(this, warpPortals::refresh, 1, 20);
         getServer().getScheduler().runTaskTimer(this, endPortals::discoverRooms, 1, 1);
+        getServer().getScheduler().runTaskTimer(this, companionMaps::tick, 1, 1);
     }
 
     @Override

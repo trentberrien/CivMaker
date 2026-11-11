@@ -15,7 +15,6 @@ import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -23,27 +22,14 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.persistence.PersistentDataType;
 
 final class CombatTimeout implements Listener {
-    private static final long COMBAT_GRACE_MILLIS = 10_000;
-
     private final CivMaker plugin;
-    private final NamespacedKey combatUntil;
     private final NamespacedKey timeoutUntil;
     private final NamespacedKey returnMode;
 
     CombatTimeout(CivMaker plugin) {
         this.plugin = plugin;
-        combatUntil = new NamespacedKey(plugin, "recent_combat_until");
         timeoutUntil = new NamespacedKey(plugin, "combat_timeout_until");
         returnMode = new NamespacedKey(plugin, "combat_timeout_return_mode");
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    void damage(EntityDamageEvent event) {
-        if (event.getEntity() instanceof Player player && event.getFinalDamage() > 0
-                && isCombat(player, event.getDamageSource())) {
-            player.getPersistentDataContainer().set(combatUntil, PersistentDataType.LONG,
-                    System.currentTimeMillis() + COMBAT_GRACE_MILLIS);
-        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -51,18 +37,15 @@ final class CombatTimeout implements Listener {
         Player player = event.getEntity();
         var data = player.getPersistentDataContainer();
         long now = System.currentTimeMillis();
-        boolean combat = isCombat(player, event.getDamageSource())
-                || data.getOrDefault(combatUntil, PersistentDataType.LONG, 0L) > now;
-        data.remove(combatUntil);
         int seconds = timeoutSeconds();
-        if (seconds > 0 && combat
+        if (seconds > 0 && isPlayerKill(player, event.getDamageSource())
                 && (player.getGameMode() == GameMode.SURVIVAL || player.getGameMode() == GameMode.ADVENTURE)) {
             data.set(timeoutUntil, PersistentDataType.LONG, now + seconds * 1_000L);
             player.sendMessage("Combat death. You can rejoin the fight in " + seconds + " seconds.");
         }
     }
 
-    private static boolean isCombat(Player player, DamageSource source) {
+    private static boolean isPlayerKill(Player player, DamageSource source) {
         Entity attacker = source.getCausingEntity();
         if (!(attacker instanceof LivingEntity)) {
             Entity direct = source.getDirectEntity();
@@ -74,7 +57,7 @@ final class CombatTimeout implements Listener {
                 attacker = direct;
             }
         }
-        return attacker instanceof LivingEntity && !attacker.getUniqueId().equals(player.getUniqueId());
+        return attacker instanceof Player && !attacker.getUniqueId().equals(player.getUniqueId());
     }
 
     @EventHandler

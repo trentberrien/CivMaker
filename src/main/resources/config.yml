@@ -35,3 +35,7 @@ warp-portal:
 
 export:
   enabled: true
+
+# Optional Fabric companion: sends public claims, farms, and capital/settlement markers.
+companion-map:
+  enabled: true

@@ -116,11 +116,11 @@ The first eligible interaction rebuilds saved librarian, armorer, and cartograph
 To build both plugins, run these commands from the repository root with JDK 25 and Maven:
 
 ```sh
-mvn clean install
-mvn -f VillagerRework/pom.xml clean package
+mvn install
+mvn -f VillagerRework/pom.xml package
 ```
 
-Copy `target/civmaker-0.3.1.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
+Copy `target/civmaker-0.5.0.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
 
 ## Farm Stations
 
@@ -203,7 +203,7 @@ Members can ask a keeper to activate another stronghold portal for free. Entry t
 
 ## Combat deaths
 
-After a combat death, players respawn at their usual location and wait in place as spectators until the combat timeout ends. It applies to deaths caused by players or mobs, including projectiles, and to deaths within 10 seconds of taking combat damage. The timeout starts at death and lasts 60 seconds by default. Reconnecting doesn't reset either timer.
+After being killed by another player, players respawn at their usual location and wait in place as spectators until the combat timeout ends. Player kills include player-fired projectiles and player-sourced TNT. Mob deaths, environmental deaths, and self-inflicted deaths do not trigger the timeout, even after recent combat damage. The timeout starts at death and lasts 60 seconds by default. Reconnecting doesn't reset either timer.
 
 ## Raid windows
 
@@ -258,9 +258,15 @@ Loading fireworks into a Multishot crossbow consumes three rockets. If you have 
 
 ### Build and install
 
-1. Install JDK 25 and Maven, then run `mvn clean package` from this directory.
-2. Copy `target/civmaker-0.3.1.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+1. Install JDK 25 and Maven, then run `mvn package` from this directory. This preserves older versioned JARs in `target/`.
+2. Copy `target/civmaker-0.5.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
 3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
+
+### Optional Xaero map companion
+
+The [CivMaker Companion](companion/README.md) adds village-colored plot overlays, ownership details, Farm Station chunk highlights, and capital/settlement/farm markers to Xaero's Minimap and World Map. It is a client-only Fabric mod for the Minecraft 26.3 CurseForge profile. Install the companion JAR in the profile's `mods` folder and use CivMaker 0.5.0 or newer on the Paper server. Players without the companion can keep playing normally.
+
+Use `/civmap` to toggle overlays, `/civmap farms` to toggle farm highlights and markers, `/civmap markers` to toggle landmarks, `/civmap status` to check the connection, and `/civmap refresh` to request an update. Farm chunks have gold borders and `F` waypoints showing the station name, owner, and owner's faction. The server sends public ownership and registered farm information for the current world; vault contents, balances, and unpurchased natural settlements are excluded. Set `companion-map.enabled: false` in the server config to disable map data.
 
 ### Configuration and upgrades
 

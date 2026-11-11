@@ -14,5 +14,5 @@ When deciding whether an upgrade is compatible, check saved worlds and plugin da
 
 1. Set the same version in the project-level `<version>` in [`pom.xml`](pom.xml) and the `version` field in [`src/main/resources/plugin.yml`](src/main/resources/plugin.yml).
 2. Update the JAR filename in the build and install section of [`README.md`](README.md).
-3. Run `mvn clean package` and check that the filename under `target/` and the `plugin.yml` inside the JAR report the intended version.
+3. Run `mvn package` and check that the filename under `target/` and the `plugin.yml` inside the JAR report the intended version. Preserve older release JARs. If a clean build is necessary, archive the existing JARs outside `target/` first because `mvn clean` deletes that directory.
 4. For changes that affect upgrades, test with a copy of an existing server's CivMaker data and config. Include any required upgrade steps in the release notes.

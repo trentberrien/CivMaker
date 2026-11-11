@@ -1,0 +1,49 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version '1.17.5'
+}
+
+version = project.mod_version
+group = 'dev.civmaker'
+base { archivesName = "civmaker-companion-fabric-${project.minecraft_version}" }
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://api.modrinth.com/maven' }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    compileOnly 'maven.modrinth:xaeros-minimap:fabric-26.3-26.6.2'
+    compileOnly 'maven.modrinth:xaeros-world-map:fabric-26.3-1.47.2'
+    testImplementation platform('org.junit:junit-bom:5.14.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// One protocol implementation is compiled into the server plugin and client mod.
+sourceSets.main.java.srcDir('../src/main/java/dev/civmaker/map/protocol')
+java { toolchain.languageVersion = JavaLanguageVersion.of(25) }
+tasks.withType(JavaCompile).configureEach { options.release = 25 }
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') { expand(version: project.version) }
+}
+java { withSourcesJar() }
+test { useJUnitPlatform() }
+
+tasks.register('installKit', Zip) {
+    dependsOn tasks.named('build')
+    archiveFileName = "CivMaker-Companion-${project.version}-install.zip"
+    destinationDirectory = layout.buildDirectory.dir('release')
+    from(tasks.named('jar')) { into 'client-mods' }
+    from("../target/civmaker-${project.server_version}.jar") { into 'server-plugins' }
+    from('INSTALL.md')
+    from('README.md')
+    doFirst {
+        if (!file("../target/civmaker-${project.server_version}.jar").isFile()) {
+            throw new GradleException('Build the Paper plugin with mvn package from the repository root first.')
+        }
+    }
+}

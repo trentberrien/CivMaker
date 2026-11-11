@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "civmaker_companion",
+  "version": "${version}",
+  "name": "CivMaker Companion",
+  "description": "Live CivMaker plot ownership, village borders, Farm Station highlights, capital and settlement markers on Xaero's maps.",
+  "authors": ["CivMaker"],
+  "environment": "client",
+  "entrypoints": { "client": ["dev.civmaker.companion.CivMakerCompanion"] },
+  "mixins": ["civmaker-companion.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.20.1",
+    "minecraft": "~26.3",
+    "java": ">=25",
+    "fabric-api": ">=0.166.0",
+    "xaerominimap": "26.6.2"
+  },
+  "suggests": { "xaeroworldmap": "1.47.2" },
+  "breaks": { "xaeroworldmap": ["<1.47.2", ">=1.47.3"] }
+}
