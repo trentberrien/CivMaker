@@ -37,8 +37,8 @@ final class SettlementResources {
             return switch (structure) {
                 case "minecraft:village_desert" -> GUNPOWDER;
                 case "minecraft:village_savanna" -> COPPER;
-                case "minecraft:village_taiga" -> OBSIDIAN;
-                case "minecraft:village_snowy" -> TOTEM;
+                case "minecraft:village_taiga" -> TOTEM;
+                case "minecraft:village_snowy" -> OBSIDIAN;
                 // Meadows generate the same village structure as plains.
                 case "minecraft:village_plains" -> bell.getBiome() == Biome.MEADOW ? AMETHYST : IRON;
                 default -> IRON;

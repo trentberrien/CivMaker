@@ -1,5 +1,5 @@
 name: VillagerRework
-version: '0.2.2'
+version: '0.2.3'
 main: dev.villagerrework.VillagerRework
 bootstrapper: dev.villagerrework.TradeBootstrap
 api-version: '26.3'

@@ -1,6 +1,6 @@
 # VillagerRework
 
-VillagerRework is an optional plugin for Paper 26.3 and Java 25. Put `target/villager-rework-0.2.2.jar` in the server's `plugins` folder and restart. The plugin automatically loads the trade pack on existing and new worlds.
+VillagerRework is an optional plugin for Paper 26.3 and Java 25. Put `target/villager-rework-0.2.3.jar` in the server's `plugins` folder and restart. The plugin automatically loads the trade pack on existing and new worlds.
 
 ## Home biomes and trades
 
@@ -23,6 +23,19 @@ The first eligible interaction rebuilds saved offers for librarians, armorers, a
 ## Savanna and Meadow trade pools
 
 Ordinary Savanna villagers can roll Jungle offers alongside their local offers. Ordinary Meadow villagers can roll Swamp offers alongside their local offers. Master librarians guarantee Unbreaking III in Savanna and Mending in Meadow. Protection IV belongs to Plains, and Sharpness is a random Taiga librarian offer.
+
+## Common librarian book pools
+
+| Trade region | Possible common books |
+| --- | --- |
+| Desert | Infinity, Curse of Vanishing, Fire Aspect, Flame |
+| Plains | Punch, Smite, Bane of Arthropods, Sweeping Edge |
+| Savanna | Knockback, Curse of Binding; plus Jungle's Feather Falling, Projectile Protection, Power |
+| Snow | Aqua Affinity, Looting, Frost Walker, Respiration |
+| Taiga | Blast Protection, Sharpness, Fire Protection, Thorns |
+| Meadow | Plains' Punch, Smite, Bane of Arthropods, Sweeping Edge; plus Swamp's Depth Strider |
+
+Jungle and Swamp retain their own listed pools. The changes affect librarian books; regional armorer enchantments stay the same. Existing librarians refresh their offers on their next eligible interaction after upgrading and restarting.
 
 With CivMaker 0.2.10 or newer, regional trades follow the settlement footprint, including natural villages before purchase. The bell distinguishes Meadow from Plains. The optional ownership rule still controls who can trade. Standalone use follows the local biome. Existing offers refresh on the next eligible interaction and when villagers move between trade regions.
 
@@ -53,4 +66,4 @@ mvn clean install
 mvn -f VillagerRework/pom.xml clean package
 ```
 
-The CivMaker dependency provides the settlement API at build time. Install `VillagerRework/target/villager-rework-0.2.2.jar` in your server's `plugins` folder alongside CivMaker, then restart. VillagerRework can also run without CivMaker when the settlement ownership requirement is off.
+The CivMaker dependency provides the settlement API at build time. Install `VillagerRework/target/villager-rework-0.2.3.jar` in your server's `plugins` folder alongside CivMaker, then restart. VillagerRework can also run without CivMaker when the settlement ownership requirement is off.

@@ -61,7 +61,7 @@ Deepslate ores pay the same amount as their stone equivalents by default.
 
 Players without a civilization can buy multiple Founding Beacons. Each player can belong to one civilization at a time. A Founding Beacon unlocks its effects when it becomes a capital. Unused Founding Beacons stay locked, including when picked up and placed again. Leaving a civilization restores purchase eligibility. Ordinary beacons still work inside civilizations.
 
-Plot protection covers blocks from **Y=61 through Y=99** in all claimed chunks, including settlements. Capital beacons and registered settlement bells and vaults are protected at any height.
+Plot protection covers blocks from **Y=61 through Y=200** in capital chunks and their expansions, and **Y=61 through Y=99** in settlements. Capital beacons and registered settlement bells and vaults are protected at any height.
 
 Village owners can run `/civ disband` and then `/civ disband confirm` within 60 seconds. This releases the capital, expansions, and settlements and clears memberships and pending invites. A released Founding Beacon locks again and can be used to found a new civilization. Released capitals and expansions return to wilderness rules. Released natural villages regain unclaimed village protection. Disbanding gives no refunds.
 
@@ -78,7 +78,7 @@ The default faction banner uses the faction's color. To set a design, the owner 
 ## Settlements and points
 
 - A beacon capital starts with **100 points**, including its founding chunk. Each purchased capital chunk adds **1 point**, up to **100 expansion chunks** per capital. Settlements and the founding chunk are separate from this limit. Undoing a purchase removes its point and frees an expansion slot. Use `/civ info` to see the current count.
-- Right-click the villager labeled **talk to me to claim the village** beside the meeting-point bell. The purchase menu shows the price, protected chunks, and daily vault reward. A capital owner in Survival can confirm the purchase for **$50,000** from their wallet. Purchases add **100 points** and place the Settlement Vault where the villager stood. Owners can also preview or purchase at the bell with `/civ settlement` and `/civ settlement buy`.
+- Right-click the purchasing villager beside the meeting-point bell. Its nameplate shows the village type, such as **Meadow Settlement - Right-click to claim**, so Meadow villages can be distinguished from Plains villages. The purchase menu shows the price, protected chunks, and daily vault reward. A capital owner in Survival can confirm the purchase for **$50,000** from their wallet. Purchases add **100 points** and place the Settlement Vault where the villager stood. Owners can also preview or purchase at the bell with `/civ settlement` and `/civ settlement buy`.
 - Unclaimed natural villages are protected across the chunks intersecting their generated pieces. Players can enter, open ordinary doors, ring the bell, and trade with villagers. The whole footprint must be unclaimed to purchase it, and settlement chunks cannot be used as expansion anchors.
 - Blocks within a **16-block horizontal radius**, starting **three blocks below the bell** and extending to the world height limit, are protected from building and breaking before and after purchase, including during raids.
 - The territory banner shows village points alongside wealth. Use `/civ points` to see the top villages by points.
@@ -94,11 +94,13 @@ Once placed, the vault produces its reward every Minecraft day (24,000 world tic
 | Desert | 5 Settlement Gunpowder | Grenades, C4, and Blast Rockets |
 | Plains | 5 Settlement Iron | Secure Vault Kits and Vault Doors |
 | Savanna | 5 Settlement Copper | Lockpicks and Battering Rams |
-| Taiga | 64 Obsidian | Ordinary building material |
-| Snowy plains | 1 Super Totem | Keep your items on death and drop 10% of carried money |
+| Taiga | 1 Super Totem | Keep your items on death and drop 10% of carried money |
+| Snowy plains | 64 Obsidian | Ordinary building material |
 | Meadow | 5 Muster Amethyst | Pillager Guards, Happy Harnesses, and Super Saddles |
 
 Meadow settlements use the plains village structure and are identified by the bell's biome. Settlement currencies glint and work as shop payments. Muster Amethyst has a purple shard icon, and Settlement Iron has a raw iron icon.
+
+Existing Taiga and Snowy vaults adopt these deposit types after upgrading and restarting. Items already stored in their vaults are preserved.
 
 ## VillagerRework
 
@@ -106,6 +108,7 @@ Meadow settlements use the plains village structure and are identified by the be
 
 - **Trades depend on location.** Villagers normally trade only in their home biome group. With CivMaker, Jungle villagers trade inside Savanna settlements and Swamp villagers inside Meadow settlements. Regional trade pools follow the settlement footprint, including natural villages before purchase.
 - **Librarians and armorers use regional offers.** The plugin applies Minecraft's bundled Villager Trade Rebalance tables with custom Master librarian books: Efficiency V in Desert, Unbreaking III in Jungle and Savanna, Protection IV in Plains, Silk Touch in Snow, Mending in Swamp and Meadow, and Fortune III in Taiga. Savanna villagers can also roll Jungle offers, and Meadow villagers can roll Swamp offers.
+- **Common librarian books are rebalanced.** Sweeping Edge is in the Plains pool (also shared by Meadow), Respiration is in Snow, and Curse of Vanishing is in Desert. Fire Protection and Thorns are in Taiga; Fire Aspect and Flame are in Desert. These moves affect librarian books; regional armorer enchantments stay the same. See the [full book pools](VillagerRework/README.md#common-librarian-book-pools).
 - **Settlement ownership can be required.** Standalone trading is the default. Operators or players with `villagerrework.admin` can run `/villagerrework settlement true` to restrict trading to purchased settlements they personally own. Faction members and visitors cannot trade under this rule. Use `/villagerrework settlement false` to disable it or `/villagerrework settlement` to check it. Changes apply immediately and are saved in `plugins/VillagerRework/config.yml`.
 
 The first eligible interaction rebuilds saved librarian, armorer, and cartographer offers while preserving profession, level, experience, and reputation. Refreshed offers have fresh stock and can replace custom trades. Wandering traders are outside the villager restrictions.
@@ -117,7 +120,7 @@ mvn clean install
 mvn -f VillagerRework/pom.xml clean package
 ```
 
-Copy `target/civmaker-0.3.1.jar` and `VillagerRework/target/villager-rework-0.2.2.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
+Copy `target/civmaker-0.3.1.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
 
 ## Farm Stations
 

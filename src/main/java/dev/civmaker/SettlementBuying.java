@@ -191,15 +191,20 @@ final class SettlementBuying implements Listener {
                 continue;
             }
             available.add(position);
+            Component label = Component.text(settlement.displayName(bell), NamedTextColor.GOLD)
+                    .append(Component.text(" - Right-click to claim", NamedTextColor.YELLOW));
             Claimant current = claimants.get(position);
             if (current != null && current.villager().isValid()) {
+                if (!label.equals(current.villager().customName())) {
+                    current.villager().customName(label);
+                }
                 continue;
             }
             removeClaimant(claimants.remove(position));
             Location spot = standingSpot(bell, settlement);
             if (spot != null) {
                 Villager villager = bell.getWorld().spawn(spot, Villager.class, npc -> {
-                    npc.customName(Component.text("talk to me to claim the village", NamedTextColor.GOLD));
+                    npc.customName(label);
                     npc.setCustomNameVisible(true);
                     npc.setAI(false);
                     npc.setInvulnerable(true);

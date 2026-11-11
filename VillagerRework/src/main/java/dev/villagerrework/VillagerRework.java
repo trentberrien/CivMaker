@@ -199,7 +199,7 @@ public final class VillagerRework extends JavaPlugin implements Listener {
     }
 
     private static String revision(Villager villager, String region) {
-        return "2/" + villager.getProfession().getKey() + "/" + villager.getVillagerType().getKey() + "/" + region;
+        return "3/" + villager.getProfession().getKey() + "/" + villager.getVillagerType().getKey() + "/" + region;
     }
 
     private String tradeRegion(Villager villager) {

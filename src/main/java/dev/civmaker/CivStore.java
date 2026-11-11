@@ -209,6 +209,11 @@ final class CivStore {
                 village.warpPortals = new ArrayList<>();
             }
             for (Settlement settlement : village.settlements) {
+                // Refresh saved rewards when upgrading existing Taiga and Snowy vaults.
+                if ("minecraft:village_taiga".equals(settlement.structure())
+                        || "minecraft:village_snowy".equals(settlement.structure())) {
+                    settlement.vault().reward = SettlementResources.Reward.at(settlement.structure(), null);
+                }
                 village.plots.addAll(settlement.plots());
                 settlement.plots().forEach(plot -> settlementClaims.put(plot, settlement));
             }
@@ -241,7 +246,7 @@ final class CivStore {
         int y = block.getY();
         Plot plot = Plot.at(block);
         Village village = claimAt(plot);
-        return village != null && ((y > 60 && y < 100) || village.beacon.equals(Position.at(block))
+        return village != null && ((y > 60 && y <= (isCapitalClaim(village, plot) ? 200 : 99)) || village.beacon.equals(Position.at(block))
                 || isSettlementFixture(block)) ? village : null;
     }
 

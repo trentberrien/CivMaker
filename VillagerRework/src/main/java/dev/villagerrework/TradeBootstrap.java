@@ -103,8 +103,8 @@ public final class TradeBootstrap implements PluginBootstrap {
 
     private static void writeTradeData(ZipOutputStream pack, String path, byte[] bytes) throws IOException {
         JsonObject data = JsonParser.parseString(new String(bytes, StandardCharsets.UTF_8)).getAsJsonObject();
-        if (path.endsWith("/enchantment/trades/taiga_common.json")) {
-            data.getAsJsonArray("values").add("minecraft:sharpness");
+        if (path.contains("/tags/enchantment/trades/") && path.endsWith("_common.json")) {
+            rebalanceBookPool(path, data);
         } else if (path.endsWith("/villager_trade/librarian/level_5.json")) {
             data.getAsJsonArray("values").remove(JsonParser.parseString(
                     "\"minecraft:librarian/5/emerald_and_book_savanna_enchanted_book\""));
@@ -114,6 +114,24 @@ public final class TradeBootstrap implements PluginBootstrap {
             addRegionalPools(data);
         }
         pack.write(data.toString().getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static void rebalanceBookPool(String path, JsonObject data) {
+        String biome = path.substring(path.lastIndexOf('/') + 1, path.lastIndexOf("_common.json"));
+        List<String> books = switch (biome) {
+            case "desert" -> List.of("infinity", "vanishing_curse", "fire_aspect", "flame");
+            case "plains" -> List.of("punch", "smite", "bane_of_arthropods", "sweeping_edge");
+            case "savanna" -> List.of("knockback", "binding_curse");
+            case "snow" -> List.of("aqua_affinity", "looting", "frost_walker", "respiration");
+            case "swamp" -> List.of("depth_strider");
+            case "taiga" -> List.of("blast_protection", "sharpness", "fire_protection", "thorns");
+            default -> null;
+        };
+        if (books != null) {
+            var values = new JsonArray();
+            books.forEach(book -> values.add("minecraft:" + book));
+            data.add("values", values);
+        }
     }
 
     private static void updateMasterBook(String path, JsonObject data) {
