@@ -168,7 +168,7 @@ final class SettlementCapture implements Listener {
             }
             barViewers.add(player);
             Village faction = store.memberOf(player.getUniqueId());
-            if (faction != null) {
+            if (faction != null && (faction == defender || !store.raidRestricted(player.getUniqueId()))) {
                 factions.add(faction);
             }
         }

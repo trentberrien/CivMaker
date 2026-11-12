@@ -84,7 +84,8 @@ final class RaidEquipment implements Listener {
                 "Horses gain the highest natural speed and jump strength.",
                 "Horses gain 96 max health (48 hearts)."),
         RAID_SHIELD("raid_shield", "Raid Protection", Material.NETHER_STAR, NamedTextColor.AQUA,
-                "Right-click during a raid to protect your village for the rest of that window.",
+                "Right-click to reserve the first scheduled raid at least 24 hours away.",
+                "Protects your village for that window; your faction cannot raid.",
                 "Only your village can activate this star.");
 
         final String id;

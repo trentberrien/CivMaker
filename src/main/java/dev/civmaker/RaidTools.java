@@ -108,6 +108,11 @@ final class RaidTools implements Listener {
         if (equipment.identify(held) != tool) {
             return;
         }
+        if ((tool == Tool.GRENADE || tool == Tool.C4 || tool == Tool.RAM || tool == Tool.LOCKPICK)
+                && store.raidRestricted(player.getUniqueId())) {
+            player.sendMessage("Your faction has Raid Protection for this window. You cannot raid until it ends.");
+            return;
+        }
         if (tool == Tool.GRENADE) {
             if (throwGrenade(player)) {
                 consumeMainHand(player, held);
@@ -214,6 +219,9 @@ final class RaidTools implements Listener {
             return;
         }
         event.setCancelled(true);
+        if (store.raidRestricted(grenade.thrower())) {
+            return;
+        }
         Location center = event.getEntity().getLocation();
         Village village = store.protectedClaimAt(center.getBlock());
         boolean sameRaid = grenade.window() != null
@@ -503,6 +511,7 @@ final class RaidTools implements Listener {
 
     private boolean canReachDuringRaid(Player player, Location location, Village village, Window window) {
         return window.equals(store.activeWindow(System.currentTimeMillis()))
+                && !store.raidRestricted(player.getUniqueId())
                 && store.raidCovers(Plot.at(location))
                 && player.getGameMode() == GameMode.SURVIVAL && store.memberOf(player.getUniqueId()) != village
                 && player.getWorld().equals(location.getWorld()) && player.getLocation().distanceSquared(location) <= 36;

@@ -66,6 +66,8 @@ Invited players join as **elders by default**, keeping that rank until the owner
 
 Plot protection covers blocks from **Y=61 through Y=200** in capital chunks and their expansions, and **Y=61 through Y=99** in settlements. Capital beacons and registered settlement bells and vaults are protected at any height.
 
+Within the protected area, outsiders cannot damage or take equipment from villagers, animals, pets, armor stands, item frames, paintings, or vehicles outside eligible raid windows. Leads, fishing rods, buckets, shearing, and mounting cannot bypass this protection. Unclaimed natural villages protect their inhabitants and decorations even during raids. Faction members can manage their own ordinary animals, decorations, and vehicles, and visitors can still trade with villagers. These protections preserve ordinary hostile mob combat and fall/lava-based farms.
+
 Village owners can run `/civ disband` and then `/civ disband confirm` within 60 seconds. This releases the capital, expansions, and settlements and clears memberships and pending invites. A released Founding Beacon locks again and can be used to found a new civilization. Released capitals and expansions return to wilderness rules. Released natural villages regain unclaimed village protection. Disbanding gives no refunds.
 
 In buying mode, the outline is blue for your village's land, green for an adjacent chunk you can afford, red for another village's land, and gray for unclaimed land you can't buy.
@@ -123,7 +125,7 @@ mvn install
 mvn -f VillagerRework/pom.xml package
 ```
 
-Copy `target/civmaker-0.12.0.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
+Copy `target/civmaker-0.12.1.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
 
 ## Farm Stations
 
@@ -228,7 +230,9 @@ Capture transfers the claims, points, vaults and contents, Vault Doors, and futu
 
 ### Raid Protection
 
-Buy a faction-bound Nether Star in `/civ shop`. A member of the faction that bought it can right-click with the star in their main hand in Survival during a raid. This consumes the star and shields the faction's claims from capture, lockpicking, and breaching for the rest of that window. The default price is $10,000. Each faction has separate rolling seven-day cooldowns for purchases and activations.
+Buy a faction-bound Nether Star in `/civ shop`. A member of the faction that bought it can right-click with the star in their main hand in Survival to reserve protection for the **first scheduled raid window that starts at least 24 real hours later**. The star is consumed only when a reservation succeeds, and the message shows the exact protected window in UTC. Earlier windows remain unprotected. Protection starts and ends automatically with the reserved window, works while members are offline, and survives restarts. Scheduled raids must be in automatic mode; manually forced windows cannot be reserved.
+
+During the protected window, the faction's claims are shielded from capture, lockpicking, and breaching. Its members **cannot raid**: they cannot capture or contest enemy settlements, use offensive raid tools, loot picked storage, or attack entities or players in enemy claims. Leaving, being kicked, switching factions, or disbanding during that window does not remove the player's restriction before the window ends. Members can still defend their own territory. The default price is $10,000. Each faction has separate rolling seven-day cooldowns for purchases and reservations. Use `/civ raidprotection` to see the reserved window.
 
 Use `/civ raidprotection` to see the current rules.
 
@@ -240,7 +244,7 @@ The Founding Beacon appears alone in the center of the top row before you join o
 
 | Item | Use |
 | --- | --- |
-| Pillager Guard | Right-click the top of a solid block inside your own village to post a pillager with a visible `guard` nametag. During active raids, it fires at eligible raiders it can see within four chunks (64 blocks), even across the village border. Rockets damage only targeted enemies and mobs they're riding. |
+| Pillager Guard | Right-click the top of a solid block inside your own village to post a pillager with a visible `guard` nametag. During active raids, it fires at eligible raiders it can see within four chunks (64 blocks), even across the village border. Rockets damage only targeted enemies and mobs they're riding. Guards can only be damaged by eligible enemy raiders during an open raid against their post; friendly and environmental damage cannot remove them. |
 | Defender Golem | Buy a kit for $10,000 or 5 Settlement Iron under Village Defense, then right-click your faction's settlement bell with it in your main hand. Each bell can have one defender. Leave a clear 3-by-3 spot with six blocks of headroom near the bell. The golem is twice normal size, has 100 health (50 hearts), and stays within 16 blocks of the bell. It swings in melee and throws 1½-block-wide boulders at targets up to 24 blocks away. Both attacks deal normal iron golem hit damage. The golem is immune to arrows and to splash and lingering potions. A living golem in the ring contests enemy capture in either mode. Its boss health bar appears at the top of the screen within 32 blocks. |
 | Lockpick | A glinting stick. Spend one to start a puzzle with a fixed 14-pane trail. Click the glowing yellow pane in order as completed panes turn green. Each correct click has a 5% break chance, giving one lockpick a 48.77% chance of finishing all 14 steps. Solving it opens a Vault Door or grants one session of storage access. |
 | C4 | Right-click a block face to detonate at TNT strength. The blast can break unclaimed blocks at any time. Targeting a village claim requires an active raid against that village. The blast spares secure vaults and claim anchors, deals no direct damage to players or mobs, and cannot start a TNT chain. |
@@ -270,7 +274,7 @@ The optional [CivMaker Discord bot](discord-bot/README.md) runs on the server co
 ### Build and install
 
 1. Install JDK 25 and Maven, then run `mvn package` from this directory. This preserves older versioned JARs in `target/`.
-2. Copy `target/civmaker-0.12.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+2. Copy `target/civmaker-0.12.1.jar` into your Paper 26.3 server's `plugins` directory and start the server.
 3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
 
 ### Optional Xaero map companion
@@ -336,7 +340,7 @@ The time zone defaults to the server's time zone. Windows can cross midnight. A 
 
 ### Raid Protection controls
 
-- `/civ raidprotection on` or `off` controls purchases and activations. Active shields expire with their window.
+- `/civ raidprotection on` or `off` controls purchases and reservations. Existing reservations and active shields keep their reserved window.
 - `/civ raidprotection price 10000` sets the cash price.
 - `/civ raidprotection cooldown 168` sets both cooldowns in hours.
 

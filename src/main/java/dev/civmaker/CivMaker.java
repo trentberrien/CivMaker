@@ -128,6 +128,7 @@ public class CivMaker extends JavaPlugin {
         events.registerEvents(new Mining(this, wallets), this);
         events.registerEvents(farmStationLoot, this);
         events.registerEvents(protection, this);
+        events.registerEvents(new EntityProtection(store, natural, guards), this);
         events.registerEvents(farmStations, this);
         events.registerEvents(new FarmHarvests(this, farmStations), this);
         events.registerEvents(foundingBeacons, this);

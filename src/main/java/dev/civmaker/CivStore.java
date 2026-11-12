@@ -183,6 +183,7 @@ final class CivStore {
         RaidMode raidMode = RaidMode.AUTO;
         long manualRaidId;
         NightlyRaids nightly;
+        Map<UUID, Long> raidRestrictions = new LinkedHashMap<>();
     }
 
     private final Path directory;
@@ -203,6 +204,9 @@ final class CivStore {
         data = Files.exists(file) ? JSON.fromJson(Files.readString(file), Data.class) : new Data();
         if (data == null) {
             throw new IOException("CivMaker state.json is empty.");
+        }
+        if (data.raidRestrictions == null) {
+            data.raidRestrictions = new LinkedHashMap<>();
         }
         for (Position bell : data.naturalBells) {
             naturalBells.computeIfAbsent(bell.plot(), ignored -> new LinkedHashSet<>()).add(bell);
@@ -389,6 +393,7 @@ final class CivStore {
             }
         }
         for (UUID member : village.members) {
+            retainRaidRestriction(village, member);
             memberships.remove(member, village);
         }
         allegiances.values().removeIf(allegiance -> allegiance == village);
@@ -410,6 +415,7 @@ final class CivStore {
     }
 
     void removeMember(Village village, UUID player) {
+        retainRaidRestriction(village, player);
         village.members.remove(player);
         village.elders.remove(player);
         memberships.remove(player, village);
@@ -584,6 +590,24 @@ final class CivStore {
     boolean shielded(Village village, Window window) {
         return village != null && window != null && village.shieldWindow != null
                 && village.shieldWindow == window.start();
+    }
+
+    boolean raidRestricted(UUID player) {
+        return raidRestricted(player, activeWindow(System.currentTimeMillis()));
+    }
+
+    boolean raidRestricted(UUID player, Window window) {
+        return window != null && (java.util.Objects.equals(data.raidRestrictions.get(player), window.start())
+                || shielded(registeredVillage(player), window) || shielded(memberOf(player), window));
+    }
+
+    private void retainRaidRestriction(Village village, UUID player) {
+        Window window = activeWindow(System.currentTimeMillis());
+        if (shielded(village, window)) {
+            // Leaving, being kicked, or disbanding cannot turn protection into a free raid pass.
+            data.raidRestrictions.put(player, window.start());
+            dirty = true;
+        }
     }
 
     boolean raidCovers(Plot plot) {

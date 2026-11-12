@@ -1,6 +1,7 @@
 package dev.civmaker;
 
 import dev.civmaker.CivStore.Village;
+import dev.civmaker.CivStore.Window;
 import dev.civmaker.RaidEquipment.Tool;
 import org.bukkit.GameMode;
 import org.bukkit.NamespacedKey;
@@ -19,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 
 final class RaidShields implements Listener {
     private static final String ROOT = "raid-protection.";
+    static final long NOTICE_MILLIS = TimeUnit.DAYS.toMillis(1);
     private final CivMaker plugin;
     private final CivStore store;
     private final RaidEquipment equipment;
@@ -66,6 +68,34 @@ final class RaidShields implements Listener {
         return now < next ? "Your village can " + action + " Raid Protection again at " + Instant.ofEpochMilli(next) + "." : null;
     }
 
+    Window reserve(Village village, long now) {
+        if (!enabled()) {
+            throw new IllegalArgumentException("Raid Protection is disabled.");
+        }
+        if (store.raidMode() != CivStore.RaidMode.AUTO) {
+            throw new IllegalArgumentException("Raid Protection requires scheduled raids in automatic mode.");
+        }
+        if (store.shielded(village, store.activeWindow(now))) {
+            throw new IllegalArgumentException("Your village already has Raid Protection for this window.");
+        }
+        var upcoming = store.upcomingWindows(now, 8);
+        if (village.shieldWindow != null && upcoming.stream().anyMatch(window -> window.start() == village.shieldWindow)) {
+            throw new IllegalArgumentException("Your village already has Raid Protection scheduled.");
+        }
+        Window window = upcoming.stream().filter(next -> next.start() >= now + NOTICE_MILLIS).findFirst().orElse(null);
+        if (window == null) {
+            throw new IllegalArgumentException("Raid Protection needs a scheduled raid window at least 24 hours away. Your star has not been consumed.");
+        }
+        String error = cooldownError(village.shieldUsedAt, now, "schedule");
+        if (error != null) {
+            throw new IllegalArgumentException(error);
+        }
+        village.shieldUsedAt = now;
+        village.shieldWindow = window.start();
+        store.dirty = true;
+        return window;
+    }
+
     @EventHandler
     void use(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND || !event.getAction().isRightClick()
@@ -85,36 +115,37 @@ final class RaidShields implements Listener {
             return;
         }
         long now = System.currentTimeMillis();
-        var window = store.activeWindow(now);
-        if (window == null) {
-            player.sendMessage("Activate Raid Protection during a raid window.");
+        Window window;
+        try {
+            window = reserve(village, now);
+        } catch (IllegalArgumentException error) {
+            player.sendMessage(error.getMessage());
             return;
         }
-        if (store.shielded(village, window)) {
-            player.sendMessage("Your village already has Raid Protection for this window.");
-            return;
-        }
-        String error = cooldownError(village.shieldUsedAt, now, "use");
-        if (error != null) {
-            player.sendMessage(error);
-            return;
-        }
-        village.shieldUsedAt = now;
-        village.shieldWindow = window.start();
-        store.dirty = true;
         held.setAmount(held.getAmount() - 1);
         player.getInventory().setItemInMainHand(held.getAmount() == 0 ? null : held);
         for (Player member : player.getServer().getOnlinePlayers()) {
             if (store.registeredVillage(member.getUniqueId()) == village) {
-                member.sendMessage("Raid Protection is active for " + village.name + " until this raid window ends.");
+                member.sendMessage("Raid Protection scheduled for " + village.name + " from "
+                        + Instant.ofEpochMilli(window.start()) + " to " + Instant.ofEpochMilli(window.end())
+                        + ". Your faction cannot raid during that window.");
             }
         }
     }
 
     void configure(CommandSender sender, String[] args, boolean admin) {
         if (args.length == 1) {
-            sender.sendMessage(String.format(Locale.US, "Raid Protection %s | $%,d | %d-hour buy and use cooldowns",
+            sender.sendMessage(String.format(Locale.US, "Raid Protection %s | $%,d | %d-hour buy and scheduling cooldowns | Protects the first scheduled window at least 24 hours away; protected factions cannot raid",
                     enabled() ? "enabled" : "disabled", price(), hours()));
+            if (sender instanceof Player player) {
+                Village village = store.registeredVillage(player.getUniqueId());
+                if (village != null && village.shieldWindow != null) {
+                    store.upcomingWindows(System.currentTimeMillis(), 8).stream()
+                            .filter(window -> window.start() == village.shieldWindow).findFirst()
+                            .ifPresent(window -> sender.sendMessage("Your protected raid window: "
+                                    + Instant.ofEpochMilli(window.start()) + " to " + Instant.ofEpochMilli(window.end()) + "."));
+                }
+            }
             return;
         }
         if (!admin) {
