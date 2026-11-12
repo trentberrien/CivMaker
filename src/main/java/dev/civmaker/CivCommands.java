@@ -16,6 +16,7 @@ import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -141,33 +142,94 @@ final class CivCommands implements TabExecutor {
     }
 
     private void help(CommandSender sender) {
-        sender.sendMessage("/civ balance | withdraw <notes> | deposit [notes]");
-        sender.sendMessage("/civ create buys a Founding Beacon for " + FoundingBeacons.PRICE_LABEL + ". Place it to start a civilization.");
-        sender.sendMessage("/civ claim | info | villages");
-        sender.sendMessage("/civ claim mode | claim undo | borders");
-        sender.sendMessage("Sneak and right-click your capital beacon to upgrade to 200 expansion claims for $100,000 (elder or owner).");
-        sender.sendMessage("/civ settlement [buy|vault] | points");
-        sender.sendMessage("/civ invite <player> | join | leave");
-        sender.sendMessage("/civ promote <player> | demote <player> (owner only)");
-        sender.sendMessage("/civ kick <player> (owner or elder; elders can only kick ordinary members)");
-        sender.sendMessage("/civ disband");
-        sender.sendMessage("/civ raids | shop");
-        sender.sendMessage("/civ banner set (owner, hold a banner in your main hand)");
+        List<String> available = availableCommands(sender);
+        if (sender instanceof Player player) {
+            sender.sendMessage(available.contains("withdraw")
+                    ? "/civ balance | withdraw <notes> | deposit [notes]" : "/civ balance");
+            if (available.contains("create")) {
+                sender.sendMessage("/civ create buys a Founding Beacon for " + FoundingBeacons.PRICE_LABEL + ". Place it to start a civilization.");
+            }
+            sender.sendMessage("/civ info | borders");
+            if (available.contains("claim")) {
+                sender.sendMessage("/civ claim | claim mode | claim undo");
+                Village village = store.registeredVillage(player.getUniqueId());
+                if (!village.expandedClaims) {
+                    sender.sendMessage("Sneak and right-click your capital beacon to upgrade to 200 expansion claims for $100,000 (elder or owner).");
+                }
+                sender.sendMessage("/civ settlement [buy|vault]");
+                sender.sendMessage("/civ invite <player>");
+            }
+            if (available.contains("join")) {
+                sender.sendMessage("/civ join (accept your active village invite)");
+            }
+            if (available.contains("leave")) {
+                sender.sendMessage("/civ leave");
+            }
+            if (available.contains("promote")) {
+                sender.sendMessage("/civ promote <player> | demote <player> (owner only)");
+                sender.sendMessage("/civ disband");
+                sender.sendMessage("/civ banner set (owner, hold a banner in your main hand)");
+            }
+            if (available.contains("kick")) {
+                sender.sendMessage("/civ kick <player> (owner or elder; elders can only kick ordinary members)");
+            }
+            if (available.contains("shop")) {
+                sender.sendMessage("/civ shop");
+            }
+        }
+        sender.sendMessage("/civ villages | points | raids | raidprotection");
         if (isAdmin(sender)) {
             sender.sendMessage("/civ schedule <start ISO-8601> <end ISO-8601> | cancelraid <start ISO-8601>");
             sender.sendMessage("/civ setbalance <online player> <amount>");
-            sender.sendMessage("/civ raids <on|off|auto|toggle> | allegiance [village name|--outsider]");
+            sender.sendMessage("/civ raids <on|off|auto|toggle>");
             sender.sendMessage("/civ raidmode <settlements|all|none|toggle>");
-            sender.sendMessage("/civ schedule nightly <HH:mm> <HH:mm> [time zone] | nightly off");
+            sender.sendMessage("/civ schedule nightly <HH:mm> <HH:mm> [time zone] | schedule nightly off");
             sender.sendMessage("/civ raidprotection <on|off|price amount|cooldown hours>");
-            sender.sendMessage("/civ testdeposit (look at a Settlement Vault)");
-            sender.sendMessage("/civ farmstation test (gives one Farm Station)");
-            sender.sendMessage("/civ locatemeadow");
+            if (sender instanceof Player) {
+                sender.sendMessage("/civ allegiance [village name|--outsider]");
+                sender.sendMessage("/civ testdeposit (look at a Settlement Vault)");
+                sender.sendMessage("/civ farmstation test (gives one Farm Station)");
+                sender.sendMessage("/civ locatemeadow");
+            }
             sender.sendMessage("/civ disbandvillage <village name>");
         }
         if (sender.hasPermission("civmaker.admin.manage")) {
             sender.sendMessage("/civ admin <add|remove> <player name or UUID>");
         }
+    }
+
+    private List<String> availableCommands(CommandSender sender) {
+        List<String> commands = new ArrayList<>(List.of("help", "villages", "points", "raids", "raidprotection"));
+        if (sender instanceof Player player) {
+            UUID id = player.getUniqueId();
+            Village village = store.registeredVillage(id);
+            boolean owner = village != null && village.owner.equals(id);
+            boolean manager = village != null && village.canManage(id);
+            boolean survival = player.getGameMode() == GameMode.SURVIVAL;
+            boolean outsider = village == null && store.memberOf(id) == null;
+            Invite invite = invites.get(id);
+            PLAYER_COMMANDS.stream().filter(action -> switch (action) {
+                case "help", "villages", "points", "raids", "raidprotection" -> false;
+                case "withdraw", "deposit", "shop" -> survival;
+                case "create" -> survival && outsider;
+                case "join" -> survival && outsider && invite != null && invite.expires() > System.currentTimeMillis();
+                case "claim", "settlement", "invite" -> survival && manager;
+                case "promote", "demote", "disband", "banner" -> owner;
+                case "kick" -> manager;
+                case "leave" -> village != null && !owner;
+                default -> true;
+            }).forEach(commands::add);
+        }
+        if (isAdmin(sender)) {
+            commands.addAll(List.of("schedule", "cancelraid", "setbalance", "disbandvillage", "raidmode"));
+            if (sender instanceof Player) {
+                commands.addAll(List.of("allegiance", "testdeposit", "locatemeadow", "farmstation"));
+            }
+        }
+        if (sender.hasPermission("civmaker.admin.manage")) {
+            commands.add("admin");
+        }
+        return commands;
     }
 
     private void setBanner(Player player, String[] args) {
@@ -659,18 +721,12 @@ final class CivCommands implements TabExecutor {
         Stream<String> options = Stream.empty();
         String action = args.length == 0 ? "" : args[0].toLowerCase(Locale.ROOT);
         boolean manageAdmins = sender.hasPermission("civmaker.admin.manage");
+        List<String> available = availableCommands(sender);
+        if (args.length > 1 && !available.contains(action)) {
+            return List.of();
+        }
         if (args.length == 1) {
-            options = PLAYER_COMMANDS.stream();
-            if (isAdmin(sender)) {
-                options = Stream.concat(options, Stream.of("schedule", "cancelraid", "setbalance", "allegiance",
-                        "disbandvillage", "raidmode", "testdeposit", "locatemeadow"));
-                if (sender instanceof Player) {
-                    options = Stream.concat(options, Stream.of("farmstation"));
-                }
-            }
-            if (manageAdmins) {
-                options = Stream.concat(options, Stream.of("admin"));
-            }
+            options = available.stream();
         } else if (args.length == 2 && action.equals("raids") && isAdmin(sender)) {
             options = Stream.of("on", "off", "auto", "toggle");
         } else if (args.length == 2 && action.equals("schedule") && isAdmin(sender)) {

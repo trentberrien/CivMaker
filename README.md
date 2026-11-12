@@ -19,7 +19,7 @@ CivMaker is a Paper plugin for Minecraft Java Edition 26.3 that adds faction pro
 4. Explore for Farm Stations and save for settlements. Use `/civ points` to compare factions and `/civ raids` to check the next raid window.
 5. Equip your faction, build up your settlements, and work toward unlocking the End.
 
-Use `/civ help` for commands. The sections below explain each system and its default prices and limits.
+Use `/civ help` for commands relevant to your civilization membership, role, active invites, game mode, and admin permissions. Tab completion follows the same rules. The sections below explain each system and its default prices and limits.
 
 - [Economy](#mining-and-banknotes), [founding a civilization](#founding-and-expanding-villages), and [settlements](#settlements-and-points)
 - [Farm Stations](#farm-stations), [Secure Vaults](#secure-vaults), and [player trading](#trading-items)

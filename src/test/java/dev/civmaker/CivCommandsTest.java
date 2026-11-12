@@ -5,10 +5,12 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -67,6 +69,132 @@ class CivCommandsTest {
 
     private void run(Player sender, String... args) {
         assertTrue(commands.onCommand(sender, null, "civ", args));
+    }
+
+    private String help(CommandSender sender, String... args) {
+        clearInvocations(sender);
+        assertTrue(commands.onCommand(sender, null, "civ", args));
+        ArgumentCaptor<String> messages = ArgumentCaptor.forClass(String.class);
+        verify(sender, atLeastOnce()).sendMessage(messages.capture());
+        return String.join("\n", messages.getAllValues());
+    }
+
+    private List<String> completions(CommandSender sender) {
+        return commands.onTabComplete(sender, null, "civ", new String[]{""});
+    }
+
+    @Test void outsidersSeeFoundingAndPublicHelpWithoutManagementCommands() {
+        String help = help(outsider, "help");
+        assertTrue(help.contains("/civ create buys a Founding Beacon"));
+        assertTrue(help.contains("/civ balance | withdraw <notes> | deposit [notes]"));
+        assertTrue(help.contains("/civ villages | points | raids | raidprotection"));
+        assertTrue(help.contains("/civ shop"));
+        for (String hidden : List.of("claim", "settlement", "invite", "join", "leave", "promote", "demote",
+                "kick", "disband", "banner", "schedule", "cancelraid", "raidmode", "admin")) {
+            assertFalse(help.contains(hidden), hidden);
+            assertFalse(completions(outsider).contains(hidden), hidden);
+        }
+        assertTrue(commands.onTabComplete(outsider, null, "civ", new String[]{"claim", ""}).isEmpty());
+        assertTrue(commands.onTabComplete(outsider, null, "civ", new String[]{"schedule", ""}).isEmpty());
+    }
+
+    @Test void membersSeeLeaveButOnlyLeadersSeeManagementHelp() {
+        for (Player player : List.of(member, elder, owner)) {
+            String help = help(player, "help");
+            boolean manager = player != member;
+            boolean isOwner = player == owner;
+            assertEquals(manager, help.contains("/civ claim"));
+            assertEquals(manager, help.contains("/civ settlement"));
+            assertEquals(manager, help.contains("/civ invite"));
+            assertEquals(manager, help.contains("/civ kick"));
+            assertEquals(manager, help.contains("upgrade to 200 expansion claims"));
+            assertEquals(isOwner, help.contains("/civ promote"));
+            assertEquals(isOwner, help.contains("demote <player>"));
+            assertEquals(isOwner, help.contains("/civ disband"));
+            assertEquals(isOwner, help.contains("/civ banner"));
+            assertEquals(!isOwner, help.contains("/civ leave"));
+            assertFalse(help.contains("/civ create"));
+            assertFalse(help.contains("/civ join"));
+            List<String> available = completions(player);
+            assertEquals(manager, available.contains("claim"));
+            assertEquals(manager, available.contains("invite"));
+            assertEquals(manager, available.contains("kick"));
+            assertEquals(isOwner, available.contains("promote"));
+            assertEquals(isOwner, available.contains("disband"));
+            assertEquals(!isOwner, available.contains("leave"));
+        }
+        faction.expandedClaims = true;
+        assertFalse(help(owner, "help").contains("upgrade to 200 expansion claims"));
+    }
+
+    @Test void joinHelpAppearsOnlyWhileAnEligiblePlayerHasAnInvite() {
+        assertFalse(help(outsider, "help").contains("/civ join"));
+        run(elder, "invite", "Outsider");
+        assertTrue(help(outsider, "help").contains("/civ join"));
+        assertTrue(completions(outsider).contains("join"));
+        run(outsider, "join");
+        assertFalse(help(outsider, "help").contains("/civ join"));
+        assertFalse(completions(outsider).contains("join"));
+        run(outsider, "leave");
+        assertFalse(help(outsider, "help").contains("/civ join"));
+        assertTrue(help(outsider, "help").contains("/civ create"));
+    }
+
+    @Test void nonSurvivalHelpHidesSurvivalCommandsButKeepsRoleCommands() {
+        run(owner, "invite", "Outsider");
+        for (GameMode mode : List.of(GameMode.CREATIVE, GameMode.ADVENTURE, GameMode.SPECTATOR)) {
+            for (Player player : List.of(outsider, owner)) {
+                when(player.getGameMode()).thenReturn(mode);
+                String help = help(player, "help");
+                assertTrue(help.contains("/civ balance"));
+                for (String hidden : List.of("withdraw", "deposit", "create", "join", "claim", "settlement", "invite", "shop")) {
+                    assertFalse(help.contains(hidden), hidden);
+                    assertFalse(completions(player).contains(hidden), hidden);
+                }
+                assertEquals(player == owner, help.contains("/civ disband"));
+            }
+        }
+    }
+
+    @Test void adminHelpUsesPermissionOrStoredRoleAndSeparatesAdminManagement() {
+        when(owner.hasPermission("civmaker.admin")).thenReturn(true);
+        store.setAdmin(outsider.getUniqueId(), true);
+        for (Player player : List.of(owner, outsider)) {
+            String help = help(player, "help");
+            assertTrue(help.contains("/civ schedule <start ISO-8601>"));
+            assertTrue(help.contains("/civ schedule nightly"));
+            assertTrue(help.contains("/civ raidprotection <on|off|price amount|cooldown hours>"));
+            assertTrue(help.contains("/civ allegiance"));
+            assertTrue(help.contains("/civ farmstation test"));
+            assertFalse(help.contains("/civ admin"));
+            assertTrue(completions(player).containsAll(List.of("schedule", "cancelraid", "raidmode", "farmstation")));
+            assertFalse(completions(player).contains("admin"));
+        }
+        when(member.hasPermission("civmaker.admin.manage")).thenReturn(true);
+        String help = help(member, "help");
+        assertTrue(help.contains("/civ admin <add|remove>"));
+        assertFalse(help.contains("/civ schedule"));
+        assertTrue(completions(member).contains("admin"));
+    }
+
+    @Test void consoleHelpAndCompletionsOmitCommandsThatRequireAPlayer() {
+        CommandSender console = mock(CommandSender.class);
+        when(console.hasPermission("civmaker.admin")).thenReturn(true);
+        when(console.hasPermission("civmaker.admin.manage")).thenReturn(true);
+        String help = help(console, "help");
+        assertTrue(help.contains("/civ schedule"));
+        assertTrue(help.contains("/civ admin"));
+        for (String hidden : List.of("balance", "create", "claim", "settlement", "invite", "join", "leave",
+                "shop", "allegiance", "testdeposit", "farmstation", "locatemeadow")) {
+            assertFalse(help.contains("/civ " + hidden), hidden);
+            assertFalse(completions(console).contains(hidden), hidden);
+        }
+    }
+
+    @Test void defaultAndUnknownCommandsUseTheSameFilteredHelp() {
+        String expected = help(member, "help");
+        assertEquals(expected, help(member));
+        assertEquals(expected, help(member, "unknown"));
     }
 
     @Test void ownerCanPromoteAndDemoteAndNotifyMember() {
