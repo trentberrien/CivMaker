@@ -15,37 +15,75 @@ import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.util.function.LongSupplier;
+
 final class CombatTimeout implements Listener {
+    private static final long COMBAT_MEMORY_MILLIS = 60_000;
     private final CivMaker plugin;
+    private final LongSupplier clock;
+    private final NamespacedKey lastPlayerDamage;
     private final NamespacedKey timeoutUntil;
     private final NamespacedKey returnMode;
 
     CombatTimeout(CivMaker plugin) {
+        this(plugin, System::currentTimeMillis);
+    }
+
+    CombatTimeout(CivMaker plugin, LongSupplier clock) {
         this.plugin = plugin;
+        this.clock = clock;
+        lastPlayerDamage = new NamespacedKey(plugin, "combat_last_player_damage");
         timeoutUntil = new NamespacedKey(plugin, "combat_timeout_until");
         returnMode = new NamespacedKey(plugin, "combat_timeout_return_mode");
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    void damage(EntityDamageEvent event) {
+        if (!event.isCancelled() && event.getEntity() instanceof Player player && tookDamage(event)
+                && (player.getGameMode() == GameMode.SURVIVAL || player.getGameMode() == GameMode.ADVENTURE)
+                && isPlayerDamage(player, event.getDamageSource())) {
+            player.getPersistentDataContainer().set(lastPlayerDamage, PersistentDataType.LONG, clock.getAsLong());
+        }
+    }
+
+    @SuppressWarnings({"deprecation", "removal"})
+    private static boolean tookDamage(EntityDamageEvent event) {
+        // Losing absorption hearts is damage too, even when health damage is zero.
+        return event.getFinalDamage() > 0 || (event.isApplicable(EntityDamageEvent.DamageModifier.ABSORPTION)
+                && event.getDamage(EntityDamageEvent.DamageModifier.ABSORPTION) < 0);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     void death(PlayerDeathEvent event) {
+        if (event.isCancelled()) {
+            return;
+        }
         Player player = event.getEntity();
         var data = player.getPersistentDataContainer();
-        long now = System.currentTimeMillis();
+        long now = clock.getAsLong();
+        Long lastHit = data.get(lastPlayerDamage, PersistentDataType.LONG);
+        boolean recentCombat = lastHit != null && now >= lastHit && now - lastHit <= COMBAT_MEMORY_MILLIS;
+        // A combat tag belongs to this life, including when the timeout is disabled.
+        data.remove(lastPlayerDamage);
         int seconds = timeoutSeconds();
-        if (seconds > 0 && isPlayerKill(player, event.getDamageSource())
+        if (seconds > 0 && (recentCombat || isPlayerDamage(player, event.getDamageSource()))
                 && (player.getGameMode() == GameMode.SURVIVAL || player.getGameMode() == GameMode.ADVENTURE)) {
             data.set(timeoutUntil, PersistentDataType.LONG, now + seconds * 1_000L);
             player.sendMessage("Combat death. You can rejoin the fight in " + seconds + " seconds.");
         }
     }
 
-    private static boolean isPlayerKill(Player player, DamageSource source) {
+    private static boolean isPlayerDamage(Player player, DamageSource source) {
+        if (source == null) {
+            return false;
+        }
         Entity attacker = source.getCausingEntity();
         if (!(attacker instanceof LivingEntity)) {
             Entity direct = source.getDirectEntity();
@@ -100,7 +138,7 @@ final class CombatTimeout implements Listener {
             return 0;
         }
         return player.getPersistentDataContainer().getOrDefault(timeoutUntil, PersistentDataType.LONG, 0L)
-                - System.currentTimeMillis();
+                - clock.getAsLong();
     }
 
     private int timeoutSeconds() {

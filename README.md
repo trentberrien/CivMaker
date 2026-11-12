@@ -125,7 +125,7 @@ mvn install
 mvn -f VillagerRework/pom.xml package
 ```
 
-Copy `target/civmaker-0.12.1.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
+Copy `target/civmaker-0.12.2.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
 
 ## Farm Stations
 
@@ -210,7 +210,7 @@ Members can ask a keeper to activate another stronghold portal for free. Entry t
 
 ## Combat deaths
 
-After being killed by another player, players respawn at their usual location and wait in place as spectators until the combat timeout ends. Player kills include player-fired projectiles and player-sourced TNT. Mob deaths, environmental deaths, and self-inflicted deaths do not trigger the timeout, even after recent combat damage. The timeout starts at death and lasts 60 seconds by default. Reconnecting doesn't reset either timer.
+After dying to another player or within **60 real seconds of taking damage from another player**, players respawn at their usual location and wait in place as spectators until the combat timeout ends. Player damage includes player-fired projectiles, player-sourced TNT, and damage absorbed by absorption hearts. Falls, lava, mob attacks, and self-inflicted deaths also trigger the timeout when they follow a player hit within that minute. Cancelled attacks, hits that deal no damage, and self-inflicted damage do not start or refresh the combat tag. The tag survives reconnects and restarts, expires after one minute, and is cleared on death. The timeout starts at death and lasts 60 seconds by default; changing that duration does not change the one-minute combat check. Reconnecting doesn't reset either timer.
 
 ## Raid windows
 
@@ -274,7 +274,7 @@ The optional [CivMaker Discord bot](discord-bot/README.md) runs on the server co
 ### Build and install
 
 1. Install JDK 25 and Maven, then run `mvn package` from this directory. This preserves older versioned JARs in `target/`.
-2. Copy `target/civmaker-0.12.1.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+2. Copy `target/civmaker-0.12.2.jar` into your Paper 26.3 server's `plugins` directory and start the server.
 3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
 
 ### Optional Xaero map companion
