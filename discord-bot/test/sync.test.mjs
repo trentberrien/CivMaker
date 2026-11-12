@@ -7,6 +7,7 @@ import { Bridge, validateSnapshot } from '../src/bridge.mjs';
 import { loadConfig } from '../src/config.mjs';
 import { RoleSync, roleChanges, SerialQueue } from '../src/sync.mjs';
 import { StateStore } from '../src/state.mjs';
+import { Collection, PermissionFlagsBits, PermissionsBitField } from 'discord.js';
 
 const serverId = '11111111-1111-1111-1111-111111111111';
 const factionId = '22222222-2222-2222-2222-222222222222';
@@ -36,14 +37,23 @@ function fixture({ failure = false, missingMember = false } = {}) {
     async remove(id) { changes.push(['remove', id]); if (failure) throw new Error('Discord temporarily unavailable'); current.delete(id); },
     async add(id) { changes.push(['add', id]); current.add(id); },
   } };
-  const guild = { id: guildId, members: {
-    async fetchMe() { return { permissions: { has: () => true } }; },
+  const channels = new Map();
+  let nextChannel = 623456789012345678n;
+  const guild = { id: guildId, channels: { cache: channels, async fetch() {}, async create(options) {
+    const channel = { id: String(nextChannel++), type: options.type, permissionOverwrites: {
+      cache: new Collection(options.permissionOverwrites.map(overwrite => [overwrite.id, { ...overwrite,
+        allow: new PermissionsBitField(overwrite.allow ?? []), deny: new PermissionsBitField(overwrite.deny ?? []) }])),
+    } };
+    channels.set(channel.id, channel);
+    return channel;
+  } }, members: {
+    async fetchMe() { return { id: '723456789012345678', permissions: { has: () => true } }; },
     async fetch() { if (missingMember) throw Object.assign(new Error('Unknown Member'), { code: 10007 }); return member; },
   }, roles: { cache: roles, async fetch() {} } };
   const saved = [];
   const store = { async save(value) { saved.push(structuredClone(value)); } };
   const sync = new RoleSync(guild, state, store, { rolePrefix: 'Civ | ' }, { warn() {} });
-  return { changes, state, current, saved, sync, roles, guild };
+  return { changes, state, current, saved, sync, roles, guild, channels };
 }
 
 test('faction transfer removes only the prior managed role, then adds the new role', async () => {
@@ -66,6 +76,31 @@ test('leaving, disbanding and unlinking remove faction roles without touching ot
     assert.ok(f.current.has(unrelatedRole));
     assert.equal(f.state.trackedUsers.includes(userId), kind !== 'unlink');
   }
+});
+
+test('disbanding retains faction channels and roles while removing player membership', async () => {
+  const f = fixture();
+  await f.sync.apply(snapshot());
+  const original = structuredClone(f.state.channels);
+  const originalRoles = structuredClone(f.state.roles);
+  const data = snapshot(null);
+  data.factions = [];
+  await f.sync.apply(data);
+  assert.deepEqual(f.state.channels, original);
+  assert.deepEqual(f.state.roles, originalRoles);
+  assert.equal(f.channels.size, 4);
+  assert.ok(!f.current.has(oldRole));
+});
+
+test('a channel permission failure cannot prevent faction role cleanup', async () => {
+  const f = fixture();
+  f.guild.members.fetchMe = async () => ({ id: '723456789012345678', permissions: {
+    has: permission => permission === PermissionFlagsBits.ManageRoles,
+  } });
+  const result = await f.sync.apply(snapshot(null));
+  assert.ok(result.errors > 0);
+  assert.deepEqual(f.changes, [['remove', oldRole]]);
+  assert.equal(f.channels.size, 0);
 });
 
 test('failed removals remain tracked for retry and never grant a second faction', async () => {
@@ -167,6 +202,21 @@ test('state round-trips atomically and refuses corruption or a different guild',
   await assert.rejects(new StateStore(directory, userId).load());
   await writeFile(store.file, '{broken');
   await assert.rejects(store.load());
+});
+
+test('old role-only state upgrades and saved channel IDs survive restarts', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'civmaker-channel-state-'));
+  const store = new StateStore(directory, guildId);
+  await store.save({ schemaVersion: 1, guildId, serverId, roles: { [factionId]: oldRole }, trackedUsers: [userId] });
+  const upgraded = await store.load();
+  assert.deepEqual(upgraded.channels, {});
+  assert.deepEqual(upgraded.raidAlertsSent, {});
+  upgraded.channels[factionId] = { text: '623456789012345678', voice: '723456789012345678' };
+  await store.save(upgraded);
+  assert.deepEqual((await store.load()).channels, upgraded.channels);
+  upgraded.channels[otherFaction] = { text: upgraded.channels[factionId].text };
+  await store.save(upgraded);
+  await assert.rejects(store.load(), /Invalid saved faction channels/);
 });
 
 test('serialized operations preserve order and recover from an error', async () => {

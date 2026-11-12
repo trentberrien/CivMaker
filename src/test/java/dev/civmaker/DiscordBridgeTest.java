@@ -20,6 +20,50 @@ import static org.mockito.Mockito.*;
 class DiscordBridgeTest {
     @TempDir Path directory;
 
+    @Test void pendingRaidAlertsArePrivateAndAcknowledgementsSurviveRestart() throws Exception {
+        var alerts = new DiscordRaidAlerts(directory, 300_000);
+        alerts.record(UUID.randomUUID(), "Ashford", "lockpick", "Raider", "world", 10, 70, 20);
+        var store = new CivStore(directory);
+        var plugin = mock(CivMaker.class);
+        when(plugin.getDataFolder()).thenReturn(directory.toFile());
+        String token = "a".repeat(32);
+        try (var bridge = new DiscordBridge(plugin, store, token, 0); var client = HttpClient.newHttpClient()) {
+            String url = "http://127.0.0.1:" + bridge.port() + "/v1/raid-alerts/ack";
+            var alert = bridge.snapshot().raidAlerts().getFirst();
+            assertEquals(400, request(client, url, token, "{\"ids\":[\"invalid\"]}").statusCode());
+            assertEquals(1, bridge.snapshot().raidAlerts().size());
+            assertEquals(401, request(client, url, "wrong", "{\"ids\":[\"" + alert.id() + "\"]}").statusCode());
+            assertEquals(200, request(client, url, token, "{\"ids\":[\"" + alert.id() + "\"]}").statusCode());
+            assertTrue(bridge.snapshot().raidAlerts().isEmpty());
+            assertTrue(new DiscordRaidAlerts(directory, 300_000).pending().isEmpty());
+        }
+    }
+
+    @Test void raidWindowAloneAndShieldedClaimsDoNotGenerateAlerts() throws Exception {
+        var store = new CivStore(directory);
+        var world = mock(org.bukkit.World.class);
+        UUID worldId = UUID.randomUUID();
+        when(world.getUID()).thenReturn(worldId);
+        when(world.getName()).thenReturn("world");
+        var faction = new CivStore.Village("Ashford", UUID.randomUUID(), new CivStore.Position(worldId, 0, 80, 0));
+        store.addVillage(faction);
+        var plugin = mock(CivMaker.class);
+        when(plugin.getDataFolder()).thenReturn(directory.toFile());
+        var location = new org.bukkit.Location(world, 1, 80, 1);
+        try (var bridge = new DiscordBridge(plugin, store, "a".repeat(32), 0)) {
+            bridge.raidAlert(faction, "Raider", location, "lockpick");
+            assertTrue(bridge.snapshot().raidAlerts().isEmpty());
+            store.setRaidMode(CivStore.RaidMode.ON);
+            assertTrue(bridge.snapshot().raidAlerts().isEmpty());
+            faction.shieldWindow = store.activeWindow(System.currentTimeMillis()).start();
+            bridge.raidAlert(faction, "Raider", location, "lockpick");
+            assertTrue(bridge.snapshot().raidAlerts().isEmpty());
+            faction.shieldWindow = null;
+            bridge.raidAlert(faction, "Raider", location, "lockpick");
+            assertEquals(1, bridge.snapshot().raidAlerts().size());
+        }
+    }
+
     @Test void loopbackApiAuthenticatesAndRedeemsOnlyAnInGameCode() throws Exception {
         CivStore store = new CivStore(directory);
         CivMaker plugin = mock(CivMaker.class);

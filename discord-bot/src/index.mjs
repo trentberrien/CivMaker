@@ -4,6 +4,7 @@ import { Bridge, BridgeError } from './bridge.mjs';
 import { StateStore, lockDirectory } from './state.mjs';
 import { RoleSync, SerialQueue } from './sync.mjs';
 import { selectGuildId } from './guild.mjs';
+import { RaidNotifications } from './raids.mjs';
 
 const config = loadConfig();
 const release = await lockDirectory(config.dataDirectory);
@@ -12,6 +13,7 @@ const queue = new SerialQueue();
 const client = new Client({ intents: [GatewayIntentBits.Guilds], allowedMentions: { parse: [] },
   presence: { status: 'online', activities: [{ name: config.onlineOnly ? 'CivMaker setup' : 'CivMaker', type: ActivityType.Playing }] } });
 let sync;
+let raidNotifications;
 let timer;
 let stopping = false;
 let lastHealth = '';
@@ -24,7 +26,11 @@ function report(error) {
 }
 
 async function reconcile() {
-  const result = await sync.apply(await bridge.snapshot());
+  const snapshot = await bridge.snapshot();
+  const result = await sync.apply(snapshot);
+  const alerts = await raidNotifications.apply(snapshot);
+  if (alerts.acknowledge.length) await bridge.acknowledgeRaids(alerts.acknowledge);
+  result.errors += alerts.errors;
   if (lastHealth) console.log('Minecraft bridge connected; role syncing resumed.');
   lastHealth = '';
   if (result.updated) console.log(`Updated faction roles for ${result.updated} member(s).`);
@@ -56,6 +62,7 @@ client.once(Events.ClientReady, async () => {
     const store = new StateStore(config.dataDirectory, config.guildId);
     const state = await store.load();
     sync = new RoleSync(guild, state, store, config);
+    raidNotifications = new RaidNotifications(guild, state, store);
     await guild.commands.set(commands);
     console.log(`CivMaker bot ready in ${guild.name} (${guild.id}) as ${client.user.tag}.`);
     if (config.onlineOnly) console.log('Temporary Discord-only mode: online; Minecraft linking and faction role changes are paused.');
@@ -119,7 +126,7 @@ client.on(Events.InteractionCreate, async interaction => {
             await interaction.editReply('You need Manage Roles to force a full sync.');
             break;
           }
-          const result = await sync.apply(snapshot);
+          const result = await reconcile();
           await interaction.editReply(`Updated ${result.updated} member(s). ${result.errors
             ? `${result.errors} issue(s) will be retried; check the bot console.` : 'Faction roles are up to date.'}`);
           break;

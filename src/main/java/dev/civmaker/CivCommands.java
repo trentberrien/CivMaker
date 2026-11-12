@@ -447,7 +447,11 @@ final class CivCommands implements TabExecutor {
         Invite invite = invites.remove(id);
         require(invite != null && invite.expires() > System.currentTimeMillis(), "You don't have an active village invite.");
         store.addMember(invite.village(), id);
-        player.sendMessage("You joined " + invite.village().name + ".");
+        boolean elder = plugin.getConfig().getBoolean("village.invite-as-elder", true);
+        if (elder) {
+            store.setElder(invite.village(), id, true);
+        }
+        player.sendMessage("You joined " + invite.village().name + (elder ? " as an elder." : "."));
     }
 
     private void leave(Player player, String[] args) {

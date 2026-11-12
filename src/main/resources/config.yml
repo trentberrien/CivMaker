@@ -23,6 +23,9 @@ village:
   min-beacon-y: 64
   chunk-price: 1000
   settlement-price: 50000
+  # Invited players join as elders. Set false to make them ordinary members instead.
+  # Applies when an invite is accepted; existing ranks and demotions are preserved.
+  invite-as-elder: true
 
 raid-protection:
   enabled: true
@@ -46,3 +49,5 @@ discord:
   enabled: false
   port: 8790
   bridge-token: ''
+  # One Discord alert per faction per five minutes during sustained attacks (30–3600 seconds).
+  raid-alert-cooldown-seconds: 300

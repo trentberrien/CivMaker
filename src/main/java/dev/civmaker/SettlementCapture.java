@@ -41,6 +41,7 @@ final class SettlementCapture implements Listener {
     private static final long RECENT_CONTEST_MILLIS = 5 * 60 * 1_000L;
     private final CivStore store;
     private final DefenderGolems defenders;
+    private final Plugin plugin;
     private final NamespacedKey captureFireworkKey;
     private final Map<Position, Fight> fights = new HashMap<>();
     private final Map<Position, ContestAlert> contestAlerts = new HashMap<>();
@@ -85,6 +86,7 @@ final class SettlementCapture implements Listener {
     }
 
     SettlementCapture(Plugin plugin, CivStore store, DefenderGolems defenders) {
+        this.plugin = plugin;
         this.store = store;
         this.defenders = defenders;
         captureFireworkKey = new NamespacedKey(plugin, "capture_firework");
@@ -192,6 +194,11 @@ final class SettlementCapture implements Listener {
         }
 
         String point = settlement.displayName(center.getBlock()) + " (" + bell.x() + ", " + bell.y() + ", " + bell.z() + ")";
+        if (enemies && plugin instanceof CivMaker civ) {
+            String attackers = factions.stream().filter(faction -> faction != defender).map(faction -> faction.name)
+                    .sorted().collect(java.util.stream.Collectors.joining(", "));
+            civ.discordRaidAlert(defender, attackers, center, "settlement_capture");
+        }
         if (enemies && !fight.announced) {
             Bukkit.broadcast(Component.text(defender.name + "'s " + point + " is under raid!", TextColor.color(defender.color)));
             fight.announced = true;

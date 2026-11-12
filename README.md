@@ -62,6 +62,8 @@ Deepslate ores pay the same amount as their stone equivalents by default.
 
 Players without a civilization can buy multiple Founding Beacons. Each player can belong to one civilization at a time. A Founding Beacon unlocks its effects when it becomes a capital. Unused Founding Beacons stay locked, including when picked up and placed again. Leaving a civilization restores purchase eligibility. Ordinary beacons still work inside civilizations.
 
+Invited players join as **elders by default**, keeping that rank until the owner uses `/civ demote <player>` or they leave. Set `village.invite-as-elder: false` in `plugins/CivMaker/config.yml` (or turn off **Invite players as elders** in the local config editor) and restart to make future invitees ordinary members. The setting is checked when `/civ join` accepts an invite; existing members' ranks and demotions stay as they are. Older configs without this setting also default to inviting players as elders.
+
 Plot protection covers blocks from **Y=61 through Y=200** in capital chunks and their expansions, and **Y=61 through Y=99** in settlements. Capital beacons and registered settlement bells and vaults are protected at any height.
 
 Village owners can run `/civ disband` and then `/civ disband confirm` within 60 seconds. This releases the capital, expansions, and settlements and clears memberships and pending invites. A released Founding Beacon locks again and can be used to found a new civilization. Released capitals and expansions return to wilderness rules. Released natural villages regain unclaimed village protection. Disbanding gives no refunds.
@@ -121,7 +123,7 @@ mvn install
 mvn -f VillagerRework/pom.xml package
 ```
 
-Copy `target/civmaker-0.10.0.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
+Copy `target/civmaker-0.12.0.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
 
 ## Farm Stations
 
@@ -263,12 +265,12 @@ Loading fireworks into a Multishot crossbow consumes three rockets. If you have 
 
 ### Discord accounts and faction roles
 
-The optional [CivMaker Discord bot](discord-bot/README.md) runs on the server computer and automatically assigns Discord roles based on saved faction membership, including for offline players. Run `/civ discord link` in Minecraft and submit the private code with `/link` in Discord. Role updates follow faction joins, leaves, kicks, transfers, disbands, and account unlinks. The bot requires a Discord application token and server ID; its local bridge is disabled by default. See the guide for installation, permissions, Windows startup, and backups.
+The optional [CivMaker Discord bot](discord-bot/README.md) runs on the server computer and automatically assigns Discord roles based on saved faction membership, including for offline players. Run `/civ discord link` in Minecraft and submit the private code with `/link` in Discord. Each faction gets private text and voice channels, and raid alerts ping its role in the text channel. Disbanding removes player roles and preserves both channels and their history. Role updates follow faction joins, leaves, kicks, transfers, disbands, and account unlinks. The bot requires a Discord application token and server ID; its local bridge is disabled by default. See the guide for installation, permissions, Windows startup, and backups.
 
 ### Build and install
 
 1. Install JDK 25 and Maven, then run `mvn package` from this directory. This preserves older versioned JARs in `target/`.
-2. Copy `target/civmaker-0.10.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+2. Copy `target/civmaker-0.12.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
 3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
 
 ### Optional Xaero map companion

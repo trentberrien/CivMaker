@@ -169,6 +169,7 @@ public class CivMaker extends JavaPlugin {
                         settlementVaults, shields, foundingBeacons, farmStationLoot));
         Objects.requireNonNull(getCommand("trade")).setExecutor(trading);
         discordBridge = DiscordBridge.start(this, store);
+        if (discordBridge != null) events.registerEvents(new DiscordRaidListener(this, store), this);
 
         getServer().getScheduler().runTaskTimer(this, capture::refresh,
                 SettlementCapture.UPDATE_TICKS, SettlementCapture.UPDATE_TICKS);
@@ -260,6 +261,10 @@ public class CivMaker extends JavaPlugin {
             throw new IllegalArgumentException("Discord linking is unavailable. Ask an administrator to enable the Discord bridge.");
         }
         discordBridge.command(player, args);
+    }
+
+    void discordRaidAlert(CivStore.Village faction, String attacker, Location location, String kind) {
+        if (discordBridge != null) discordBridge.raidAlert(faction, attacker, location, kind);
     }
 
     private void flush() {

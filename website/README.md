@@ -38,6 +38,8 @@ Open [the local config editor](http://127.0.0.1:8788/) and check the file path i
 
 Stop Paper before editing its config. Select **Save changes** to write the file, then start Paper to apply the changes. **Reload file** reads the current file from disk. The editor checks for changes made elsewhere before saving and keeps additional YAML settings and comments. It listens only on `127.0.0.1`.
 
+Under **Village**, **Invite players as elders** controls the rank given when a player accepts a faction invite. It is on by default. Turn it off to have future invitees join as ordinary members. Existing ranks and demotions are preserved.
+
 ## Use a real world save
 
 Render a north-up surface image from a copy of the Minecraft world. For example, run [uNmINeD CLI](https://unmined.net/docs/cli/getting-started/) with an explicit block rectangle and leave trimming off so the image edges keep their original coordinates. This example covers 2,048 × 2,048 blocks around X 0, Z 0. Adjust the rectangle to cover the part of the world you want to show.

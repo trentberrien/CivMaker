@@ -22,11 +22,14 @@ try {
   const roles = await rest.get(Routes.guildRoles(config.guildId));
   const permissions = roles.filter(role => role.id === config.guildId || member.roles.includes(role.id))
     .reduce((bits, role) => bits | BigInt(role.permissions), 0n);
-  if (!(permissions & (PermissionFlagsBits.ManageRoles | PermissionFlagsBits.Administrator))) {
-    throw new Error('Bot is in the Discord server but lacks Manage Roles.');
+  if (!(permissions & PermissionFlagsBits.Administrator)) {
+    for (const [name, permission] of Object.entries({ 'Manage Roles': PermissionFlagsBits.ManageRoles,
+      'Manage Channels': PermissionFlagsBits.ManageChannels, 'Mention @everyone, @here, and All Roles': PermissionFlagsBits.MentionEveryone })) {
+      if (!(permissions & permission)) throw new Error(`Bot is in the Discord server but lacks ${name}.`);
+    }
   }
   console.log(`Connected as ${user.username}. Bridge: ${snapshot.factions.length} faction(s), ${snapshot.players.length} linked account(s).`);
-  console.log('Configuration and Discord access verified. Start the bot to sync roles.');
+  console.log('Configuration and Discord access verified. Start the bot to sync roles, private channels, and raid alerts.');
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;

@@ -4,6 +4,8 @@ import { join } from 'node:path';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const snowflake = /^\d{17,20}$/;
 
+export class StateWriteError extends Error {}
+
 export class StateStore {
   constructor(directory, guildId) {
     this.directory = directory;
@@ -16,7 +18,7 @@ export class StateStore {
     let data;
     try { data = JSON.parse(await readFile(this.file, 'utf8')); }
     catch (error) {
-      if (error.code === 'ENOENT') return { schemaVersion: 1, guildId: this.guildId, serverId: null, roles: {}, trackedUsers: [] };
+      if (error.code === 'ENOENT') return { schemaVersion: 1, guildId: this.guildId, serverId: null, roles: {}, channels: {}, raidAlertsSent: {}, trackedUsers: [] };
       throw new Error('Cannot read data/roles.json. Restore a backup before starting the bot.', { cause: error });
     }
     if (data.schemaVersion !== 1 || data.guildId !== this.guildId
@@ -26,6 +28,18 @@ export class StateStore {
         || new Set(Object.values(data.roles)).size !== Object.values(data.roles).length
         || !Array.isArray(data.trackedUsers) || !data.trackedUsers.every(id => snowflake.test(id))) {
       throw new Error('Invalid role state or different Discord server. Restore the correct data/roles.json.');
+    }
+    // Compatible upgrade: old role-only installations have neither of these maps.
+    data.channels ??= {};
+    data.raidAlertsSent ??= {};
+    const channels = Object.entries(data.channels);
+    if (typeof data.channels !== 'object' || Array.isArray(data.channels)
+        || !channels.every(([id, pair]) => uuid.test(id) && pair && typeof pair === 'object' && !Array.isArray(pair)
+          && Object.entries(pair).every(([kind, channel]) => ['text', 'voice'].includes(kind) && snowflake.test(channel)))
+        || new Set(channels.flatMap(([, pair]) => Object.values(pair))).size !== channels.flatMap(([, pair]) => Object.values(pair)).length
+        || typeof data.raidAlertsSent !== 'object' || Array.isArray(data.raidAlertsSent)
+        || !Object.entries(data.raidAlertsSent).every(([id, sentAt]) => uuid.test(id) && Number.isFinite(Date.parse(sentAt)))) {
+      throw new Error('Invalid saved faction channels or raid alert state. Restore the correct data/roles.json.');
     }
     return data;
   }

@@ -27,6 +27,7 @@ const fields = new Map([
   ["village.min-beacon-y", ["-2147483648", intMax]],
   ["village.chunk-price", ["0", longMax]],
   ["village.settlement-price", ["0", longMax]],
+  ["village.invite-as-elder", null],
   ["export.enabled", null],
 ]);
 

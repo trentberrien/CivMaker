@@ -28,6 +28,18 @@ export function validateSnapshot(value, now = Date.now()) {
     discordIds.add(player.discordId);
     minecraftIds.add(player.minecraftId);
   }
+  if (value.raidAlerts !== undefined) {
+    if (!Array.isArray(value.raidAlerts) || value.raidAlerts.length > 1024) invalid();
+    const ids = new Set();
+    for (const alert of value.raidAlerts) {
+      if (!alert || !uuid.test(alert.id) || ids.has(alert.id) || !uuid.test(alert.factionId)
+          || !['settlement_capture', 'lockpick', 'battering_ram', 'c4', 'grenade', 'block_break', 'combat'].includes(alert.kind)
+          || !['factionName', 'attacker', 'world'].every(key => typeof alert[key] === 'string')
+          || !['x', 'y', 'z'].every(key => Number.isSafeInteger(alert[key]))
+          || !Number.isFinite(Date.parse(alert.createdAt)) || Date.parse(alert.createdAt) - now > 60_000) invalid();
+      ids.add(alert.id);
+    }
+  }
   return value;
 }
 
@@ -63,4 +75,9 @@ export class Bridge {
   async snapshot() { return validateSnapshot(await this.request('snapshot')); }
   link(code, discordId) { return this.request('link', { code, discordId }); }
   unlink(discordId) { return this.request('unlink', { discordId }); }
+  async acknowledgeRaids(ids) {
+    for (let offset = 0; offset < ids.length; offset += 100) {
+      await this.request('raid-alerts/ack', { ids: ids.slice(offset, offset + 100) });
+    }
+  }
 }

@@ -153,6 +153,14 @@ final class RaidTools implements Listener {
                     SUPER_TOTEM, RADAR, SUPER_SADDLE, RAID_SHIELD, WARP_PORTAL -> false;
         };
         if (consume) {
+            if (village != null && tool != Tool.VAULT) {
+                String kind = switch (tool) {
+                    case LOCKPICK -> "lockpick";
+                    case RAM -> "battering_ram";
+                    default -> "c4";
+                };
+                plugin.discordRaidAlert(village, player.getName(), target.getLocation(), kind);
+            }
             consumeMainHand(player, held);
         }
     }
@@ -214,6 +222,10 @@ final class RaidTools implements Listener {
                 && store.raidCovers(Plot.at(center))
                 && store.memberOf(grenade.thrower()) != village)) {
             protection.detonateGrenade(center, village, sameRaid ? Bukkit.getPlayer(grenade.thrower()) : null);
+            if (village != null) {
+                Player thrower = Bukkit.getPlayer(grenade.thrower());
+                plugin.discordRaidAlert(village, thrower == null ? "Unknown" : thrower.getName(), center, "grenade");
+            }
         }
     }
 

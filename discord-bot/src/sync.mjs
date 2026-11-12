@@ -1,7 +1,7 @@
 import { PermissionFlagsBits } from 'discord.js';
 import { validateSnapshot } from './bridge.mjs';
-
-class StateWriteError extends Error {}
+import { StateWriteError } from './state.mjs';
+import { FactionChannels } from './channels.mjs';
 
 export function roleChanges(currentIds, managedIds, desiredId) {
   const current = new Set(currentIds);
@@ -24,6 +24,7 @@ export class SerialQueue {
 export class RoleSync {
   constructor(guild, state, store, config, log = console) {
     Object.assign(this, { guild, state, store, config, log });
+    this.channels = new FactionChannels(guild, state, store);
   }
 
   checkServer(snapshot) {
@@ -46,6 +47,11 @@ export class RoleSync {
     this.state.trackedUsers = [...tracked];
     await this.store.save(this.state);
     const errors = [];
+    let channelsReady = false;
+    if (snapshot.factions.length) {
+      try { await this.channels.refresh(me); channelsReady = true; }
+      catch (error) { errors.push(error.message); }
+    }
     const blockedFactions = new Set();
     for (const faction of snapshot.factions) {
       try {
@@ -61,6 +67,13 @@ export class RoleSync {
         this.assertSafe(role);
         if (role.name !== name || role.colors.primaryColor !== faction.color) {
           await role.edit({ name, colors: { primaryColor: faction.color }, reason: 'CivMaker faction details' });
+        }
+        if (channelsReady) {
+          try { await this.channels.ensure(faction, role, me); }
+          catch (error) {
+            if (error instanceof StateWriteError) throw error;
+            errors.push(`Faction channels ${faction.id}: ${error.message}`);
+          }
         }
       } catch (error) {
         // A failed disk write must stop before any membership changes occur.

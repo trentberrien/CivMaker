@@ -7,6 +7,7 @@ const descriptions = {
   "village.min-beacon-y": ["Minimum beacon height", "Lowest Y-coordinate for a founding beacon.", "Y"],
   "village.chunk-price": ["Chunk price", "Cost of one capital claim.", "$"],
   "village.settlement-price": ["Settlement price", "Cost of buying a natural village.", "$"],
+  "village.invite-as-elder": ["Invite players as elders", "New invitees join as elders until their owner demotes them. Turn off to give new invitees ordinary membership."],
   "export.enabled": ["Publish Atlas updates", "Write updates to public-v1.json."],
 };
 

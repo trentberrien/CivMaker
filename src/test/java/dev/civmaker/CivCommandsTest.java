@@ -6,6 +6,7 @@ import org.bukkit.GameMode;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,7 @@ class CivCommandsTest {
     private CivStore store;
     private CivCommands commands;
     private Server server;
+    private YamlConfiguration config;
     private CivStore.Village faction;
     private Player owner;
     private Player elder;
@@ -37,6 +39,8 @@ class CivCommandsTest {
         CivMaker plugin = mock(CivMaker.class);
         server = mock(Server.class);
         when(plugin.getServer()).thenReturn(server);
+        config = new YamlConfiguration();
+        when(plugin.getConfig()).thenReturn(config);
         commands = new CivCommands(plugin, store, null, null, null, null, null, null, null, null, null, null, null);
         owner = player("Owner");
         elder = player("Elder");
@@ -239,11 +243,49 @@ class CivCommandsTest {
         run(elder, "invite", "Outsider");
         run(outsider, "join");
         assertSame(faction, store.registeredVillage(outsider.getUniqueId()));
-        assertFalse(faction.elders.contains(outsider.getUniqueId()));
+        assertTrue(faction.elders.contains(outsider.getUniqueId()));
         Player recruit = player("Recruit");
         run(owner, "invite", "Recruit");
         run(recruit, "join");
         assertSame(faction, store.registeredVillage(recruit.getUniqueId()));
+        assertTrue(faction.elders.contains(recruit.getUniqueId()));
+    }
+
+    @Test void disablingDefaultElderStatusMakesNewInviteesOrdinaryMembers() {
+        config.set("village.invite-as-elder", false);
+        run(owner, "invite", "Outsider");
+        run(outsider, "join");
+        assertSame(faction, store.registeredVillage(outsider.getUniqueId()));
+        assertFalse(faction.elders.contains(outsider.getUniqueId()));
+        assertTrue(faction.elders.contains(elder.getUniqueId()));
+        run(outsider, "invite", "Owner");
+        verify(outsider).sendMessage("Only a faction owner or elder can use this command.");
+    }
+
+    @Test void inviteRankUsesTheSettingAtAcceptance() {
+        run(owner, "invite", "Outsider");
+        config.set("village.invite-as-elder", false);
+        run(outsider, "join");
+        assertFalse(faction.elders.contains(outsider.getUniqueId()));
+        run(outsider, "leave");
+        run(owner, "invite", "Outsider");
+        config.set("village.invite-as-elder", true);
+        run(outsider, "join");
+        assertTrue(faction.elders.contains(outsider.getUniqueId()));
+    }
+
+    @Test void invitedElderRoleAndOwnerDemotionPersistAcrossRestarts() throws Exception {
+        run(owner, "invite", "Outsider");
+        run(outsider, "join");
+        verify(outsider).sendMessage("You joined Test faction as an elder.");
+        store.save();
+        assertTrue(new CivStore(directory).village(faction.id).elders.contains(outsider.getUniqueId()));
+        run(owner, "demote", "Outsider");
+        run(outsider, "invite", "Owner");
+        verify(outsider).sendMessage("Only a faction owner or elder can use this command.");
+        store.save();
+        assertFalse(new CivStore(directory).village(faction.id).elders.contains(outsider.getUniqueId()));
+        assertFalse(faction.elders.contains(member.getUniqueId()), "Existing ordinary members keep their rank");
     }
 
     @Test void ordinaryAndDemotedMembersCannotInvite() {
@@ -308,9 +350,15 @@ class CivCommandsTest {
         assertNull(store.registeredVillage(id));
     }
 
-    @Test void leavingAndRejoiningDoesNotRestoreElderRole() {
+    @Test void leavingAndRejoiningUsesConfiguredDefaultRank() {
         run(elder, "leave");
         assertFalse(faction.elders.contains(elder.getUniqueId()));
+        run(owner, "invite", "Elder");
+        run(elder, "join");
+        assertSame(faction, store.registeredVillage(elder.getUniqueId()));
+        assertTrue(faction.elders.contains(elder.getUniqueId()));
+        config.set("village.invite-as-elder", false);
+        run(elder, "leave");
         run(owner, "invite", "Elder");
         run(elder, "join");
         assertSame(faction, store.registeredVillage(elder.getUniqueId()));

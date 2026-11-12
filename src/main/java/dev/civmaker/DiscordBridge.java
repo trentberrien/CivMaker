@@ -27,18 +27,21 @@ final class DiscordBridge implements AutoCloseable {
     private static final Gson JSON = new Gson();
     record Faction(UUID id, String name, int color) {}
     record LinkedPlayer(UUID minecraftId, String minecraftName, String discordId, UUID factionId) {}
-    record Snapshot(int schemaVersion, UUID serverId, String generatedAt, List<Faction> factions, List<LinkedPlayer> players) {}
+    record Snapshot(int schemaVersion, UUID serverId, String generatedAt, List<Faction> factions, List<LinkedPlayer> players,
+                    List<DiscordRaidAlerts.Alert> raidAlerts) {}
     private record Memberships(String generatedAt, List<Faction> factions, Map<UUID, UUID> members) {}
     private record LinkRequest(String code, String discordId) {}
 
     private final CivMaker plugin;
     private final CivStore store;
     private final DiscordLinks links;
+    private final DiscordRaidAlerts raidAlerts;
     private final byte[] authorization;
     private final HttpServer server;
     private final ExecutorService executor;
     private BukkitTask refreshTask;
     private volatile Memberships memberships;
+    private long nextRaidError;
 
     static DiscordBridge start(CivMaker plugin, CivStore store) {
         if (!plugin.getConfig().getBoolean("discord.enabled", false)) return null;
@@ -68,6 +71,8 @@ final class DiscordBridge implements AutoCloseable {
         this.plugin = plugin;
         this.store = store;
         links = new DiscordLinks(plugin.getDataFolder().toPath());
+        long cooldown = plugin.getConfig() == null ? 300 : plugin.getConfig().getLong("discord.raid-alert-cooldown-seconds", 300);
+        raidAlerts = new DiscordRaidAlerts(plugin.getDataFolder().toPath(), Math.max(30, Math.min(3600, cooldown)) * 1000);
         authorization = ("Bearer " + token).getBytes(StandardCharsets.UTF_8);
         refresh();
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 16);
@@ -82,6 +87,21 @@ final class DiscordBridge implements AutoCloseable {
     }
 
     int port() { return server.getAddress().getPort(); }
+
+    void raidAlert(CivStore.Village faction, String attacker, org.bukkit.Location location, String kind) {
+        if (faction == null || store.activeWindow(System.currentTimeMillis()) == null
+                || store.claimAt(CivStore.Plot.at(location)) != faction || !store.raidCovers(CivStore.Plot.at(location))) return;
+        try {
+            raidAlerts.record(faction.id, faction.name, kind, attacker, location.getWorld().getName(),
+                    location.getBlockX(), location.getBlockY(), location.getBlockZ());
+        } catch (IOException error) {
+            long now = System.currentTimeMillis();
+            if (now >= nextRaidError) {
+                plugin.getLogger().log(Level.WARNING, "Could not save a Discord raid alert. Check the plugin data directory.", error);
+                nextRaidError = now + 60_000;
+            }
+        }
+    }
 
     void command(Player player, String[] args) {
         String action = args.length == 1 ? "status" : args[1].toLowerCase(Locale.ROOT);
@@ -124,7 +144,7 @@ final class DiscordBridge implements AutoCloseable {
         Memberships current = memberships;
         var players = links.accounts().stream().map(account -> new LinkedPlayer(account.minecraftId(),
                 account.minecraftName(), account.discordId(), current.members.get(account.minecraftId()))).toList();
-        return new Snapshot(1, links.serverId(), current.generatedAt, current.factions, players);
+        return new Snapshot(1, links.serverId(), current.generatedAt, current.factions, players, raidAlerts.pending());
     }
 
     private void handle(HttpExchange exchange) throws IOException {
@@ -138,10 +158,22 @@ final class DiscordBridge implements AutoCloseable {
             String method = exchange.getRequestMethod();
             if (path.equals("/v1/snapshot") && method.equals("GET")) {
                 respond(exchange, 200, snapshot());
-            } else if ((path.equals("/v1/link") || path.equals("/v1/unlink")) && method.equals("POST")) {
+            } else if ((path.equals("/v1/link") || path.equals("/v1/unlink") || path.equals("/v1/raid-alerts/ack")) && method.equals("POST")) {
                 byte[] body = exchange.getRequestBody().readNBytes(4097);
                 if (body.length > 4096) {
                     respond(exchange, 413, Map.of("error", "Request too large"));
+                    return;
+                }
+                if (path.equals("/v1/raid-alerts/ack")) {
+                    try {
+                        var object = JSON.fromJson(new String(body, StandardCharsets.UTF_8), JsonObject.class);
+                        var array = object.getAsJsonArray("ids");
+                        if (array == null || array.size() > 100) throw new IllegalArgumentException();
+                        var ids = new java.util.HashSet<UUID>();
+                        for (var id : array) ids.add(UUID.fromString(id.getAsString()));
+                        raidAlerts.acknowledge(ids);
+                        respond(exchange, 200, Map.of("ok", true));
+                    } catch (RuntimeException error) { respond(exchange, 400, Map.of("error", "Invalid raid acknowledgement")); }
                     return;
                 }
                 LinkRequest request;
