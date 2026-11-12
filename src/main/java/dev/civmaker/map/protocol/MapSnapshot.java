@@ -21,8 +21,16 @@ public record MapSnapshot(String world, String dimension, String raidStatus,
     public record Village(String id, String name, String owner, String ownerName, int color, long points) {}
     public record Claim(int x, int z, String village, String kind) {}
     public record Marker(String id, String village, String name, String symbol, int x, int y, int z) {}
-    public record Farm(String name, String owner, String ownerName, String faction, int color, int x, int y, int z) {}
-    public record RadarAccess(boolean allowed, List<String> friendlyPlayers) {
+    public record Farm(String name, String owner, String ownerName, String faction, int color, int x, int y, int z,
+                       String factionId) {
+        public Farm(String name, String owner, String ownerName, String faction, int color, int x, int y, int z) {
+            this(name, owner, ownerName, faction, color, x, y, z, null);
+        }
+    }
+    public record RadarAccess(boolean allowed, List<String> friendlyPlayers, String factionId, String viewerId) {
+        public RadarAccess(boolean allowed, List<String> friendlyPlayers) {
+            this(allowed, friendlyPlayers, null, null);
+        }
         public RadarAccess {
             friendlyPlayers = friendlyPlayers == null ? List.of() : List.copyOf(friendlyPlayers);
         }

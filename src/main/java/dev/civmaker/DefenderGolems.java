@@ -31,6 +31,7 @@ import org.bukkit.entity.Enemy;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.IronGolem;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Mob;
 import org.bukkit.entity.Pillager;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.SpectralArrow;
@@ -45,6 +46,7 @@ import org.bukkit.event.entity.EntityMountEvent;
 import org.bukkit.event.entity.EntityPortalEvent;
 import org.bukkit.event.entity.EntityRemoveEvent;
 import org.bukkit.event.entity.EntityTeleportEvent;
+import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.event.entity.PotionSplashEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.persistence.PersistentDataType;
@@ -111,6 +113,7 @@ final class DefenderGolems implements Listener {
     private final NamespacedKey villageKey;
     private final Map<IronGolem, Defender> loaded = new HashMap<>();
     private final List<Boulder> boulders = new ArrayList<>();
+    private boolean clearHostileTargets;
 
     DefenderGolems(CivMaker plugin, CivStore store, PillagerGuards guards) {
         this.store = store;
@@ -230,6 +233,7 @@ final class DefenderGolems implements Listener {
         if (coordinates != null && coordinates.length == 6 && villageId != null && !loaded.containsKey(golem)) {
             Bukkit.getMobGoals().removeAllGoals(golem);
             loaded.put(golem, new Defender(golem, coordinates, villageId, stance.raidAggro(golem)));
+            clearHostileTargets = true;
         }
     }
 
@@ -237,6 +241,22 @@ final class DefenderGolems implements Listener {
     void added(EntityAddToWorldEvent event) {
         if (event.getEntity() instanceof IronGolem golem) {
             track(golem);
+        }
+        if (event.getEntity() instanceof Mob mob) {
+            clearHostileTarget(mob);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    void targeted(EntityTargetLivingEntityEvent event) {
+        if (event.getEntity() instanceof Enemy && loaded.containsKey(event.getTarget())) {
+            event.setCancelled(true);
+        }
+    }
+
+    private void clearHostileTarget(Mob mob) {
+        if (mob instanceof Enemy && loaded.containsKey(mob.getTarget())) {
+            mob.setTarget(null);
         }
     }
 
@@ -309,6 +329,12 @@ final class DefenderGolems implements Listener {
     }
 
     void refresh() {
+        if (clearHostileTargets) {
+            clearHostileTargets = false;
+            for (World world : Bukkit.getWorlds()) {
+                world.getEntitiesByClass(Mob.class).forEach(this::clearHostileTarget);
+            }
+        }
         for (IronGolem golem : List.copyOf(loaded.keySet())) {
             if (!golem.isValid() || golem.isDead()) {
                 continue;
@@ -570,11 +596,11 @@ final class DefenderGolems implements Listener {
     void damage(EntityDamageEvent event) {
         Defender victim = loaded.get(event.getEntity());
         Entity direct = event.getDamageSource().getDirectEntity();
-        if (victim != null && (direct instanceof Arrow || direct instanceof SpectralArrow)) {
+        Entity source = event.getDamageSource().getCausingEntity();
+        if (victim != null && (direct instanceof Arrow || direct instanceof SpectralArrow || source instanceof Enemy)) {
             event.setCancelled(true);
             return;
         }
-        Entity source = event.getDamageSource().getCausingEntity();
         if (source instanceof IronGolem golem) {
             Defender attacker = loaded.get(golem);
             if (attacker != null && (!(event.getEntity() instanceof LivingEntity target)

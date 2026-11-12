@@ -111,7 +111,7 @@ class MapStateTest {
         assertTrue(state.view().farms().isEmpty());
     }
 
-    @Test void radarPolicyHidesEnemyPlayersAndClaimsButKeepsFarmsAndTeammates() {
+    @Test void radarPolicyHidesEnemyPlayersClaimsAndFarmsButKeepsTeammates() {
         var state = new MapState();
         var friend = java.util.UUID.randomUUID();
         var enemy = java.util.UUID.randomUUID();
@@ -122,8 +122,8 @@ class MapStateTest {
                 base.claims(), base.markers(), base.farms(), new MapSnapshot.RadarAccess(false, List.of(friend.toString()))));
         assertFalse(state.claimsAvailable());
         assertNull(state.claim(DIM, 0, 0));
-        assertEquals(MapState.xaeroColor(MapState.FARM_FILL_COLOR, 50), state.colors(DIM, 0, 0, 50, 230)[0]);
-        assertNotNull(state.farm(DIM, 0, 0));
+        assertNull(state.colors(DIM, 0, 0, 50, 230));
+        assertNull(state.farm(DIM, 0, 0));
         assertTrue(state.hidePlayer(enemy));
         assertFalse(state.hidePlayer(friend));
         state.setEnabled(false);
@@ -137,5 +137,42 @@ class MapStateTest {
         state.clear();
         state.setRadarServer(false);
         assertFalse(state.hidePlayer(enemy), "Other servers are unaffected");
+    }
+
+    @Test void ownFactionTerritoryAndFarmsRemainVisibleWhileForeignInformationNeedsRadar() {
+        var state = new MapState();
+        String own = java.util.UUID.randomUUID().toString();
+        String other = java.util.UUID.randomUUID().toString();
+        String viewer = java.util.UUID.randomUUID().toString();
+        var villages = List.of(new MapSnapshot.Village(own, "Home", "Alice", "Alice", 0x5599ff, 100),
+                new MapSnapshot.Village(other, "Enemy", "Bob", "Bob", 0xff5555, 100));
+        var claims = List.of(claim(0, 0, own), claim(1, 0, other));
+        var friendlyFarm = new MapSnapshot.Farm("Friendly Farm", "friend", "Alice", "Home", 0x5599ff, 8, 70, 8, own);
+        var foreignFarm = new MapSnapshot.Farm("Foreign Farm", "enemy", "Bob", "Enemy", 0xff5555, 24, 70, 8, other);
+        var personalFarm = new MapSnapshot.Farm("Personal Farm", viewer, "Viewer", "Unaffiliated", 0xaaaaaa, 40, 70, 8);
+        var farms = List.of(friendlyFarm, foreignFarm, personalFarm);
+        String world = java.util.UUID.randomUUID().toString();
+        state.replace(new MapSnapshot(world, DIM, "Inactive", villages, claims, List.of(), farms,
+                new MapSnapshot.RadarAccess(false, List.of(viewer), own, viewer)));
+        assertFalse(state.hasRadar());
+        assertTrue(state.claimsAvailable());
+        assertNotNull(state.claim(DIM, 0, 0));
+        assertTrue(state.canSeeVillage(own));
+        assertFalse(state.canSeeVillage(other));
+        assertNull(state.claim(DIM, 1, 0));
+        assertNotNull(state.farm(DIM, 0, 0));
+        assertNull(state.farm(DIM, 1, 0));
+        assertNull(state.colors(DIM, 1, 0, 50, 230));
+        assertNotNull(state.farm(DIM, 2, 0));
+        assertEquals(MapState.xaeroColor(0x5599ff, 50), state.colors(DIM, 0, 0, 50, 230)[0]);
+        state.replace(new MapSnapshot(world, DIM, "Inactive", villages, claims, List.of(), farms,
+                new MapSnapshot.RadarAccess(true, List.of(viewer), own, viewer)));
+        assertNotNull(state.claim(DIM, 1, 0));
+        assertNotNull(state.farm(DIM, 1, 0));
+        state.replace(new MapSnapshot(world, DIM, "Inactive", villages, claims, List.of(), farms,
+                new MapSnapshot.RadarAccess(false, List.of(viewer), null, viewer)));
+        assertNull(state.claim(DIM, 0, 0));
+        assertNull(state.farm(DIM, 0, 0));
+        assertNotNull(state.farm(DIM, 2, 0));
     }
 }

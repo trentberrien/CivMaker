@@ -75,7 +75,7 @@ final class RaidEquipment implements Listener {
         RADAR("radar", "Radar", Material.COMPASS, NamedTextColor.AQUA,
                 "Hold in either hand to scan nearby chunks in chat.",
                 "Shows village borders, exposed enemies, and enemy guards.",
-                "Carry in your inventory to unlock companion claims and enemy map markers."),
+                "Carry in your inventory to reveal enemy claims, farms, and map markers."),
         WARP_PORTAL("warp_portal", "Warp Portal", Material.ENDER_EYE, NamedTextColor.LIGHT_PURPLE,
                 "Right-click the floor beside a lit Nether portal in your claim.",
                 "Faction members can use the trader to travel between their claims."),

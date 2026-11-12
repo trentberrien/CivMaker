@@ -41,6 +41,7 @@ final class MapMarkers {
         view.snapshot().villages().forEach(village -> colors.put(village.id(), village.color()));
         if (MapState.INSTANCE.claimsAvailable()) {
             for (var marker : view.snapshot().markers()) {
+                if (!MapState.INSTANCE.canSeeVillage(marker.village())) { continue; }
                 Waypoint waypoint = new Waypoint(marker.x(), marker.y(), marker.z(), marker.name(), marker.symbol(),
                         nearestColor(colors.getOrDefault(marker.village(), 0xffffff)));
                 installed.add(marker.id(), waypoint);
@@ -48,6 +49,7 @@ final class MapMarkers {
         }
         if (MapState.INSTANCE.farmsEnabled()) {
             for (var farm : view.farms().values()) {
+                if (!MapState.INSTANCE.canSeeFarm(farm)) { continue; }
                 String label = farm.name() + " - " + farm.ownerName() + " (" + farm.faction() + ")";
                 installed.add("farm:" + farm.x() + ":" + farm.y() + ":" + farm.z(),
                         new Waypoint(farm.x(), farm.y(), farm.z(), label, "F", nearestColor(farm.color())));

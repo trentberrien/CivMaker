@@ -108,9 +108,17 @@ final class CompanionMaps implements Listener, PluginMessageListener {
             }
             if ((refresh || client.previous == null) && client.next >= client.pending.size()) {
                 MapSnapshot publicMap = snapshots.computeIfAbsent(world, ignored -> snapshot(player.getWorld()));
+                String faction = client.access.factionId();
                 MapSnapshot viewerMap = new MapSnapshot(publicMap.world(), publicMap.dimension(), publicMap.raidStatus(),
-                        radar ? publicMap.villages() : List.of(), radar ? publicMap.claims() : List.of(),
-                        radar ? publicMap.markers() : List.of(), publicMap.farms(), client.access);
+                        radar ? publicMap.villages() : publicMap.villages().stream()
+                                .filter(village -> village.id().equals(faction)).toList(),
+                        radar ? publicMap.claims() : publicMap.claims().stream()
+                                .filter(claim -> claim.village().equals(faction)).toList(),
+                        radar ? publicMap.markers() : publicMap.markers().stream()
+                                .filter(marker -> marker.village().equals(faction)).toList(),
+                        radar ? publicMap.farms() : publicMap.farms().stream()
+                                .filter(farm -> farm.owner().equals(player.getUniqueId().toString())
+                                        || faction != null && faction.equals(farm.factionId())).toList(), client.access);
                 byte[] data = JSON.toJson(viewerMap).getBytes(StandardCharsets.UTF_8);
                 if (!Arrays.equals(data, client.previous)) {
                     try {
@@ -147,7 +155,8 @@ final class CompanionMaps implements Listener, PluginMessageListener {
             }
         }
         friendly.sort(String::compareTo);
-        return new MapSnapshot.RadarAccess(radar, friendly);
+        return new MapSnapshot.RadarAccess(radar, friendly, faction == null ? null : faction.id.toString(),
+                viewer.getUniqueId().toString());
     }
 
     private MapSnapshot snapshot(World world) {
@@ -198,7 +207,7 @@ final class CompanionMaps implements Listener, PluginMessageListener {
                 farms.add(new MapSnapshot.Farm(farm.displayName(), farm.owner().toString(),
                         ownerName == null ? farm.owner().toString() : ownerName,
                         faction == null ? "Unaffiliated" : faction.name, faction == null ? 0xAAAAAA : faction.color,
-                        position.x(), position.y(), position.z()));
+                        position.x(), position.y(), position.z(), faction == null ? null : faction.id.toString()));
             }
         }
         String raids = store.raidMode() == CivStore.RaidMode.SETTLEMENTS ? "Active (settlements)"

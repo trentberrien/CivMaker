@@ -120,7 +120,7 @@ mvn install
 mvn -f VillagerRework/pom.xml package
 ```
 
-Copy `target/civmaker-0.8.0.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
+Copy `target/civmaker-0.9.0.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
 
 ## Farm Stations
 
@@ -263,14 +263,14 @@ Loading fireworks into a Multishot crossbow consumes three rockets. If you have 
 ### Build and install
 
 1. Install JDK 25 and Maven, then run `mvn package` from this directory. This preserves older versioned JARs in `target/`.
-2. Copy `target/civmaker-0.8.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+2. Copy `target/civmaker-0.9.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
 3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
 
 ### Optional Xaero map companion
 
-The [CivMaker Companion](companion/README.md) adds village-colored plot overlays, ownership details, Farm Station chunk highlights, and capital/settlement/farm markers to Xaero's Minimap and World Map. It is a client-only Fabric mod for the Minecraft 26.3 CurseForge profile. Install companion 0.3.0 in the profile's `mods` folder and use CivMaker 0.8.0 or newer on the Paper server. Players without the companion can keep playing normally.
+The [CivMaker Companion](companion/README.md) adds village-colored plot overlays, ownership details, Farm Station chunk highlights, and capital/settlement/farm markers to Xaero's Minimap and World Map. It is a client-only Fabric mod for the Minecraft 26.3 CurseForge profile. Install companion 0.4.0 in the profile's `mods` folder and use CivMaker 0.9.0 or newer on the Paper server. Players without the companion can keep playing normally.
 
-Village claim overlays, capital/settlement markers, and enemy players on Xaero's maps require a genuine CivMaker Radar in the main inventory, hotbar, or offhand. Farm highlights and faction teammates remain visible without one. The server checks possession every tick and withdraws claim data when the item is lost. A renamed compass does not count. Holding the Radar in either hand is still required for its chat scan.
+Your faction's claim overlays, capital/settlement waypoints, farms, and teammates remain visible on Xaero's maps without a Radar, as do farms you personally own. A genuine CivMaker Radar in the main inventory, hotbar, or offhand reveals other factions' claims/waypoints and enemy farms/players. The server checks possession every tick and withdraws foreign information when the item is lost. A renamed compass does not count. Holding the Radar in either hand is still required for its chat scan.
 
 Use `/civmap` to toggle overlays, `/civmap farms` to toggle farm highlights and markers, `/civmap markers` to toggle landmarks, `/civmap status` to check the connection, and `/civmap refresh` to request an update. Farm chunks have gold borders and `F` waypoints showing the station name, owner, and owner's faction. The server sends public ownership and registered farm information for the current world; vault contents, balances, and unpurchased natural settlements are excluded. Set `companion-map.enabled: false` in the server config to disable map data.
 

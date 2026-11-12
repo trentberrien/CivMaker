@@ -42,7 +42,28 @@ public final class MapState {
 
     private boolean claimsAvailable(View current) {
         return current.snapshot() != null && (current.snapshot().radar() == null
-                ? !radarServer : current.snapshot().radar().allowed());
+                ? !radarServer : current.snapshot().radar().allowed() || current.snapshot().radar().factionId() != null);
+    }
+
+    public boolean hasRadar() {
+        return view.snapshot() != null && view.snapshot().radar() != null && view.snapshot().radar().allowed();
+    }
+
+    public boolean canSeeVillage(String id) { return canSeeVillage(view, id); }
+
+    private boolean canSeeVillage(View current, String id) {
+        if (current.snapshot() == null) { return false; }
+        var access = current.snapshot().radar();
+        return access == null ? !radarServer : access.allowed() || id.equals(access.factionId());
+    }
+
+    public boolean canSeeFarm(MapSnapshot.Farm farm) { return canSeeFarm(view, farm); }
+
+    private boolean canSeeFarm(View current, MapSnapshot.Farm farm) {
+        if (current.snapshot() == null) { return false; }
+        var access = current.snapshot().radar();
+        return access == null ? !radarServer : access.allowed() || farm.owner().equals(access.viewerId())
+                || access.factionId() != null && access.factionId().equals(farm.factionId());
     }
 
     /** This policy is independent of the optional overlay display toggle. */
@@ -79,6 +100,8 @@ public final class MapState {
                 throw new IllegalArgumentException("Too many friendly players");
             }
             snapshot.radar().friendlyPlayers().forEach(UUID::fromString);
+            if (snapshot.radar().factionId() != null) { UUID.fromString(snapshot.radar().factionId()); }
+            if (snapshot.radar().viewerId() != null) { UUID.fromString(snapshot.radar().viewerId()); }
         }
         if (snapshot.villages().size() > 10_000 || snapshot.claims().size() > 100_000
                 || snapshot.markers().size() > 10_000 || snapshot.farms().size() > 10_000) {
@@ -115,6 +138,7 @@ public final class MapState {
         Map<Long, MapSnapshot.Farm> farms = new HashMap<>();
         for (var farm : snapshot.farms()) {
             text(farm.name()); text(farm.owner()); text(farm.ownerName()); text(farm.faction());
+            if (farm.factionId() != null) { UUID.fromString(farm.factionId()); }
             if (Math.abs((long) farm.x()) > 30_000_000 || Math.abs((long) farm.z()) > 30_000_000
                     || Math.abs((long) farm.y()) > 4096) {
                 throw new IllegalArgumentException("Invalid farm coordinates");
@@ -139,8 +163,9 @@ public final class MapState {
 
     public OwnedClaim claim(String dimension, int x, int z) {
         View current = view;
-        return enabled && claimsAvailable(current) && current.snapshot().dimension().equals(dimension)
-                ? current.claims().get(key(x, z)) : null;
+        if (!enabled || current.snapshot() == null || !current.snapshot().dimension().equals(dimension)) { return null; }
+        OwnedClaim claim = current.claims().get(key(x, z));
+        return claim != null && canSeeVillage(current, claim.village().id()) ? claim : null;
     }
 
     public boolean region(String dimension, int x, int z) {
@@ -151,8 +176,9 @@ public final class MapState {
 
     public MapSnapshot.Farm farm(String dimension, int x, int z) {
         View current = view;
-        return enabled && farmsEnabled && current.snapshot() != null && current.snapshot().dimension().equals(dimension)
-                ? current.farms().get(key(x, z)) : null;
+        if (!enabled || !farmsEnabled || current.snapshot() == null || !current.snapshot().dimension().equals(dimension)) { return null; }
+        var farm = current.farms().get(key(x, z));
+        return farm != null && canSeeFarm(current, farm) ? farm : null;
     }
 
     public boolean highlighted(String dimension, int x, int z) {
@@ -170,8 +196,10 @@ public final class MapState {
         if (!enabled || current.snapshot() == null || !current.snapshot().dimension().equals(dimension)) {
             return null;
         }
-        OwnedClaim claim = claimsAvailable(current) ? current.claims().get(key(x, z)) : null;
-        if (farmsEnabled && current.farms().containsKey(key(x, z))) {
+        OwnedClaim claim = current.claims().get(key(x, z));
+        if (claim != null && !canSeeVillage(current, claim.village().id())) { claim = null; }
+        var farm = current.farms().get(key(x, z));
+        if (farmsEnabled && farm != null && canSeeFarm(current, farm)) {
             int fill = xaeroColor(claim == null ? FARM_FILL_COLOR : claim.village().color(), fillAlpha);
             int border = xaeroColor(FARM_BORDER_COLOR, borderAlpha);
             return new int[] {fill, border, border, border, border};

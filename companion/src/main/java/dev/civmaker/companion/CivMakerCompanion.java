@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import dev.civmaker.map.protocol.MapProtocol;
 import dev.civmaker.map.protocol.MapSnapshot;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -76,6 +77,9 @@ public final class CivMakerCompanion implements ClientModInitializer {
                 refreshedRevision = revision;
                 refreshedHandler = highlights;
             }
+            if (FabricLoader.getInstance().isModLoaded("xaeroworldmap")) {
+                WorldMapRefresh.tick();
+            }
             markers.tick();
         });
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> dispatcher.register(
@@ -94,10 +98,10 @@ public final class CivMakerCompanion implements ClientModInitializer {
                             : "CivMaker map: " + view.claims().size() + " plots, "
                             + view.snapshot().villages().size() + " villages, " + view.farms().size() + " farms. Raids: " + view.snapshot().raidStatus()
                             + ". Overlays " + (MapState.INSTANCE.enabled() ? "on" : "off") + "."));
-                    if (view.snapshot() != null && !MapState.INSTANCE.claimsAvailable()) {
+                    if (view.snapshot() != null && !MapState.INSTANCE.hasRadar()) {
                         context.getSource().sendFeedback(Component.literal(view.snapshot().radar() == null
                                 ? "Update the CivMaker server to unlock Radar map access."
-                                : "Carry a CivMaker Radar in your inventory or offhand to see claims and enemy players."));
+                                : "Your faction's territory is always visible. Carry a Radar to see other factions and enemy farms/players."));
                     }
                     return 1;
                 })).then(literal("refresh").executes(context -> {
