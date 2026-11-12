@@ -29,7 +29,7 @@ import java.util.stream.StreamSupport;
 
 final class CivCommands implements TabExecutor {
     private static final List<String> PLAYER_COMMANDS = List.of("help", "balance", "withdraw", "deposit",
-            "create", "claim", "settlement", "points", "borders", "invite", "promote", "demote", "kick", "join", "leave", "disband", "info", "villages", "raids", "shop", "banner", "raidprotection");
+            "create", "claim", "settlement", "points", "borders", "invite", "promote", "demote", "kick", "join", "leave", "disband", "info", "villages", "raids", "shop", "banner", "raidprotection", "discord");
     private static final long INVITE_DURATION = 10 * 60 * 1000;
     private static final long DISBAND_DURATION = 60_000;
 
@@ -104,6 +104,7 @@ final class CivCommands implements TabExecutor {
                     UUID id = player.getUniqueId();
                     Village village = store.memberOf(id);
                     switch (action) {
+                        case "discord" -> plugin.discordCommand(player, args);
                         case "balance" -> player.sendMessage("Wallet: $" + wallets.balance(player));
                         case "borders" -> {
                             require(args.length == 1, "Use /civ borders to toggle the village border display.");
@@ -150,6 +151,7 @@ final class CivCommands implements TabExecutor {
                 sender.sendMessage("/civ create buys a Founding Beacon for " + FoundingBeacons.PRICE_LABEL + ". Place it to start a civilization.");
             }
             sender.sendMessage("/civ info | borders");
+            sender.sendMessage("/civ discord <link|unlink|status> (connect your Discord account)");
             if (available.contains("claim")) {
                 sender.sendMessage("/civ claim | claim mode | claim undo");
                 Village village = store.registeredVillage(player.getUniqueId());
@@ -756,6 +758,8 @@ final class CivCommands implements TabExecutor {
             }
         } else if (args.length == 2 && action.equals("claim")) {
             options = Stream.of("mode", "undo");
+        } else if (args.length == 2 && action.equals("discord")) {
+            options = Stream.of("link", "unlink", "status");
         } else if (args.length == 2 && action.equals("banner")) {
             options = Stream.of("set");
         } else if (args.length == 2 && action.equals("disband") && sender instanceof Player player

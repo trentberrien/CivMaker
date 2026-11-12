@@ -27,6 +27,7 @@ Use `/civ help` for commands relevant to your civilization membership, role, act
 - [Raids and capture](#raid-windows) and the [equipment shop](#equipment-shop)
 - [VillagerRework companion plugin](#villagerrework)
 - [Server administration](#server-administration)
+- [Locally hosted Discord bot](discord-bot/README.md) for account linking and faction role sync
 
 ## Mining and banknotes
 
@@ -120,7 +121,7 @@ mvn install
 mvn -f VillagerRework/pom.xml package
 ```
 
-Copy `target/civmaker-0.9.0.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
+Copy `target/civmaker-0.10.0.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
 
 ## Farm Stations
 
@@ -260,10 +261,14 @@ Loading fireworks into a Multishot crossbow consumes three rockets. If you have 
 
 ## Server administration
 
+### Discord accounts and faction roles
+
+The optional [CivMaker Discord bot](discord-bot/README.md) runs on the server computer and automatically assigns Discord roles based on saved faction membership, including for offline players. Run `/civ discord link` in Minecraft and submit the private code with `/link` in Discord. Role updates follow faction joins, leaves, kicks, transfers, disbands, and account unlinks. The bot requires a Discord application token and server ID; its local bridge is disabled by default. See the guide for installation, permissions, Windows startup, and backups.
+
 ### Build and install
 
 1. Install JDK 25 and Maven, then run `mvn package` from this directory. This preserves older versioned JARs in `target/`.
-2. Copy `target/civmaker-0.9.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+2. Copy `target/civmaker-0.10.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
 3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
 
 ### Optional Xaero map companion

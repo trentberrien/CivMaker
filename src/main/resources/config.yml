@@ -39,3 +39,10 @@ export:
 # Optional Fabric companion: sends public claims, farms, and capital/settlement markers.
 companion-map:
   enabled: true
+
+# Optional locally hosted Discord bot: see discord-bot/README.md.
+# The bridge listens only on 127.0.0.1 and requires online-mode=true.
+discord:
+  enabled: false
+  port: 8790
+  bridge-token: ''

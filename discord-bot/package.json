@@ -1,0 +1,13 @@
+{
+  "name": "civmaker-discord-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.17.0" },
+  "scripts": {
+    "start": "node --env-file=.env src/index.mjs",
+    "check": "node --env-file=.env src/check.mjs",
+    "test": "node --test"
+  },
+  "dependencies": { "discord.js": "14.28.1" }
+}

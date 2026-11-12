@@ -30,6 +30,7 @@ public class CivMaker extends JavaPlugin {
     private CombatTimeout combatTimeout;
     private WarpPortals warpPortals;
     private EndPortals endPortals;
+    private DiscordBridge discordBridge;
     private boolean exportPending;
     private long nextNightlyExport;
 
@@ -167,6 +168,7 @@ public class CivMaker extends JavaPlugin {
                 new CivCommands(this, store, notes, wallets, claimBuying, settlementBuying, natural, villageBorders, raidShop,
                         settlementVaults, shields, foundingBeacons, farmStationLoot));
         Objects.requireNonNull(getCommand("trade")).setExecutor(trading);
+        discordBridge = DiscordBridge.start(this, store);
 
         getServer().getScheduler().runTaskTimer(this, capture::refresh,
                 SettlementCapture.UPDATE_TICKS, SettlementCapture.UPDATE_TICKS);
@@ -193,6 +195,10 @@ public class CivMaker extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (discordBridge != null) {
+            discordBridge.close();
+            discordBridge = null;
+        }
         if (claimBuying != null) {
             claimBuying.closeAll();
         }
@@ -247,6 +253,13 @@ public class CivMaker extends JavaPlugin {
     void saveState() throws IOException {
         store.save();
         exportPending = true;
+    }
+
+    void discordCommand(org.bukkit.entity.Player player, String[] args) {
+        if (discordBridge == null) {
+            throw new IllegalArgumentException("Discord linking is unavailable. Ask an administrator to enable the Discord bridge.");
+        }
+        discordBridge.command(player, args);
     }
 
     private void flush() {
