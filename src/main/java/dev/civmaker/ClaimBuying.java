@@ -36,7 +36,6 @@ import java.util.UUID;
 
 final class ClaimBuying implements Listener {
     static final String PROMOTION_MESSAGE = "You must be promoted to elder to buy plots for your civilization. Ask your owner to use /civ promote <player>.";
-    static final long UPGRADE_PRICE = 100_000;
     private static final int BUY_SLOT = 11;
     private static final int CANCEL_SLOT = 15;
 
@@ -44,15 +43,18 @@ final class ClaimBuying implements Listener {
         final Village village;
         final Inventory inventory;
 
-        UpgradeMenu(Village village, long balance) {
+        UpgradeMenu(Village village) {
             this.village = village;
             inventory = Bukkit.createInventory(this, 27, Component.text("Upgrade Land Claims"));
             inventory.setItem(4, item(Material.BEACON, "Expand " + village.name,
                     "Increase the expansion limit from 100 to 200 chunks.",
+                    "Unlock vanilla beacon effects and effect selection.",
                     "One upgrade for your entire civilization.",
                     "Current expansions: " + village.capitalExpansionCount() + "/" + village.capitalExpansionLimit()));
-            inventory.setItem(BUY_SLOT, item(Material.EMERALD, "Buy upgrade for $100,000",
-                    String.format(Locale.US, "Wallet balance: $%,d", balance),
+            inventory.setItem(BUY_SLOT, item(Material.BEACON, "Deposit 1 Beacon to upgrade",
+                    "Consumes one ordinary beacon from your inventory.",
+                    "Craft it normally using a Nether Star.",
+                    "Founding Beacons cannot be deposited. No money cost.",
                     "Requires an elder or owner in Survival."));
             inventory.setItem(CANCEL_SLOT, item(Material.BARRIER, "Cancel"));
         }
@@ -128,7 +130,7 @@ final class ClaimBuying implements Listener {
         if (capital != null && capital.beacon.equals(Position.at(block))) {
             event.setCancelled(true);
             if (event.getHand() == EquipmentSlot.HAND && canUpgrade(player, capital)) {
-                player.openInventory(new UpgradeMenu(capital, wallets.balance(player)).inventory);
+                player.openInventory(new UpgradeMenu(capital).inventory);
             }
             return;
         }
@@ -190,12 +192,12 @@ final class ClaimBuying implements Listener {
             }
             player.closeInventory();
             if (slot == BUY_SLOT) {
-                purchaseUpgrade(player, menu.village);
+                depositUpgrade(player, menu.village);
             }
         });
     }
 
-    private void purchaseUpgrade(Player player, Village village) {
+    private void depositUpgrade(Player player, Village village) {
         if (!store.hasVillage(village.id) || !canUpgrade(player, village)) {
             return;
         }
@@ -208,15 +210,27 @@ final class ClaimBuying implements Listener {
             player.sendMessage("Move closer to your capital beacon and open the upgrade menu again.");
             return;
         }
-        long balance = wallets.balance(player);
-        if (balance < UPGRADE_PRICE) {
-            player.sendMessage("Your wallet needs $100,000 to upgrade your civilization's land claims.");
+        if (!consumeUpgradeBeacon(player)) {
+            player.sendMessage("You need an ordinary beacon crafted with a Nether Star in your inventory. Founding Beacons cannot be deposited.");
             return;
         }
-        wallets.setBalance(player, balance - UPGRADE_PRICE);
         village.expandedClaims = true;
         store.dirty = true;
-        player.sendMessage("Upgraded " + village.name + " to 200 expansion claims for $100,000.");
+        player.sendMessage("Deposited 1 Beacon and upgraded " + village.name
+                + " to 200 expansion claims. Your capital beacon can now grant normal effects when powered by a pyramid.");
+    }
+
+    private boolean consumeUpgradeBeacon(Player player) {
+        var inventory = player.getInventory();
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            ItemStack item = inventory.getItem(slot);
+            if (item != null && item.getType() == Material.BEACON && item.getAmount() > 0
+                    && !item.getPersistentDataContainer().has(FoundingBeacons.BEACON_KEY)) {
+                inventory.setItem(slot, item.getAmount() == 1 ? null : item.asQuantity(item.getAmount() - 1));
+                return true;
+            }
+        }
+        return false;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -280,7 +294,7 @@ final class ClaimBuying implements Listener {
             case NATURAL_VILLAGE -> "This chunk is reserved for a natural village. Talk to the villager by its bell.";
             case NOT_ADJACENT -> "Stand in an unclaimed chunk that shares an edge with your capital's territory.";
             case AT_CAPACITY -> "Your capital has reached its limit of " + village.capitalExpansionLimit() + " expansion chunks."
-                    + (village.expandedClaims ? "" : " Sneak and right-click your capital beacon to upgrade to 200 for $100,000.");
+                    + (village.expandedClaims ? "" : " Sneak and right-click your capital beacon to deposit 1 ordinary beacon and upgrade to 200.");
             case TOO_EXPENSIVE -> "Your wallet needs $" + price + " for this claim.";
             case FOR_SALE -> null;
         };

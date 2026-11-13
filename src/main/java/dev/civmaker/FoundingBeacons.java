@@ -46,6 +46,7 @@ import java.util.UUID;
 final class FoundingBeacons implements Listener {
     static final long PRICE = 10_000;
     static final String PRICE_LABEL = "$10,000";
+    static final NamespacedKey BEACON_KEY = new NamespacedKey("civmaker", "founding_beacon");
     private static final String NAME_INPUT = "name";
     private static final String NAME_RULES = FactionNames.FORMAT_ERROR + " No profanity, slurs, or extremist references.";
     private static final String ALREADY_MEMBER = "You already belong to a civilization.";
@@ -59,7 +60,6 @@ final class FoundingBeacons implements Listener {
     private final Wallets wallets;
     private final NaturalVillages natural;
     private final int minY;
-    private final NamespacedKey beaconKey;
     private final FactionNames factionNames;
 
     FoundingBeacons(CivMaker plugin, CivStore store, Wallets wallets, NaturalVillages natural) {
@@ -68,7 +68,6 @@ final class FoundingBeacons implements Listener {
         this.wallets = wallets;
         this.natural = natural;
         minY = plugin.getConfig().getInt("village.min-beacon-y");
-        beaconKey = new NamespacedKey(plugin, "founding_beacon");
         factionNames = new FactionNames(plugin.getConfig().getStringList("name-filter.additional-blocked-terms"),
                 plugin.getConfig().getStringList("name-filter.allowed-words"));
     }
@@ -112,9 +111,9 @@ final class FoundingBeacons implements Listener {
                     Component.text(placementHint(), NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
                     Component.text("Give it clear sky above, then follow the setup menu.", NamedTextColor.GRAY)
                             .decoration(TextDecoration.ITALIC, false),
-                    Component.text("Beacon powers unlock when it becomes your capital.", NamedTextColor.GRAY)
+                    Component.text("Deposit an ordinary beacon at your capital to unlock vanilla effects.", NamedTextColor.GRAY)
                             .decoration(TextDecoration.ITALIC, false)));
-            meta.getPersistentDataContainer().set(beaconKey, PersistentDataType.BYTE, (byte) 1);
+            meta.getPersistentDataContainer().set(BEACON_KEY, PersistentDataType.BYTE, (byte) 1);
         });
         return beacon;
     }
@@ -124,7 +123,7 @@ final class FoundingBeacons implements Listener {
         var item = event.getItemInHand();
         Block block = event.getBlockPlaced();
         if (item.getType() != Material.BEACON
-                || !item.getPersistentDataContainer().has(beaconKey, PersistentDataType.BYTE)) {
+                || !item.getPersistentDataContainer().has(BEACON_KEY, PersistentDataType.BYTE)) {
             return;
         }
         if (!event.canBuild() || !(block.getState(false) instanceof Beacon beacon)) {
@@ -140,7 +139,7 @@ final class FoundingBeacons implements Listener {
         }
         UUID owner = player.getUniqueId();
         String token = owner + "/" + UUID.randomUUID();
-        beacon.getPersistentDataContainer().set(beaconKey, PersistentDataType.STRING, token);
+        beacon.getPersistentDataContainer().set(BEACON_KEY, PersistentDataType.STRING, token);
         if (!beacon.update(false, false)) {
             event.setCancelled(true);
             player.sendMessage("Could not set up this Founding Beacon. Try placing it again.");
@@ -160,8 +159,17 @@ final class FoundingBeacons implements Listener {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK || block == null) {
             return;
         }
+        if (isCapital(block)) {
+            if (locked(block)) {
+                event.setCancelled(true);
+                if (event.getHand() == EquipmentSlot.HAND && !event.getPlayer().isSneaking()) {
+                    event.getPlayer().sendMessage("Your capital beacon's vanilla effects are locked. An owner or elder must sneak and right-click it to deposit 1 ordinary beacon and upgrade. All base-tier capital perks are already active.");
+                }
+            }
+            return;
+        }
         String token = marker(block);
-        if (token == null || isCapital(block)) {
+        if (token == null) {
             return;
         }
         boolean blocked = event.useInteractedBlock() == Event.Result.DENY;
@@ -190,7 +198,7 @@ final class FoundingBeacons implements Listener {
         var later = ActionButton.builder(Component.text("Not now")).build();
         var base = DialogBase.builder(Component.text("Start a civilization?"))
                 .body(List.of(
-                        DialogBody.plainMessage(Component.text("This chunk will become your capital. The beacon will unlock its normal powers.")),
+                        DialogBody.plainMessage(Component.text("This chunk will become your capital with all base-tier perks. Deposit an ordinary beacon later to unlock vanilla beacon effects and 200 expansion claims.")),
                         DialogBody.plainMessage(Component.text(RESUME, NamedTextColor.GRAY))))
                 .build();
         show(player, base, DialogType.confirmation(next, later));
@@ -284,7 +292,7 @@ final class FoundingBeacons implements Listener {
         }
         store.addVillage(new Village(name, player.getUniqueId(), Position.at(site.block())));
         player.sendMessage(name + " is founded! Your capital chunk is protected and starts with "
-                + CivStore.CAPITAL_POINTS + " points. Your beacon is ready to power with a pyramid.");
+                + CivStore.CAPITAL_POINTS + " points. All base-tier capital perks are active. Sneak and right-click your capital beacon to deposit 1 ordinary beacon and unlock vanilla beacon effects and 200 expansion claims.");
     }
 
     private String marker(Block block) {
@@ -292,7 +300,7 @@ final class FoundingBeacons implements Listener {
     }
 
     private String marker(BlockState state) {
-        return state instanceof Beacon beacon ? beacon.getPersistentDataContainer().get(beaconKey, PersistentDataType.STRING) : null;
+        return state instanceof Beacon beacon ? beacon.getPersistentDataContainer().get(BEACON_KEY, PersistentDataType.STRING) : null;
     }
 
     private boolean isCapital(Block block) {
@@ -301,7 +309,11 @@ final class FoundingBeacons implements Listener {
     }
 
     private boolean locked(Block block) {
-        return marker(block) != null && !isCapital(block);
+        Village village = store.claimAt(block);
+        if (village != null && village.beacon.equals(Position.at(block))) {
+            return !village.expandedClaims;
+        }
+        return marker(block) != null;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

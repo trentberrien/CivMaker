@@ -20,6 +20,8 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -92,6 +94,14 @@ class ClaimBuyingTest {
         when(player.getLocation()).thenReturn(new Location(world, 0.5, 80, 1.5));
         when(player.getEyeLocation()).thenReturn(new Location(world, 0.5, 81.6, 1.5));
         when(wallets.balance(player)).thenReturn(150_000L);
+        PlayerInventory inventory = mock(PlayerInventory.class);
+        ItemStack[] contents = new ItemStack[41];
+        contents[0] = beaconStack(1, false);
+        when(player.getInventory()).thenReturn(inventory);
+        when(inventory.getSize()).thenReturn(contents.length);
+        when(inventory.getItem(anyInt())).thenAnswer(call -> contents[call.<Integer>getArgument(0)]);
+        doAnswer(call -> { contents[call.<Integer>getArgument(0)] = call.getArgument(1); return null; })
+                .when(inventory).setItem(anyInt(), nullable(ItemStack.class));
         InventoryView view = mock(InventoryView.class);
         when(player.getOpenInventory()).thenReturn(view);
         doAnswer(call -> {
@@ -99,6 +109,17 @@ class ClaimBuyingTest {
             return null;
         }).when(player).closeInventory();
         return player;
+    }
+
+    private ItemStack beaconStack(int amount, boolean founding) {
+        ItemStack item = mock(ItemStack.class);
+        when(item.getType()).thenReturn(Material.BEACON);
+        when(item.getAmount()).thenReturn(amount);
+        PersistentDataContainer data = mock(PersistentDataContainer.class);
+        when(item.getPersistentDataContainer()).thenReturn(data);
+        when(data.has(FoundingBeacons.BEACON_KEY)).thenReturn(founding);
+        when(item.asQuantity(anyInt())).thenAnswer(call -> beaconStack(call.getArgument(0), founding));
+        return item;
     }
 
     private PlayerInteractEvent interact(Player player, Block block) {
@@ -149,15 +170,19 @@ class ClaimBuyingTest {
         assertFalse(village.expandedClaims);
         assertFalse(store.dirty);
         verify(wallets, never()).setBalance(any(), anyLong());
+        assertNotNull(elder.getInventory().getItem(0));
+        verify(elder.getInventory(), never()).setItem(anyInt(), nullable(ItemStack.class));
     }
 
     @ParameterizedTest @ValueSource(booleans = {true, false})
     void ownerOrElderCanConfirmOneSavedUpgrade(boolean asOwner) throws Exception {
         Player buyer = asOwner ? owner : elder;
+        when(wallets.balance(buyer)).thenReturn(0L);
         openUpgrade(buyer);
         choose(buyer, 11);
         assertEquals(200, village.capitalExpansionLimit());
-        verify(wallets).setBalance(buyer, 50_000);
+        assertNull(buyer.getInventory().getItem(0));
+        verify(wallets, never()).setBalance(any(), anyLong());
         assertTrue(store.dirty);
         store.save();
         assertEquals(200, new CivStore(directory).village(village.id).capitalExpansionLimit());
@@ -186,7 +211,7 @@ class ClaimBuyingTest {
         verify(wallets, never()).setBalance(any(), anyLong());
     }
 
-    @ParameterizedTest @ValueSource(strings = {"demote", "leave", "disband", "move", "creative", "missingBeacon"})
+    @ParameterizedTest @ValueSource(strings = {"demote", "leave", "disband", "move", "creative", "missingBeacon", "unloaded", "world"})
     void confirmationRechecksRoleMembershipVillageAndBeacon(String change) {
         openUpgrade(elder);
         switch (change) {
@@ -196,27 +221,68 @@ class ClaimBuyingTest {
             case "move" -> when(elder.getEyeLocation()).thenReturn(new Location(world, 100, 80, 100));
             case "creative" -> when(elder.getGameMode()).thenReturn(GameMode.CREATIVE);
             case "missingBeacon" -> when(beacon.getType()).thenReturn(Material.AIR);
+            case "unloaded" -> when(world.isChunkLoaded(anyInt(), anyInt())).thenReturn(false);
+            case "world" -> {
+                World otherWorld = mock(World.class);
+                when(otherWorld.getUID()).thenReturn(UUID.randomUUID());
+                when(elder.getWorld()).thenReturn(otherWorld);
+            }
         }
         choose(elder, 11);
         assertFalse(village.expandedClaims);
         verify(wallets, never()).setBalance(any(), anyLong());
+        verify(elder.getInventory(), never()).setItem(anyInt(), nullable(ItemStack.class));
     }
 
-    @Test void confirmationUsesCurrentBalanceAndCannotOverdraw() {
+    @Test void confirmationRequiresTheBeaconToStillBeInInventory() {
         openUpgrade(elder);
-        when(wallets.balance(elder)).thenReturn(99_999L);
+        elder.getInventory().setItem(0, null);
         choose(elder, 11);
         assertFalse(village.expandedClaims);
+        assertFalse(store.dirty);
         verify(wallets, never()).setBalance(any(), anyLong());
     }
 
-    @Test void twoOpenMenusCannotPurchaseTwice() {
+    @Test void purchasedFoundingBeaconsCannotPayForTheUpgrade() {
+        ItemStack founding = beaconStack(5, true);
+        elder.getInventory().setItem(0, founding);
+        openUpgrade(elder);
+        choose(elder, 11);
+        assertFalse(village.expandedClaims);
+        assertFalse(store.dirty);
+        assertSame(founding, elder.getInventory().getItem(0));
+        verify(wallets, never()).setBalance(any(), anyLong());
+    }
+
+    @Test void depositSkipsFoundingBeaconsAndConsumesExactlyOneFromAStack() {
+        ItemStack founding = beaconStack(1, true);
+        elder.getInventory().setItem(0, founding);
+        elder.getInventory().setItem(9, beaconStack(3, false));
+        openUpgrade(elder);
+        choose(elder, 11);
+        assertTrue(village.expandedClaims);
+        assertSame(founding, elder.getInventory().getItem(0));
+        assertEquals(2, elder.getInventory().getItem(9).getAmount());
+        verify(wallets, never()).setBalance(any(), anyLong());
+    }
+
+    @Test void aBeaconInTheOffhandCanBeDeposited() {
+        elder.getInventory().setItem(0, null);
+        elder.getInventory().setItem(40, beaconStack(1, false));
+        openUpgrade(elder);
+        choose(elder, 11);
+        assertTrue(village.expandedClaims);
+        assertNull(elder.getInventory().getItem(40));
+    }
+
+    @Test void twoOpenMenusCannotConsumeTwoBeacons() {
         openUpgrade(owner);
         openUpgrade(elder);
         choose(owner, 11);
         choose(elder, 11);
-        verify(wallets).setBalance(owner, 50_000);
-        verify(wallets, never()).setBalance(eq(elder), anyLong());
+        assertNull(owner.getInventory().getItem(0));
+        assertNotNull(elder.getInventory().getItem(0));
+        verify(wallets, never()).setBalance(any(), anyLong());
         assertEquals(200, village.capitalExpansionLimit());
     }
 
@@ -248,7 +314,7 @@ class ClaimBuyingTest {
         when(elder.getLocation()).thenReturn(new Location(world, 201 * 16 + 1, 80, 1));
         claims.command(elder, village, new String[]{"claim"});
         assertEquals(200, village.capitalExpansionCount());
-        verify(wallets, times(2)).setBalance(eq(elder), anyLong());
+        verify(wallets, times(1)).setBalance(eq(elder), anyLong());
     }
 
     @Test void demotionRevokesActiveClaimBuyingMode() {

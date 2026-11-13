@@ -7,7 +7,7 @@ CivMaker is a Paper plugin for Minecraft Java Edition 26.3 that adds faction pro
 - **Money comes from mining.** Eligible natural ores pay into a wallet. Banknotes let players carry and store money, and deaths put some of that wealth at risk.
 - **Civilizations own territory and earn points.** Found a capital for $10,000, expand into neighboring chunks, and purchase natural villages for $50,000 to gain daily rewards and points.
 - **Automation requires exploration.** Rare Farm Stations unlock unattended mob item drops and automatic crop harvesting in one chunk. Hostile sweep kills also require the killer to qualify for that station's faction benefit.
-- **End access is faction progression.** Reach 500 points and pay an End Portal Keeper $1,000,000 to unlock End travel for your faction.
+- **End access is faction progression.** Upgrade your capital beacon, reach 500 points, and pay an End Portal Keeper $1,000,000 to unlock End travel for your faction.
 - **Raids create scheduled conflict.** Raid windows let outsiders breach eligible defenses, lockpick vaults, and capture settlements. Members can prepare guards, golems, and Raid Protection.
 - **Travel, trade, and equipment support your faction.** Warp between faction portals, exchange items through a confirmed trade, and buy tools, defenses, and mount upgrades from the shop.
 
@@ -59,12 +59,12 @@ Deepslate ores pay the same amount as their stone equivalents by default.
 
 ## Founding and expanding villages
 
-1. Buy a **Founding Beacon** for **$10,000** from `/civ shop` or with `/civ create`. Place it in an unclaimed Overworld chunk outside a natural village, at Y 64 or higher by default, with clear sky above it. Select **Choose a name** in the setup menu, enter a civilization name, and select **Found civilization**. The beacon becomes your capital and can grant normal beacon effects once powered. Close the menu anytime and right-click the beacon to resume.
+1. Buy a **Founding Beacon** for **$10,000** from `/civ shop` or with `/civ create`. Place it in an unclaimed Overworld chunk outside a natural village, at Y 64 or higher by default, with clear sky above it. Select **Choose a name** in the setup menu, enter a civilization name, and select **Found civilization**. The beacon becomes your capital with its normal capital perks, including protection, 100 points, and a 100-chunk expansion limit. Vanilla beacon effects require the upgrade described below. Close the menu anytime and right-click the beacon to resume.
 2. As an owner or elder, run `/civ claim mode` and walk into an unclaimed chunk that shares an edge with your capital territory. Sneak and right-click to buy the chunk you're standing in. The default price is $1,000, paid from your wallet. Run `/civ claim mode` again to leave buying mode, or use `/civ claim` for a single purchase. Ordinary members must be promoted to elder before buying plots.
 3. Use `/civ claim undo` to release your most recently purchased expansion and refund its original price. Each purchase gives you one undo. The founding chunk stays claimed until the village disbands.
 4. Owners and elders can use `/civ invite <online player>` to invite a player. They have ten minutes to run `/civ join`. Owners can use `/civ promote <player>` to make a faction member an elder and `/civ demote <player>` to return an elder to ordinary membership. Owners and elders can use `/civ kick <player>`: owners can remove members or elders, while elders can only remove ordinary members. The owner cannot be kicked. Promotion, demotion, and kicking also work for offline members using their cached name or UUID. Elder roles are saved across restarts and cleared when a player leaves or is kicked. Members can build and use containers in village territory. Members can use `/civ leave` to give up their membership. An owner can leave by disbanding their village. `/civ villages` shows public beacon coordinates, and `/civ info` describes the current claim or your own village.
 
-Players without a civilization can buy multiple Founding Beacons. Each player can belong to one civilization at a time. A Founding Beacon unlocks its effects when it becomes a capital. Unused Founding Beacons stay locked, including when picked up and placed again. Leaving a civilization restores purchase eligibility. Ordinary beacons still work inside civilizations.
+Players without a civilization can buy multiple Founding Beacons. Each player can belong to one civilization at a time. A capital unlocks vanilla beacon functions when an owner or elder deposits one ordinary beacon through its upgrade menu. The base tier keeps all capital perks. Unused Founding Beacons stay locked, including when picked up and placed again, and cannot pay for the upgrade. Leaving a civilization restores purchase eligibility. Ordinary beacons still work inside civilizations.
 
 Invited players join as **elders by default**, keeping that rank until the owner uses `/civ demote <player>` or they leave. Set `village.invite-as-elder: false` in `plugins/CivMaker/config.yml` (or turn off **Invite players as elders** in the local config editor) and restart to make future invitees ordinary members. The setting is checked when `/civ join` accepts an invite; existing members' ranks and demotions stay as they are. Older configs without this setting also default to inviting players as elders.
 
@@ -102,7 +102,7 @@ The default faction banner uses the faction's color. To set a design, the owner 
 
 ## Settlements and points
 
-- A beacon capital starts with **100 points**, including its founding chunk. Each purchased capital chunk adds **1 point**, with an initial limit of **100 expansion chunks** per capital. An owner or elder in Survival can **sneak and right-click their capital beacon** to open a settlement-style upgrade menu. Select **Buy upgrade for $100,000** to permanently raise the civilization's limit to **200 expansion chunks**, paid from your wallet, or select **Cancel** to leave without paying. Opening the menu does not spend money. This upgrade can only be purchased once and survives restarts. Settlements and the founding chunk are separate from this limit. Undoing a purchase removes its point and frees an expansion slot. Use `/civ info` to see the current count and limit.
+- A beacon capital starts with **100 points**, including its founding chunk. Each purchased capital chunk adds **1 point**, with an initial limit of **100 expansion chunks** per capital. An owner or elder in Survival can **sneak and right-click their capital beacon** to open its upgrade menu. Carry a beacon crafted normally using a **Nether Star**, then select **Deposit 1 Beacon to upgrade**. This consumes one ordinary beacon from your inventory, permanently raises the limit to **200 expansion chunks**, and unlocks vanilla beacon functions, including effect selection and pyramid-powered effects. There is **no money cost** for the upgrade. Shop-bought Founding Beacons cannot be deposited. Opening or cancelling the menu consumes nothing. The upgrade is applied once per civilization and survives restarts. All base-tier capital perks remain available before upgrading. Settlements and the founding chunk are separate from this limit. Individual chunk purchases still cost the configured price. Undoing a purchase removes its point and frees an expansion slot. Use `/civ info` to see the current count and limit.
 - Right-click the purchasing villager beside the meeting-point bell. Its nameplate shows the village type, such as **Meadow Settlement - Right-click to claim**, so Meadow villages can be distinguished from Plains villages. The purchase menu shows the price, protected chunks, and daily vault reward. An owner or elder in Survival can confirm the purchase for **$50,000** from their wallet. Purchases add **100 points** and place the Settlement Vault where the villager stood. Owners and elders can also preview or purchase at the bell with `/civ settlement` and `/civ settlement buy`.
 - Unclaimed natural villages are protected across the chunks intersecting their generated pieces. Players can enter, open ordinary doors, ring the bell, and trade with villagers. The whole footprint must be unclaimed to purchase it, and settlement chunks cannot be used as expansion anchors.
 - Blocks within a **16-block horizontal radius**, starting **three blocks below the bell** and extending to the world height limit, are protected from building and breaking before and after purchase, including during raids.
@@ -226,9 +226,9 @@ Warp traders stay visible and show their faction's color in their nametag. An Ey
 
 ## Unlocking the End
 
-Find the **End Portal Keeper** in a stronghold portal room. Once your faction reaches **500 points**, any member can right-click the keeper and confirm a **$1,000,000** payment from their own wallet. The keeper activates the portal, and the purchase permanently unlocks End travel for the whole faction.
+Find the **End Portal Keeper** in a stronghold portal room. Once your faction has an **upgraded capital beacon** and reaches **500 points**, any member can right-click the keeper and confirm a **$1,000,000** payment from their own wallet. The keeper activates the portal, and the purchase permanently unlocks End travel for the whole faction.
 
-Members can ask a keeper to activate another stronghold portal for free. Entry through a lit portal requires an unlocked faction. Players can leave the End through its exit portal as usual.
+Members can ask a keeper to activate another stronghold portal for free. Opening a portal and entry through a lit portal require an upgraded capital beacon and an unlocked faction. Players can leave the End through its exit portal as usual.
 
 ## Combat deaths
 
@@ -296,7 +296,7 @@ The optional [CivMaker Discord bot](discord-bot/README.md) runs on the server co
 ### Build and install
 
 1. Install JDK 25 and Maven, then run `mvn package` from this directory. This preserves older versioned JARs in `target/`.
-2. Copy `target/civmaker-0.14.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+2. Copy `target/civmaker-0.15.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
 3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
 
 ### Optional Xaero map companion
@@ -311,7 +311,7 @@ Use `/civmap` to toggle overlays, `/civmap farms` to toggle farm highlights and 
 
 Default prices, mining payouts, claim settings, Raid Protection, and warp timers are configured in `plugins/CivMaker/config.yml`. Restart after editing the file.
 
-Existing civilizations keep their claims and memberships when upgrading to 0.7.0. Their expansion limit stays at 100 until an elder or owner purchases the beacon upgrade. Elder roles and purchased upgrades are saved automatically; no manual data migration is needed.
+Existing civilizations keep their claims, memberships, elder roles, and saved upgrades when upgrading to 0.15.0; no manual data migration is needed. Previously purchased beacon upgrades retain the 200-chunk expansion limit and vanilla beacon functions without another deposit. Unupgraded capitals keep all capital perks and the 100-chunk expansion limit, and now require one ordinary beacon to unlock vanilla beacon functions and the higher limit. Existing paid End unlocks are retained, but portal activation and entry also require the capital beacon upgrade; factions do not pay the End unlock fee again.
 
 Set `warp-portal.cooldown-seconds` and `warp-portal.combat-death-timeout-seconds` in `plugins/CivMaker/config.yml`. Set either value to `0` to disable that timer, then restart the server to apply the changes.
 

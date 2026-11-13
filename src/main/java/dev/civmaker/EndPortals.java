@@ -52,7 +52,7 @@ final class EndPortals implements Listener {
     private static final int REQUIRED_POINTS = 500;
     private static final long PRICE = 1_000_000;
     private static final String COST = String.format(Locale.US, "$%,d", PRICE);
-    private static final String REQUIREMENTS = REQUIRED_POINTS + " faction points and " + COST;
+    private static final String REQUIREMENTS = "an upgraded capital beacon, " + REQUIRED_POINTS + " faction points, and " + COST;
     private static final int BUY_SLOT = 13;
     private static final BlockFace[] SIDES = {BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST};
 
@@ -72,6 +72,7 @@ final class EndPortals implements Listener {
                 meta.displayName(Component.text("Unlock the End for " + COST, NamedTextColor.GOLD)
                         .decoration(TextDecoration.ITALIC, false));
                 meta.lore(List.of(
+                        Component.text("Upgraded capital beacon: " + (village.expandedClaims ? "Yes" : "Required")),
                         Component.text("Faction points: " + village.points() + " / " + REQUIRED_POINTS),
                         Component.text("One payment unlocks access for your whole faction.")));
             });
@@ -274,7 +275,7 @@ final class EndPortals implements Listener {
 
     private boolean hasEndAccess(Player player) {
         Village village = store.registeredVillage(player.getUniqueId());
-        return village != null && village.endUnlocked;
+        return village != null && village.expandedClaims && village.endUnlocked;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -339,6 +340,8 @@ final class EndPortals implements Listener {
     private boolean eligible(Player player, Village village) {
         if (village == null) {
             player.sendMessage("Join a faction to unlock the End. The unlock requires " + REQUIREMENTS + ".");
+        } else if (!village.expandedClaims) {
+            player.sendMessage("Upgrade your capital beacon before opening the End. An owner or elder must sneak and right-click it to deposit 1 ordinary beacon crafted with a Nether Star. Unlocking the End requires " + REQUIREMENTS + ".");
         } else if (village.endUnlocked) {
             return true;
         } else if (village.points() < REQUIRED_POINTS) {

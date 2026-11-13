@@ -157,7 +157,7 @@ final class CivCommands implements TabExecutor {
                 sender.sendMessage("/civ claim | claim mode | claim undo");
                 Village village = store.registeredVillage(player.getUniqueId());
                 if (!village.expandedClaims) {
-                    sender.sendMessage("Sneak and right-click your capital beacon to upgrade to 200 expansion claims for $100,000 (elder or owner).");
+                    sender.sendMessage("Sneak and right-click your capital beacon to upgrade to 200 expansion claims by depositing 1 ordinary beacon crafted with a Nether Star (elder or owner; no money cost). This also unlocks vanilla beacon effects.");
                 }
                 sender.sendMessage("/civ settlement [buy|vault]");
                 sender.sendMessage("/civ invite <player>");
