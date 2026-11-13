@@ -17,6 +17,7 @@ import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockSupport;
@@ -65,7 +66,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 final class DefenderGolems implements Listener {
     private static final String NAME = "Defender Golem";
-    private static final double HEALTH = 100.0;
+    private static final double HEALTH = 200.0;
     private static final int TETHER = SettlementCapture.RADIUS;
     private static final int BOULDER_RANGE = 24;
     private static final int BAR_RANGE = 32;
@@ -231,9 +232,24 @@ final class DefenderGolems implements Listener {
         int[] coordinates = data.get(postKey, PersistentDataType.INTEGER_ARRAY);
         String villageId = data.get(villageKey, PersistentDataType.STRING);
         if (coordinates != null && coordinates.length == 6 && villageId != null && !loaded.containsKey(golem)) {
+            syncHealth(golem, golem.getAttribute(Attribute.MAX_HEALTH));
             Bukkit.getMobGoals().removeAllGoals(golem);
             loaded.put(golem, new Defender(golem, coordinates, villageId, stance.raidAggro(golem)));
             clearHostileTargets = true;
+        }
+    }
+
+    static void syncHealth(IronGolem golem, AttributeInstance maximum) {
+        if (maximum == null || maximum.getBaseValue() == HEALTH) {
+            return;
+        }
+        double previousMaximum = maximum.getValue();
+        double health = golem.getHealth();
+        maximum.setBaseValue(HEALTH);
+        if (health > 0 && previousMaximum > 0 && !golem.isDead()) {
+            // Upgrade saved defenders without healing their wounds on each chunk load.
+            double newMaximum = maximum.getValue();
+            golem.setHealth(Math.clamp(health / previousMaximum * newMaximum, 0, newMaximum));
         }
     }
 

@@ -107,7 +107,9 @@ public class CivMaker extends JavaPlugin {
         VaultDoors vaultDoors = new VaultDoors(store, equipment);
         PillagerGuards guards = new PillagerGuards(this, store, equipment);
         defenders = new DefenderGolems(this, store, guards);
-        Protection protection = new Protection(store, equipment, vaultDoors, natural, defenders);
+        FarmStationLoot farmStationLoot = new FarmStationLoot(this);
+        FarmStations farmStations = new FarmStations(this, store, farmStationLoot);
+        Protection protection = new Protection(store, equipment, vaultDoors, natural, defenders, farmStations);
         RaidShields shields = new RaidShields(this, store, equipment);
         FoundingBeacons foundingBeacons = new FoundingBeacons(this, store, wallets, natural);
         raidShop = new RaidShop(this, store, wallets, equipment, resources, shields, foundingBeacons);
@@ -122,8 +124,6 @@ public class CivMaker extends JavaPlugin {
         hud = new PlayerHud(this, store, wallets);
         beaconLabels = new BeaconLabels(this, store);
         vaultTracking = new VaultTracking(this, store, equipment, notes);
-        FarmStationLoot farmStationLoot = new FarmStationLoot(this);
-        FarmStations farmStations = new FarmStations(this, store, farmStationLoot);
         var events = getServer().getPluginManager();
         events.registerEvents(new Mining(this, wallets), this);
         events.registerEvents(farmStationLoot, this);

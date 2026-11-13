@@ -158,14 +158,25 @@ final class FarmStations implements Listener {
             return;
         }
         Player player = event.getPlayer();
-        String owner = block.getChunk().getPersistentDataContainer().get(ownerKey, PersistentDataType.STRING);
-        if (!player.getUniqueId().toString().equals(owner)) {
+        if (!canMine(player, block)) {
             event.setCancelled(true);
-            player.sendMessage("Only the owner can remove this Farm Station.");
-        } else if (store.activeWindow(System.currentTimeMillis()) != null) {
-            event.setCancelled(true);
-            player.sendMessage("You can remove your Farm Station after the raid ends.");
+            player.sendMessage("Only the station owner or their faction can mine this Farm Station outside an eligible raid.");
         }
+    }
+
+    private boolean canMine(Player player, Block block) {
+        UUID miner = player.getUniqueId();
+        String owner = block.getChunk().getPersistentDataContainer().get(ownerKey, PersistentDataType.STRING);
+        if (miner.toString().equals(owner)) {
+            return true;
+        }
+        var faction = owner == null ? null : store.registeredVillage(UUID.fromString(owner));
+        if (faction != null && store.registeredVillage(miner) == faction) {
+            return true;
+        }
+        var window = store.activeWindow(System.currentTimeMillis());
+        return window != null && !store.raidRestricted(miner) && store.raidCovers(Plot.at(block))
+                && !store.shielded(faction, window);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -286,7 +297,7 @@ final class FarmStations implements Listener {
         };
     }
 
-    private boolean isStation(Block block) {
+    boolean isStation(Block block) {
         return block.getType() == Material.LODESTONE && block.equals(recordedStation(block.getChunk()));
     }
 

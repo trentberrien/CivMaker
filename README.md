@@ -125,7 +125,7 @@ mvn install
 mvn -f VillagerRework/pom.xml package
 ```
 
-Copy `target/civmaker-0.12.2.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
+Copy `target/civmaker-0.12.4.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
 
 ## Farm Stations
 
@@ -135,7 +135,9 @@ A **Farm Station** is a tagged lodestone with an enchanted glint. It has a **5% 
 
 Place the station to activate its chunk. Each chunk can contain one station, and its benefit covers that chunk's full height. You can place a station in wilderness and own one without belonging to a faction. The player who places it owns it, and its faction identity follows that player's current membership.
 
-The lodestone is protected against other players breaking it, explosions, pistons, and mob destruction. Its protection applies to the station block itself. The owner can mine it with a suitable pickaxe between raid windows to recover the tagged item. Recovering it ends the chunk's farming benefit. The station's name survives recovery and placement.
+The station's owner and members of that owner's current faction can mine it at any time with a suitable pickaxe to recover the tagged item. If the owner has no faction, only that player can recover it outside raids. During an eligible raid, other players can also mine and steal it, including inside enemy claims. Raid modes and Raid Protection still apply, and players barred from raiding cannot steal stations. Explosions, pistons, and mob destruction cannot remove a station.
+
+Mining it ends the old chunk's farming benefit. Anyone who picks up the tagged item can place it in a permitted location and become its new owner; its faction then follows the new owner's membership. The station's name survives recovery and placement.
 
 ### Mob drops and sword sweeps
 
@@ -222,7 +224,7 @@ During a raid, outsiders can use lockpicks on eligible containers and Vault Door
 
 A living Survival or Adventure player from an enemy village can capture during a raid within 16 blocks of the settlement bell, measured in three dimensions. The first enemy presence alerts the server, and the boss bar shows progress in the acting village's color. Multiple factions stall the bar. An empty point holds its progress, and unaffiliated players cannot capture or contest.
 
-An attacker captures in 60 seconds. Defenders alone erase progress at twice the capture rate. A different attacking faction must erase the first attacker's progress at the normal rate before gaining its own. Progress clears when the raid closes or the server restarts.
+An attacker captures in **5 minutes**. Defenders alone erase progress at twice the capture rate. A different attacking faction must erase the first attacker's progress at the normal rate before gaining its own. Progress clears when the raid closes or the server restarts.
 
 During a raid, a particle ring in the owner's color marks the 16-block radius at bell height. A second ring in the claimant's color shrinks toward the bell as capture advances, holds when progress pauses, and expands when progress is erased.
 
@@ -245,7 +247,7 @@ The Founding Beacon appears alone in the center of the top row before you join o
 | Item | Use |
 | --- | --- |
 | Pillager Guard | Right-click the top of a solid block inside your own village to post a pillager with a visible `guard` nametag. During active raids, it fires at eligible raiders it can see within four chunks (64 blocks), even across the village border. Rockets damage only targeted enemies and mobs they're riding. Guards can only be damaged by eligible enemy raiders during an open raid against their post; friendly and environmental damage cannot remove them. |
-| Defender Golem | Buy a kit for $10,000 or 5 Settlement Iron under Village Defense, then right-click your faction's settlement bell with it in your main hand. Each bell can have one defender. Leave a clear 3-by-3 spot with six blocks of headroom near the bell. The golem is twice normal size, has 100 health (50 hearts), and stays within 16 blocks of the bell. It swings in melee and throws 1½-block-wide boulders at targets up to 24 blocks away. Both attacks deal normal iron golem hit damage. The golem is immune to arrows and to splash and lingering potions. A living golem in the ring contests enemy capture in either mode. Its boss health bar appears at the top of the screen within 32 blocks. |
+| Defender Golem | Buy a kit for $10,000 or 5 Settlement Iron under Village Defense, then right-click your faction's settlement bell with it in your main hand. Each bell can have one defender. Leave a clear 3-by-3 spot with six blocks of headroom near the bell. The golem is twice normal size, has **200 health (100 hearts)**, and stays within 16 blocks of the bell. It swings in melee and throws 1½-block-wide boulders at targets up to 24 blocks away. Both attacks deal normal iron golem hit damage. The golem is immune to arrows and to splash and lingering potions. A living golem in the ring contests enemy capture in either mode. Its boss health bar appears at the top of the screen within 32 blocks. Existing defenders upgrade when loaded, preserving their remaining health percentage. |
 | Lockpick | A glinting stick. Spend one to start a puzzle with a fixed 14-pane trail. Click the glowing yellow pane in order as completed panes turn green. Each correct click has a 5% break chance, giving one lockpick a 48.77% chance of finishing all 14 steps. Solving it opens a Vault Door or grants one session of storage access. |
 | C4 | Right-click a block face to detonate at TNT strength. The blast can break unclaimed blocks at any time. Targeting a village claim requires an active raid against that village. The blast spares secure vaults and claim anchors, deals no direct damage to players or mobs, and cannot start a TNT chain. |
 | Grenade | Right-click to launch primed TNT in the direction you're looking, including from a Happy Ghast. After a five-second fuse it uses C4 block damage rules and can damage enemy Defender Golems during the same raid. To damage a village claim, throw it during a raid and have it detonate inside the enemy claim before that raid window ends. |
@@ -274,7 +276,7 @@ The optional [CivMaker Discord bot](discord-bot/README.md) runs on the server co
 ### Build and install
 
 1. Install JDK 25 and Maven, then run `mvn package` from this directory. This preserves older versioned JARs in `target/`.
-2. Copy `target/civmaker-0.12.2.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+2. Copy `target/civmaker-0.12.4.jar` into your Paper 26.3 server's `plugins` directory and start the server.
 3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
 
 ### Optional Xaero map companion

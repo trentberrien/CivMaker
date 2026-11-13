@@ -67,16 +67,18 @@ final class Protection implements Listener {
     private final VaultDoors vaultDoors;
     private final NaturalVillages natural;
     private final DefenderGolems defenders;
+    private final FarmStations farmStations;
     private final Map<UUID, List<Block>> pickedOpen = new HashMap<>();
     private final Map<UUID, Charge> c4Sources = new HashMap<>();
 
     Protection(CivStore store, RaidEquipment equipment, VaultDoors vaultDoors, NaturalVillages natural,
-               DefenderGolems defenders) {
+               DefenderGolems defenders, FarmStations farmStations) {
         this.store = store;
         this.equipment = equipment;
         this.vaultDoors = vaultDoors;
         this.natural = natural;
         this.defenders = defenders;
+        this.farmStations = farmStations;
     }
 
     InventoryView openPickedStorage(Player player, Inventory inventory, List<Block> blocks) {
@@ -126,6 +128,10 @@ final class Protection implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void breakBlock(BlockBreakEvent event) {
         Block block = event.getBlock();
+        // Stations have their own faction/raid mining policy, including inside foreign claims.
+        if (farmStations.isStation(block)) {
+            return;
+        }
         if (naturalPlot(block) || settlementAccess(block)) {
             event.setCancelled(true);
             event.getPlayer().sendMessage("That block is protected.");

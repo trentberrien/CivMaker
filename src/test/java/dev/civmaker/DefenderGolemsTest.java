@@ -3,6 +3,7 @@ package dev.civmaker;
 import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.IronGolem;
@@ -12,11 +13,13 @@ import org.bukkit.entity.Zombie;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
+import org.bukkit.persistence.PersistentDataContainer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -105,5 +108,41 @@ class DefenderGolemsTest {
         when(event.getDamageSource()).thenReturn(source);
         defenders.damage(event);
         verify(event, never()).setCancelled(anyBoolean());
+    }
+
+    @Test void savedDefendersGainHealthWhileKeepingTheirWoundsAndDoNotHealOnReload() {
+        AttributeInstance maximum = mock(AttributeInstance.class);
+        AtomicReference<Double> base = new AtomicReference<>(100.0);
+        AtomicReference<Double> health = new AtomicReference<>(40.0);
+        when(maximum.getBaseValue()).thenAnswer(call -> base.get());
+        when(maximum.getValue()).thenAnswer(call -> base.get());
+        when(golem.getHealth()).thenAnswer(call -> health.get());
+        doAnswer(call -> { base.set(call.getArgument(0)); return null; }).when(maximum).setBaseValue(anyDouble());
+        doAnswer(call -> { health.set(call.getArgument(0)); return null; }).when(golem).setHealth(anyDouble());
+        DefenderGolems.syncHealth(golem, maximum);
+        assertEquals(200.0, base.get());
+        assertEquals(80.0, health.get());
+        health.set(60.0);
+        DefenderGolems.syncHealth(golem, maximum);
+        assertEquals(60.0, health.get());
+        verify(golem, times(1)).setHealth(anyDouble());
+    }
+
+    @Test void healthySavedDefendersReceiveTheFullHealthUpgrade() {
+        AttributeInstance maximum = mock(AttributeInstance.class);
+        when(maximum.getBaseValue()).thenReturn(100.0);
+        when(maximum.getValue()).thenReturn(100.0, 200.0);
+        when(golem.getHealth()).thenReturn(100.0);
+        DefenderGolems.syncHealth(golem, maximum);
+        verify(maximum).setBaseValue(200.0);
+        verify(golem).setHealth(200.0);
+    }
+
+    @Test void loadingOrdinaryGolemsDoesNotChangeTheirHealth() {
+        IronGolem ordinary = mock(IronGolem.class);
+        when(ordinary.getPersistentDataContainer()).thenReturn(mock(PersistentDataContainer.class));
+        defenders.track(ordinary);
+        verify(ordinary, never()).getAttribute(any());
+        verify(ordinary, never()).setHealth(anyDouble());
     }
 }

@@ -34,7 +34,7 @@ import java.util.Set;
 
 final class SettlementCapture implements Listener {
     static final int UPDATE_TICKS = 10;
-    private static final int CAPTURE_STEPS = 60 * 20 / UPDATE_TICKS;
+    private static final int CAPTURE_STEPS = 5 * 60 * 20 / UPDATE_TICKS;
     private static final int CAPTURE_FIREWORK_FUSE_TICKS = 20;
     static final int RADIUS = 16;
     private static final double PARTICLE_VIEW_RANGE = 32;
