@@ -1,5 +1,5 @@
 name: CivMaker
-version: '0.15.1'
+version: '0.15.2'
 main: dev.civmaker.CivMaker
 api-version: '26.3'
 load: STARTUP
@@ -12,7 +12,7 @@ commands:
     description: Trade items with another player
     usage: /trade <player|test|--recover>
   wilderness:
-    description: Teleport to a random safe location inside the world border
+    description: Teleport to a random safe location during your first hour on the server
     usage: /wilderness
 permissions:
   civmaker.trade.test:

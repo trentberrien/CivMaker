@@ -1,0 +1,34 @@
+SERVER PC SETUP
+
+1. Stop Minecraft. Put both JARs from plugins into the server's plugins
+   folder, replacing older versions. Requires Paper 26.3 and Java 25.
+
+2. Put discord-bot anywhere on the SAME PC as Minecraft. Install Node.js
+   24.17.0 or newer (including npm). In that folder run once:
+   npm install --omit=dev
+
+3. The included .env contains your existing private Discord token.
+   It is currently set to temporary online-only mode. To enable Minecraft
+   linking, faction channels and raid alerts, generate a bridge secret:
+   node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+
+   In discord-bot/.env, set CIVMAKER_BRIDGE_TOKEN to that secret and
+   DISCORD_ONLINE_ONLY=false. Keep the other existing settings.
+
+   In the server's plugins/CivMaker/config.yml, set/update this section
+   with the SAME secret (do not add a duplicate discord section):
+   discord:
+     enabled: true
+     port: 8790
+     bridge-token: 'PASTE_THE_SAME_SECRET_HERE'
+     raid-alert-cooldown-seconds: 300
+
+4. Use online-mode=true in server.properties. Restart Minecraft.
+   From discord-bot run: npm run check
+   Then double-click discord-bot/start.cmd and leave it running.
+   Stop any copy of this bot on the old PC before starting the server copy.
+
+This is a plugin/bot update package. Keep existing server configs and data.
+No bot roles.json exists locally to transfer. If the destination already has
+bot data, keep it. Minecraft account links live in the server's existing
+plugins/CivMaker/discord-links.json.

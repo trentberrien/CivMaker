@@ -19,9 +19,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.LongSupplier;
 import java.util.logging.Level;
 
 final class Wilderness implements CommandExecutor, Listener {
+    private static final long FIRST_JOIN_WINDOW_MILLIS = 60 * 60 * 1_000L;
+    private static final String EXPIRED_MESSAGE = "/wilderness is only available during the first hour after you first joined the server.";
     private static final int MAX_ATTEMPTS = 64;
     private static final double PLAYER_MARGIN = 0.31;
     private static final int WORLD_LIMIT = 29_999_984;
@@ -29,12 +32,18 @@ final class Wilderness implements CommandExecutor, Listener {
     private final CivMaker plugin;
     private final CivStore store;
     private final CombatTimeout combat;
+    private final LongSupplier clock;
     private final Map<UUID, Search> searches = new HashMap<>();
 
     Wilderness(CivMaker plugin, CivStore store, CombatTimeout combat) {
+        this(plugin, store, combat, System::currentTimeMillis);
+    }
+
+    Wilderness(CivMaker plugin, CivStore store, CombatTimeout combat, LongSupplier clock) {
         this.plugin = plugin;
         this.store = store;
         this.combat = combat;
+        this.clock = clock;
     }
 
     @Override
@@ -43,6 +52,8 @@ final class Wilderness implements CommandExecutor, Listener {
             sender.sendMessage("Only players can use /wilderness.");
         } else if (args.length != 0) {
             player.sendMessage("Usage: /wilderness");
+        } else if (!withinFirstHour(player)) {
+            player.sendMessage(EXPIRED_MESSAGE);
         } else if (!canTravel(player)) {
             player.sendMessage("You cannot use /wilderness while dead or in combat timeout.");
         } else if (searches.containsKey(player.getUniqueId())) {
@@ -58,6 +69,13 @@ final class Wilderness implements CommandExecutor, Listener {
 
     private boolean canTravel(Player player) {
         return !player.isDead() && !combat.locked(player);
+    }
+
+    private boolean withinFirstHour(Player player) {
+        // Paper persists the original join timestamp across reconnects and server restarts.
+        long firstPlayed = player.getFirstPlayed();
+        long now = clock.getAsLong();
+        return firstPlayed > 0 && now >= firstPlayed && now - firstPlayed < FIRST_JOIN_WINDOW_MILLIS;
     }
 
     private final class Search {
@@ -76,6 +94,10 @@ final class Wilderness implements CommandExecutor, Listener {
             }
             if (!player.isOnline() || player.getWorld() != world || !canTravel(player)) {
                 finish("Wilderness travel cancelled.");
+                return false;
+            }
+            if (!withinFirstHour(player)) {
+                finish(EXPIRED_MESSAGE);
                 return false;
             }
             return true;

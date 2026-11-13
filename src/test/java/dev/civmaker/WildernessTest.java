@@ -18,12 +18,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -39,6 +41,7 @@ class WildernessTest {
     private Block floor;
     private CompletableFuture<Chunk> chunk;
     private final Queue<Runnable> tasks = new ArrayDeque<>();
+    private final AtomicLong now = new AtomicLong(10_000_000);
 
     @BeforeEach void setup() {
         plugin = mock(CivMaker.class);
@@ -74,10 +77,11 @@ class WildernessTest {
         when(player.getUniqueId()).thenReturn(UUID.randomUUID());
         when(player.getWorld()).thenReturn(world);
         when(player.isOnline()).thenReturn(true);
+        when(player.getFirstPlayed()).thenReturn(now.get());
         when(player.getYaw()).thenReturn(32f);
         when(player.getPitch()).thenReturn(12f);
         when(player.teleport(any(Location.class), eq(TeleportCause.COMMAND))).thenReturn(true);
-        wilderness = new Wilderness(plugin, store, combat);
+        wilderness = new Wilderness(plugin, store, combat, now::get);
     }
 
     private Block block(Material material, int y) {
@@ -115,6 +119,55 @@ class WildernessTest {
         verify(player).teleport(destination.capture(), eq(TeleportCause.COMMAND));
         assertEquals(new Location(world, 100.5, 65, -199.5, 32f, 12f), destination.getValue());
         verify(player).sendMessage("Teleported to the wilderness.");
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0, 1_800_000, 3_599_999})
+    void allowsTravelThroughoutTheFirstHour(long elapsed) {
+        now.addAndGet(elapsed);
+        run();
+        load();
+        verify(player).teleport(any(Location.class), eq(TeleportCause.COMMAND));
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {3_600_000, 3_600_001, 86_400_000})
+    void rejectsTravelAtOrAfterTheFirstHour(long elapsed) {
+        now.addAndGet(elapsed);
+        run();
+        verify(world, never()).getChunkAtAsync(anyInt(), anyInt(), anyBoolean());
+        verify(player).sendMessage(contains("only available during the first hour"));
+    }
+
+    @Test void deadlineExpiringDuringChunkLoadCancelsTeleport() {
+        now.addAndGet(3_599_999);
+        run();
+        now.incrementAndGet();
+        load();
+        verify(player, never()).teleport(any(Location.class), any(TeleportCause.class));
+        verify(player).sendMessage(contains("only available during the first hour"));
+    }
+
+    @Test void reconnectAndPluginRestartDoNotResetOriginalDeadline() {
+        run();
+        PlayerQuitEvent quit = mock(PlayerQuitEvent.class);
+        when(quit.getPlayer()).thenReturn(player);
+        wilderness.quit(quit);
+        wilderness = new Wilderness(plugin, store, combat, now::get);
+        now.addAndGet(3_600_000);
+        run();
+        load();
+        verify(world, times(1)).getChunkAtAsync(anyInt(), anyInt(), eq(true));
+        verify(player, never()).teleport(any(Location.class), any(TeleportCause.class));
+        verify(player).sendMessage(contains("only available during the first hour"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0, -1, 10_000_001})
+    void missingOrInvalidOriginalJoinTimeDoesNotGrantAccess(long firstPlayed) {
+        when(player.getFirstPlayed()).thenReturn(firstPlayed);
+        run();
+        verify(world, never()).getChunkAtAsync(anyInt(), anyInt(), anyBoolean());
     }
 
     @Test void boundsHandleShiftedFractionalCentersAndWholePlayerWidth() {
