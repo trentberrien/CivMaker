@@ -29,6 +29,10 @@ Use `/civ help` for commands relevant to your civilization membership, role, act
 - [Server administration](#server-administration)
 - [Locally hosted Discord bot](discord-bot/README.md) for account linking and faction role sync
 
+## Wilderness travel
+
+Use `/wilderness` to teleport to a random safe, unclaimed location inside your current world's border. The command loads destination chunks asynchronously and checks for solid, non-damaging ground with room to stand. It avoids the Nether roof and respects combat death timeouts. If no safe destination is found after a bounded search, you stay where you are and can try again.
+
 ## Mining and banknotes
 
 - Mine eligible ore in Survival with the appropriate tool to earn a payout per block. Check your wallet with `/civ balance`.
@@ -141,7 +145,7 @@ mvn install
 mvn -f VillagerRework/pom.xml package
 ```
 
-Copy `target/civmaker-0.13.0.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
+Copy `target/civmaker-0.14.0.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
 
 ## Farm Stations
 
@@ -292,7 +296,7 @@ The optional [CivMaker Discord bot](discord-bot/README.md) runs on the server co
 ### Build and install
 
 1. Install JDK 25 and Maven, then run `mvn package` from this directory. This preserves older versioned JARs in `target/`.
-2. Copy `target/civmaker-0.13.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+2. Copy `target/civmaker-0.14.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
 3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
 
 ### Optional Xaero map companion

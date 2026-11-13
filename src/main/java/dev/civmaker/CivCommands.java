@@ -151,6 +151,7 @@ final class CivCommands implements TabExecutor {
                 sender.sendMessage("/civ create buys a Founding Beacon for " + FoundingBeacons.PRICE_LABEL + ". Place it to start a civilization.");
             }
             sender.sendMessage("/civ info | borders");
+            sender.sendMessage("/wilderness (travel to a random safe location inside the world border)");
             sender.sendMessage("/civ discord <link|unlink|status> (connect your Discord account)");
             if (available.contains("claim")) {
                 sender.sendMessage("/civ claim | claim mode | claim undo");

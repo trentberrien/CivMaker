@@ -28,6 +28,7 @@ public class CivMaker extends JavaPlugin {
     private SettlementCapture capture;
     private DefenderGolems defenders;
     private CombatTimeout combatTimeout;
+    private Wilderness wilderness;
     private WarpPortals warpPortals;
     private EndPortals endPortals;
     private DiscordBridge discordBridge;
@@ -118,6 +119,7 @@ public class CivMaker extends JavaPlugin {
         raidTools = new RaidTools(this, store, equipment, protection, vaultDoors, guards, defenders, settlementVaults);
         trading = new Trading(this);
         combatTimeout = new CombatTimeout(this);
+        wilderness = new Wilderness(this, store, combatTimeout);
         warpPortals = new WarpPortals(this, store, equipment, combatTimeout, capture);
         endPortals = new EndPortals(this, store, wallets);
         CompanionMaps companionMaps = new CompanionMaps(this, store, equipment);
@@ -152,6 +154,7 @@ public class CivMaker extends JavaPlugin {
         events.registerEvents(equipment, this);
         events.registerEvents(vaultTracking, this);
         events.registerEvents(combatTimeout, this);
+        events.registerEvents(wilderness, this);
         events.registerEvents(warpPortals, this);
         events.registerEvents(endPortals, this);
         events.registerEvents(companionMaps, this);
@@ -169,6 +172,7 @@ public class CivMaker extends JavaPlugin {
                 new CivCommands(this, store, notes, wallets, claimBuying, settlementBuying, natural, villageBorders, raidShop,
                         settlementVaults, shields, foundingBeacons, farmStationLoot));
         Objects.requireNonNull(getCommand("trade")).setExecutor(trading);
+        Objects.requireNonNull(getCommand("wilderness")).setExecutor(wilderness);
         discordBridge = DiscordBridge.start(this, store);
         if (discordBridge != null) events.registerEvents(new DiscordRaidListener(this, store), this);
 
@@ -197,6 +201,9 @@ public class CivMaker extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (wilderness != null) {
+            wilderness.close();
+        }
         if (discordBridge != null) {
             discordBridge.close();
             discordBridge = null;
