@@ -121,20 +121,22 @@ final class ClaimBuying implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     void click(PlayerInteractEvent event) {
         Player player = event.getPlayer();
-        if ((event.getAction() != Action.RIGHT_CLICK_BLOCK && event.getAction() != Action.RIGHT_CLICK_AIR)
-                || !player.isSneaking()) {
+        if (event.getAction() != Action.RIGHT_CLICK_BLOCK && event.getAction() != Action.RIGHT_CLICK_AIR) {
             return;
         }
         Block block = event.getClickedBlock();
         Village capital = block == null || block.getType() != Material.BEACON ? null : store.claimAt(block);
         if (capital != null && capital.beacon.equals(Position.at(block))) {
+            if (capital.expandedClaims) {
+                return;
+            }
             event.setCancelled(true);
             if (event.getHand() == EquipmentSlot.HAND && canUpgrade(player, capital)) {
                 player.openInventory(new UpgradeMenu(capital).inventory);
             }
             return;
         }
-        if (!buying.contains(player.getUniqueId()) || player.getGameMode() != GameMode.SURVIVAL) {
+        if (!player.isSneaking() || !buying.contains(player.getUniqueId()) || player.getGameMode() != GameMode.SURVIVAL) {
             return;
         }
         event.setCancelled(true);
@@ -294,7 +296,7 @@ final class ClaimBuying implements Listener {
             case NATURAL_VILLAGE -> "This chunk is reserved for a natural village. Talk to the villager by its bell.";
             case NOT_ADJACENT -> "Stand in an unclaimed chunk that shares an edge with your capital's territory.";
             case AT_CAPACITY -> "Your capital has reached its limit of " + village.capitalExpansionLimit() + " expansion chunks."
-                    + (village.expandedClaims ? "" : " Sneak and right-click your capital beacon to deposit 1 ordinary beacon and upgrade to 200.");
+                    + (village.expandedClaims ? "" : " Right-click your capital beacon to deposit 1 ordinary beacon and upgrade to 200.");
             case TOO_EXPENSIVE -> "Your wallet needs $" + price + " for this claim.";
             case FOR_SALE -> null;
         };

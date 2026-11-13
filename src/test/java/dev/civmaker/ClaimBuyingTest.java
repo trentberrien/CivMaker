@@ -89,7 +89,7 @@ class ClaimBuyingTest {
         when(player.getUniqueId()).thenReturn(UUID.randomUUID());
         when(player.getWorld()).thenReturn(world);
         when(player.getGameMode()).thenReturn(GameMode.SURVIVAL);
-        when(player.isSneaking()).thenReturn(true);
+        when(player.isSneaking()).thenReturn(false);
         when(player.isOnline()).thenReturn(true);
         when(player.getLocation()).thenReturn(new Location(world, 0.5, 80, 1.5));
         when(player.getEyeLocation()).thenReturn(new Location(world, 0.5, 81.6, 1.5));
@@ -197,10 +197,22 @@ class ClaimBuyingTest {
         verify(wallets, never()).setBalance(any(), anyLong());
     }
 
-    @Test void offhandAndNormalRightClicksNeverOpenOrBuyUpgrade() {
-        when(elder.isSneaking()).thenReturn(false);
-        interact(elder, beacon);
-        when(elder.isSneaking()).thenReturn(true);
+    @ParameterizedTest @ValueSource(booleans = {true, false})
+    void rightClickOpensUpgradeMenuWithOrWithoutSneaking(boolean sneaking) {
+        when(elder.isSneaking()).thenReturn(sneaking);
+        openUpgrade(elder);
+        assertFalse(village.expandedClaims);
+        verify(wallets, never()).setBalance(any(), anyLong());
+    }
+
+    @Test void upgradedCapitalRightClickAllowsTheVanillaBeaconScreen() {
+        village.expandedClaims = true;
+        PlayerInteractEvent event = interact(elder, beacon);
+        verify(event, never()).setCancelled(true);
+        verify(elder, never()).openInventory(any(Inventory.class));
+    }
+
+    @Test void offhandRightClicksNeverOpenOrBuyUpgrade() {
         PlayerInteractEvent offhand = mock(PlayerInteractEvent.class);
         when(offhand.getPlayer()).thenReturn(elder);
         when(offhand.getAction()).thenReturn(Action.RIGHT_CLICK_BLOCK);
@@ -319,11 +331,21 @@ class ClaimBuyingTest {
 
     @Test void demotionRevokesActiveClaimBuyingMode() {
         claims.command(elder, village, new String[]{"claim", "mode"});
+        when(elder.isSneaking()).thenReturn(true);
         store.setElder(village, elder.getUniqueId(), false);
         Block ground = mock(Block.class);
         when(ground.getType()).thenReturn(Material.STONE);
         interact(elder, ground);
         verify(elder).sendMessage(ClaimBuying.PROMOTION_MESSAGE);
+        verify(wallets, never()).setBalance(any(), anyLong());
+    }
+
+    @Test void normalRightClickStillRequiresSneakingToBuyAChunk() {
+        claims.command(elder, village, new String[]{"claim", "mode"});
+        Block ground = mock(Block.class);
+        when(ground.getType()).thenReturn(Material.STONE);
+        PlayerInteractEvent event = interact(elder, ground);
+        verify(event, never()).setCancelled(true);
         verify(wallets, never()).setBalance(any(), anyLong());
     }
 }

@@ -341,7 +341,7 @@ final class EndPortals implements Listener {
         if (village == null) {
             player.sendMessage("Join a faction to unlock the End. The unlock requires " + REQUIREMENTS + ".");
         } else if (!village.expandedClaims) {
-            player.sendMessage("Upgrade your capital beacon before opening the End. An owner or elder must sneak and right-click it to deposit 1 ordinary beacon crafted with a Nether Star. Unlocking the End requires " + REQUIREMENTS + ".");
+            player.sendMessage("Upgrade your capital beacon before opening the End. An owner or elder must right-click it to deposit 1 ordinary beacon crafted with a Nether Star. Unlocking the End requires " + REQUIREMENTS + ".");
         } else if (village.endUnlocked) {
             return true;
         } else if (village.points() < REQUIRED_POINTS) {

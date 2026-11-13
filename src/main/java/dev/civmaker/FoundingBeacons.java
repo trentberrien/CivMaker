@@ -162,9 +162,6 @@ final class FoundingBeacons implements Listener {
         if (isCapital(block)) {
             if (locked(block)) {
                 event.setCancelled(true);
-                if (event.getHand() == EquipmentSlot.HAND && !event.getPlayer().isSneaking()) {
-                    event.getPlayer().sendMessage("Your capital beacon's vanilla effects are locked. An owner or elder must sneak and right-click it to deposit 1 ordinary beacon and upgrade. All base-tier capital perks are already active.");
-                }
             }
             return;
         }
@@ -292,7 +289,7 @@ final class FoundingBeacons implements Listener {
         }
         store.addVillage(new Village(name, player.getUniqueId(), Position.at(site.block())));
         player.sendMessage(name + " is founded! Your capital chunk is protected and starts with "
-                + CivStore.CAPITAL_POINTS + " points. All base-tier capital perks are active. Sneak and right-click your capital beacon to deposit 1 ordinary beacon and unlock vanilla beacon effects and 200 expansion claims.");
+                + CivStore.CAPITAL_POINTS + " points. All base-tier capital perks are active. Right-click your capital beacon to deposit 1 ordinary beacon and unlock vanilla beacon effects and 200 expansion claims.");
     }
 
     private String marker(Block block) {
