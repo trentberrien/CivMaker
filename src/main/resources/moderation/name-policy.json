@@ -1,0 +1,30 @@
+{
+  "ignoredDictionaryTerms": [
+    "big black", "domination", "escort", "girl on", "hard core", "hardcore",
+    "hot chick", "how to kill", "how to murder", "huge fat", "jelly donut",
+    "taste my", "tied up", "tight white", "tongue in a", "twinkie",
+    "wrapping men", "xx", "xxx"
+  ],
+  "wholeWordTerms": [
+    "anal", "anus", "boob", "butt", "cock", "cocks", "coon", "coons", "dick",
+    "mong", "poof", "poon", "rape", "scat", "spic", "suck", "sucks", "arse", "prick", "pricks", "bugger", "buggers"
+  ],
+  "allowedWords": [
+    "analysis", "analyst", "analytics", "assassin", "assault", "assembly", "assert",
+    "association", "bass", "brass", "class", "classic", "compass", "embassy",
+    "grass", "harass", "pass", "raccoon", "scunthorpe", "penistone", "shiitake",
+    "shitake", "cockburn", "cockpit", "peacock", "woodcock", "hancock", "dickens",
+    "dickson", "sussex", "essex", "middlesex", "wessex", "titan", "titanium",
+    "constitution", "butter", "button", "buttress", "grape", "grapevine", "pakistan", "montenegro", "fukushima", "scrap"
+  ],
+  "blockedTerms": [
+    "nazi", "nazism", "neo nazi", "hitler", "heil hitler", "sieg heil", "third reich",
+    "schutzstaffel", "waffen ss", "gestapo", "national socialist", "national socialism",
+    "nsdap", "sturmabteilung", "nationalsozialismus", "nationalsozialist",
+    "ku klux", "ku klux klan", "kkk", "white power", "white supremacy", "white supremacist",
+    "aryan brotherhood", "aryan nations", "atomwaffen", "blood and honour", "blood and honor",
+    "al qaeda", "al qaida", "isis", "isil", "daesh", "boko haram", "islamic state", "taliban",
+    "fuk", "fuq", "phuck", "phuk", "fack", "shyt", "biatch", "beyotch", "wanker",
+    "damn", "dumbass", "jackass", "piss", "crap", "arse", "prick", "pricks", "bugger", "buggers", "douche", "douchebag"
+  ]
+}

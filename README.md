@@ -74,6 +74,22 @@ In buying mode, the outline is blue for your village's land, green for an adjace
 
 Use `/civ borders` to toggle a personal border display. While you're inside any village, blue particles mark its outer edges within 32 blocks horizontally. The setting is saved with your player data.
 
+### Faction name rules
+
+New civilization names must use 2–24 ASCII letters, numbers, spaces, underscores, or hyphens and start with a letter or number. Names containing profanity, slurs, or explicit extremist references are rejected privately in the founding dialog before the civilization is created. The beacon stays available for another attempt.
+
+The filter runs locally using the bundled English [LDNOOBW profanity list](https://github.com/LDNOOBW/List-of-Dirty-Naughty-Obscene-and-Otherwise-Bad-Words) plus a CivMaker policy for extremist references, common spelling variants, and innocent-word exceptions. Matching handles capitalization, inserted separators, repeated letters, and substitutions such as `4` for `a`, `7` for `t`, `0` for `o`, and `1` for either `i` or `l`. Unicode lookalikes and invisible characters are rejected by the character rules. Word boundaries and scoped exceptions preserve ordinary names such as Classic Legion, Scunthorpe, and Night Watch.
+
+There is no universal profanity or extremist-name dictionary; this filter is English-focused and does not guarantee detection of every possible evasion. Operators can add terms or innocent-word exceptions in `plugins/CivMaker/config.yml`, then restart:
+
+```yaml
+name-filter:
+  additional-blocked-terms: []
+  allowed-words: []
+```
+
+An allowed word exempts only matches within that word. It cannot make an unrelated offensive part of the name pass. Existing faction names are preserved when upgrading; the filter applies to new founding attempts. Older configs without these keys automatically use the built-in policy. Dataset attribution, the pinned upstream revision, and its license are bundled under `moderation/` in the JAR.
+
 ### Faction colors and banners
 
 Each faction gets a saved color for its floating beacon label, its members' names in the Tab list, and its territory boss bar. The boss bar shows points and vault balance, using the closest Minecraft boss-bar color for custom shades.
@@ -125,7 +141,7 @@ mvn install
 mvn -f VillagerRework/pom.xml package
 ```
 
-Copy `target/civmaker-0.12.4.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
+Copy `target/civmaker-0.13.0.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
 
 ## Farm Stations
 
@@ -276,7 +292,7 @@ The optional [CivMaker Discord bot](discord-bot/README.md) runs on the server co
 ### Build and install
 
 1. Install JDK 25 and Maven, then run `mvn package` from this directory. This preserves older versioned JARs in `target/`.
-2. Copy `target/civmaker-0.12.4.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+2. Copy `target/civmaker-0.13.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
 3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
 
 ### Optional Xaero map companion

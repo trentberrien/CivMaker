@@ -27,6 +27,13 @@ village:
   # Applies when an invite is accepted; existing ranks and demotions are preserved.
   invite-as-elder: true
 
+# Applies to new faction names. Built-in profanity and extremist-name checks are always active.
+# Extra terms use the same leetspeak, spacing, and repeated-letter checks.
+# Allowed words exempt only matches inside that word, not the rest of a faction name.
+name-filter:
+  additional-blocked-terms: []
+  allowed-words: []
+
 raid-protection:
   enabled: true
   price: 10000

@@ -47,7 +47,7 @@ final class FoundingBeacons implements Listener {
     static final long PRICE = 10_000;
     static final String PRICE_LABEL = "$10,000";
     private static final String NAME_INPUT = "name";
-    private static final String NAME_RULES = "Use 2–24 characters. Start with a letter or number. Spaces, underscores, and hyphens are allowed.";
+    private static final String NAME_RULES = FactionNames.FORMAT_ERROR + " No profanity, slurs, or extremist references.";
     private static final String ALREADY_MEMBER = "You already belong to a civilization.";
     private static final String RESUME = "Right-click the Founding Beacon whenever you're ready.";
 
@@ -60,6 +60,7 @@ final class FoundingBeacons implements Listener {
     private final NaturalVillages natural;
     private final int minY;
     private final NamespacedKey beaconKey;
+    private final FactionNames factionNames;
 
     FoundingBeacons(CivMaker plugin, CivStore store, Wallets wallets, NaturalVillages natural) {
         this.plugin = plugin;
@@ -68,6 +69,8 @@ final class FoundingBeacons implements Listener {
         this.natural = natural;
         minY = plugin.getConfig().getInt("village.min-beacon-y");
         beaconKey = new NamespacedKey(plugin, "founding_beacon");
+        factionNames = new FactionNames(plugin.getConfig().getStringList("name-filter.additional-blocked-terms"),
+                plugin.getConfig().getStringList("name-filter.allowed-words"));
     }
 
     boolean canBuy(Player player) {
@@ -268,8 +271,9 @@ final class FoundingBeacons implements Listener {
     }
 
     private void found(Player player, Site site, String name) {
-        if (!name.matches("[A-Za-z0-9][A-Za-z0-9 _-]{1,23}")) {
-            name(player, site, "", "Enter a valid civilization name.");
+        String nameError = factionNames.error(name);
+        if (nameError != null) {
+            name(player, site, "", nameError);
             return;
         }
         for (Village village : store.villages()) {
