@@ -19,11 +19,13 @@ import org.bukkit.block.Block;
 import org.bukkit.block.Container;
 import org.bukkit.entity.AbstractHorse;
 import org.bukkit.entity.Camel;
+import org.bukkit.entity.Donkey;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.HappyGhast;
 import org.bukkit.entity.Horse;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.SkeletonHorse;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -81,8 +83,8 @@ final class RaidEquipment implements Listener {
                 "Faction members can use the trader to travel between their claims."),
         SUPER_SADDLE("super_saddle", "Super Saddle", Material.SADDLE, NamedTextColor.GOLD,
                 "Camels gain triple max health and top horse speed while ridden.",
-                "Horses gain the highest natural speed and jump strength.",
-                "Horses gain 96 max health (48 hearts)."),
+                "Horses, donkeys, and skeleton horses gain top horse speed and jump strength.",
+                "These mounts gain 96 max health (48 hearts)."),
         RAID_SHIELD("raid_shield", "Raid Protection", Material.NETHER_STAR, NamedTextColor.AQUA,
                 "Right-click to reserve the first scheduled raid at least 24 hours away.",
                 "Protects your village for that window; your faction cannot raid.",
@@ -221,7 +223,8 @@ final class RaidEquipment implements Listener {
     }
 
     void syncSaddle(AbstractHorse mount) {
-        if (!(mount instanceof Camel || mount instanceof Horse)) {
+        if (!(mount instanceof Camel || mount instanceof Horse || mount instanceof Donkey
+                || mount instanceof SkeletonHorse)) {
             return;
         }
         boolean equipped = wears(mount, EquipmentSlot.SADDLE, Tool.SUPER_SADDLE);
