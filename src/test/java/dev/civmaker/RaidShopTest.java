@@ -108,4 +108,24 @@ class RaidShopTest {
         verify(inventory).setStorageContents(any());
         verify(player).sendMessage("Bought Radar for $10,000.");
     }
+
+    @Test void traderPurchaseChargesTheDiscountedWalletPrice() {
+        when(wallets.balance(player)).thenReturn(10_000L);
+        org.junit.jupiter.api.Assertions.assertTrue(shop.purchase(player, Tool.RADAR, false, 5_700));
+        verify(wallets).setBalance(player, 4_300L);
+        verify(inventory).setStorageContents(any());
+        verify(player).sendMessage("Bought Radar for $5,700.");
+    }
+
+    @Test void failedTraderPurchasesLeaveMoneyAndInventoryUntouched() {
+        when(wallets.balance(player)).thenReturn(4_999L);
+        org.junit.jupiter.api.Assertions.assertFalse(shop.purchase(player, Tool.RADAR, false, 5_000));
+        when(wallets.balance(player)).thenReturn(10_000L);
+        ItemStack full = mock(ItemStack.class);
+        when(full.isEmpty()).thenReturn(false);
+        java.util.Arrays.fill(contents, full);
+        org.junit.jupiter.api.Assertions.assertFalse(shop.purchase(player, Tool.RADAR, false, 5_000));
+        verify(wallets, never()).setBalance(any(), anyLong());
+        verify(inventory, never()).setStorageContents(any());
+    }
 }

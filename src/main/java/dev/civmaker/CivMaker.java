@@ -20,6 +20,7 @@ public class CivMaker extends JavaPlugin {
     private VaultTracking vaultTracking;
     private RaidEquipment equipment;
     private RaidShop raidShop;
+    private WanderingTraderShop wanderingTraderShop;
     private ClaimBuying claimBuying;
     private SettlementVaults settlementVaults;
     private SettlementBuying settlementBuying;
@@ -121,6 +122,7 @@ public class CivMaker extends JavaPlugin {
         combatTimeout = new CombatTimeout(this);
         wilderness = new Wilderness(this, store, combatTimeout);
         warpPortals = new WarpPortals(this, store, equipment, combatTimeout, capture);
+        wanderingTraderShop = new WanderingTraderShop(this, raidShop, equipment, warpPortals);
         endPortals = new EndPortals(this, store, wallets);
         CompanionMaps companionMaps = new CompanionMaps(this, store, equipment);
         hud = new PlayerHud(this, store, wallets);
@@ -157,6 +159,7 @@ public class CivMaker extends JavaPlugin {
         events.registerEvents(combatTimeout, this);
         events.registerEvents(wilderness, this);
         events.registerEvents(warpPortals, this);
+        events.registerEvents(wanderingTraderShop, this);
         events.registerEvents(endPortals, this);
         events.registerEvents(companionMaps, this);
         for (var world : getServer().getWorlds()) {
@@ -235,6 +238,9 @@ public class CivMaker extends JavaPlugin {
         }
         if (raidShop != null) {
             raidShop.closeAll();
+        }
+        if (wanderingTraderShop != null) {
+            wanderingTraderShop.closeAll();
         }
         if (settlementVaults != null) {
             settlementVaults.closeAll();

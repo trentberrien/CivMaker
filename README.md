@@ -151,7 +151,7 @@ mvn install
 mvn -f VillagerRework/pom.xml package
 ```
 
-Copy `target/civmaker-0.16.5.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
+Copy `target/civmaker-0.17.0.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
 
 ## Farm Stations
 
@@ -211,6 +211,14 @@ Use a **Secure Vault Kit** on a chest, barrel, or shulker box inside your own cl
 Only elders and owners can take banknotes or settlement currency out of their civilization's Secure Vaults. Ordinary members can still deposit funds and use non-currency contents. This restriction also covers shift-clicks, hotbar swaps, double-click collection, and containers holding currency. Breaking a vault containing currency cannot bypass the rank requirement. Raid lockpicking keeps its existing loot rules.
 
 Mining a secure chest in your faction's protected claim in Survival returns **one Secure Vault Kit** alongside the normal chest and contents. A double chest returns no kit when only one half is broken: the remaining half stays secure, and the kit drops when that last chest block is mined. The same rule applies to trapped chests. Creative mode, suppressed or cancelled drops, and chests outside your own protected claims do not return kits. Existing currency-withdrawal restrictions still apply.
+
+## Wandering trader deals
+
+Right-click an ordinary wandering trader in Survival to see six randomly selected, distinct items from the gear sections of `/civ shop`. Each offer independently rolls **25–50% off** its normal wallet price, in whole percentage points. Pay from your wallet by left-clicking an offer. Prices round up to whole dollars; settlement currencies are not accepted by wandering traders.
+
+Each offer can be purchased **once per trader, shared by all players**, and then shows as sold out. Purchases give the usual shop quantity, including 64 Blast Rockets per rocket offer. Items, prices, and sold-out stock stay with that trader across reopening its menu, chunk reloads, and server restarts. Ordinary traders already in the world adopt these offers when next used. Vanilla wandering trader trades are replaced.
+
+Raid Protection keeps its normal faction binding and purchase cooldown. Founding Beacons and the faction banner service stay in `/civ shop`. Warp traders keep their travel menu.
 
 ## Trading items
 
@@ -308,7 +316,7 @@ The optional [CivMaker Discord bot](discord-bot/README.md) runs on the server co
 ### Build and install
 
 1. Install JDK 25 and Maven, then run `mvn package` from this directory. This preserves older versioned JARs in `target/`.
-2. Copy `target/civmaker-0.16.5.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+2. Copy `target/civmaker-0.17.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
 3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
 
 ### Optional Xaero map companion

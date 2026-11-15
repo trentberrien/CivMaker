@@ -198,7 +198,18 @@ final class RaidShop implements Listener {
         if (tool == null) {
             return;
         }
+        purchase(player, tool, alternate, price(tool));
+    }
 
+    static List<Tool> products() {
+        return SECTIONS.stream().flatMap(section -> section.tools().stream()).toList();
+    }
+
+    long price(Tool tool) {
+        return tool == Tool.RAID_SHIELD ? shields.price() : PRICE;
+    }
+
+    boolean purchase(Player player, Tool tool, boolean alternate, long price) {
         var village = store.registeredVillage(player.getUniqueId());
         long now = System.currentTimeMillis();
         boolean shield = tool == Tool.RAID_SHIELD;
@@ -206,15 +217,14 @@ final class RaidShop implements Listener {
             String error = shields.purchaseError(village, now);
             if (error != null) {
                 player.sendMessage(error);
-                return;
+                return false;
             }
         }
-        long price = shield ? shields.price() : PRICE;
         String cash = cashLabel(price);
         long balance = wallets.balance(player);
         if (!alternate && balance < price) {
             player.sendMessage("You need " + cash + " in your wallet.");
-            return;
+            return false;
         }
         var purchase = equipment.item(tool, null);
         if (shield) {
@@ -227,17 +237,17 @@ final class RaidShop implements Listener {
             Reward payment = Reward.paymentFor(tool);
             if (payment == null) {
                 player.sendMessage("Use left-click to buy this item for " + cash + ".");
-                return;
+                return false;
             }
             priceLabel = RESOURCE_PRICE + " " + payment.label;
             if (!resources.debit(contents, payment, RESOURCE_PRICE)) {
                 player.sendMessage("You need " + priceLabel + " in your inventory.");
-                return;
+                return false;
             }
         }
         if (ItemTransfers.insert(contents, purchase, inventory.getMaxStackSize()) > 0) {
             player.sendMessage("Free up inventory space before buying an item.");
-            return;
+            return false;
         }
         inventory.setStorageContents(contents);
         if (!alternate) {
@@ -249,6 +259,7 @@ final class RaidShop implements Listener {
         }
         String quantity = purchase.getAmount() > 1 ? purchase.getAmount() + " " : "";
         player.sendMessage("Bought " + quantity + tool.label + " for " + priceLabel + ".");
+        return true;
     }
 
     private void clickBannerMenu(InventoryClickEvent event, BannerMenu menu) {

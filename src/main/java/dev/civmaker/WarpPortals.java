@@ -230,6 +230,10 @@ final class WarpPortals implements Listener {
         player.openInventory(new Menu(source, destinations, village, 0, capture).inventory);
     }
 
+    boolean isWarpTrader(WanderingTrader trader) {
+        return byEntity.containsKey(trader.getUniqueId());
+    }
+
     private void pack(Player player, Village village, WarpPortal warp) {
         var inventory = player.getInventory();
         ItemStack[] contents = inventory.getStorageContents().clone();
