@@ -144,6 +144,7 @@ class ClaimBuyingTest {
             verify(player).openInventory(inventory);
             verify(inventory).setItem(eq(4), any(ItemStack.class));
             verify(inventory).setItem(eq(11), any(ItemStack.class));
+            verify(inventory).setItem(eq(13), any(ItemStack.class));
             verify(inventory).setItem(eq(15), any(ItemStack.class));
         }
         when(player.getOpenInventory().getTopInventory()).thenReturn(inventory);
@@ -205,11 +206,27 @@ class ClaimBuyingTest {
         verify(wallets, never()).setBalance(any(), anyLong());
     }
 
-    @Test void upgradedCapitalRightClickAllowsTheVanillaBeaconScreen() {
+    @Test void ordinaryMembersCanStillUseAnUpgradedBeaconDirectly() {
         village.expandedClaims = true;
-        PlayerInteractEvent event = interact(elder, beacon);
+        PlayerInteractEvent event = interact(member, beacon);
         verify(event, never()).setCancelled(true);
-        verify(elder, never()).openInventory(any(Inventory.class));
+        verify(member, never()).openInventory(any(Inventory.class));
+    }
+
+    @Test void upgradedCapitalStillOpensItsManagementMenu() {
+        village.expandedClaims = true;
+        openUpgrade(owner);
+        choose(owner, 15);
+        assertTrue(village.expandedClaims);
+        verify(owner.getInventory(), never()).setItem(anyInt(), nullable(ItemStack.class));
+    }
+
+    @Test void eldersCannotUseTheRenameButtonToRenameTheFaction() {
+        openUpgrade(elder);
+        choose(elder, 13);
+        verify(elder).sendMessage("Only the faction owner can rename this civilization.");
+        assertEquals("Test", village.name);
+        assertFalse(store.dirty);
     }
 
     @Test void offhandRightClicksNeverOpenOrBuyUpgrade() {

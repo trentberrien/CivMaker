@@ -1,0 +1,8 @@
+CivMaker Discord bot 1.1.1 update
+
+1. Stop the Discord bot on the server computer.
+2. Extract this update into the existing discord-bot folder and replace its src files and package.json.
+3. Keep the server's existing .env, data, and node_modules folders. This update does not include credentials or saved bot data. Dependencies have not changed.
+4. Start the bot with start.cmd or npm start, then run /sync in Discord.
+
+This version reloads the bot's assigned roles and the server role permissions before every sync. Newly granted permissions can take effect without another restart. Minecraft does not need a restart for this bot update.

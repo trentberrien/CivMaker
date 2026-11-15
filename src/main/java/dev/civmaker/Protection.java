@@ -31,6 +31,7 @@ import org.bukkit.event.block.BlockFormEvent;
 import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockGrowEvent;
 import org.bukkit.event.block.BlockSpreadEvent;
+import org.bukkit.event.block.EntityBlockFormEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
 import org.bukkit.event.block.BlockMultiPlaceEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
@@ -132,7 +133,8 @@ final class Protection implements Listener {
         if (farmStations.isStation(block)) {
             return;
         }
-        if (naturalPlot(block) || settlementAccess(block)) {
+        if (naturalPlot(block) || (settlementAccess(block)
+                && !(farmingBlock(block.getType()) && farmingMember(event.getPlayer(), block)))) {
             event.setCancelled(true);
             event.getPlayer().sendMessage("That block is protected.");
             return;
@@ -152,7 +154,8 @@ final class Protection implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     void interact(PlayerInteractEvent event) {
         Block block = event.getClickedBlock();
-        if (block != null && event.getAction() == Action.RIGHT_CLICK_BLOCK && settlementAccess(block)) {
+        if (block != null && event.getAction() == Action.RIGHT_CLICK_BLOCK && settlementAccess(block)
+                && !(farmingMember(event.getPlayer(), block) && farmingInteraction(event, block))) {
             event.setUseItemInHand(org.bukkit.event.Event.Result.DENY);
         }
         if (block != null && (event.getAction() == Action.RIGHT_CLICK_BLOCK || event.getAction() == Action.PHYSICAL)
@@ -282,7 +285,13 @@ final class Protection implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void entityChange(EntityChangeBlockEvent event) {
-        if (claimed(event.getBlock())) {
+        Block block = event.getBlock();
+        if (event.getEntity() instanceof Player player && farmlandChange(block.getType(), event.getTo())
+                && farmingMember(player, block) && !store.isClaimAnchor(store.protectedClaimAt(block), block)
+                && !store.isSettlementFixture(block)) {
+            return;
+        }
+        if (claimed(block)) {
             event.setCancelled(true);
         }
     }
@@ -332,6 +341,13 @@ final class Protection implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void spread(BlockSpreadEvent event) {
+        Block target = event.getBlock();
+        Block source = event.getSource();
+        if (naturalFarmGrowth(target, event.getNewState().getType())
+                && store.protectedClaimAt(source) == store.protectedClaimAt(target)
+                && naturalPlot(source) == naturalPlot(target)) {
+            return;
+        }
         if (blocksEnvironmentalChange(event.getSource(), event.getBlock())) {
             event.setCancelled(true);
         }
@@ -339,6 +355,17 @@ final class Protection implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void form(BlockFormEvent event) {
+        Block block = event.getBlock();
+        if (farmlandChange(block.getType(), event.getNewState().getType())) {
+            if (event instanceof EntityBlockFormEvent entity && claimed(block)
+                    && (!(entity.getEntity() instanceof Player player) || !farmingMember(player, block))) {
+                event.setCancelled(true);
+                return;
+            }
+            if (!beaconColumn(block) && !store.isSettlementFixture(block)) {
+                return;
+            }
+        }
         if (beaconColumn(event.getBlock()) || naturalPlot(event.getBlock()) || settlementAccess(event.getBlock())) {
             event.setCancelled(true);
         }
@@ -346,13 +373,21 @@ final class Protection implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void grow(BlockGrowEvent event) {
-        if (naturalPlot(event.getBlock()) || settlementAccess(event.getBlock())) {
+        if (naturalFarmGrowth(event.getBlock(), event.getNewState().getType())) {
+            return;
+        }
+        if (beaconColumn(event.getBlock()) || store.isSettlementFixture(event.getBlock())
+                || naturalPlot(event.getBlock()) || settlementAccess(event.getBlock())) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void fade(BlockFadeEvent event) {
+        if (event.getBlock().getType() == Material.FARMLAND && event.getNewState().getType() == Material.DIRT
+                && !store.isSettlementFixture(event.getBlock())) {
+            return;
+        }
         if (naturalPlot(event.getBlock()) || settlementAccess(event.getBlock())) {
             event.setCancelled(true);
         }
@@ -428,7 +463,43 @@ final class Protection implements Listener {
     }
 
     private boolean cannotPlace(HumanEntity player, Block block) {
-        return forbidden(player, block) || beaconColumn(block) || settlementAccess(block);
+        return forbidden(player, block) || beaconColumn(block) || (settlementAccess(block)
+                && !(farmingBlock(block.getType()) && farmingMember(player, block)));
+    }
+
+    private boolean farmingMember(HumanEntity player, Block block) {
+        Village village = store.protectedClaimAt(block);
+        return village != null && store.memberOf(player.getUniqueId()) == village && !naturalPlot(block);
+    }
+
+    private static boolean farmingBlock(Material material) {
+        return material == Material.FARMLAND || farmPlant(material);
+    }
+
+    private static boolean farmPlant(Material material) {
+        return FarmProduce.crop(material) != null || material == Material.TORCHFLOWER_CROP
+                || material == Material.TORCHFLOWER || material == Material.PITCHER_CROP || material == Material.PITCHER_PLANT;
+    }
+
+    private boolean naturalFarmGrowth(Block block, Material result) {
+        return farmPlant(result) && !beaconColumn(block) && !store.isSettlementFixture(block);
+    }
+
+    private static boolean farmlandChange(Material from, Material to) {
+        return (to == Material.FARMLAND && (from == Material.FARMLAND || tillableSoil(from)))
+                || (to == Material.DIRT && (from == Material.FARMLAND || from == Material.COARSE_DIRT || from == Material.ROOTED_DIRT));
+    }
+
+    private static boolean tillableSoil(Material material) {
+        return switch (material) {
+            case DIRT, GRASS_BLOCK, DIRT_PATH, COARSE_DIRT, ROOTED_DIRT -> true;
+            default -> false;
+        };
+    }
+
+    private static boolean farmingInteraction(PlayerInteractEvent event, Block block) {
+        return farmingBlock(block.getType()) || (tillableSoil(block.getType()) && event.getItem() != null
+                && event.getItem().getType().name().endsWith("_HOE"));
     }
 
     private boolean forbidden(HumanEntity player, Block block) {

@@ -103,6 +103,33 @@ test('a channel permission failure cannot prevent faction role cleanup', async (
   assert.equal(f.channels.size, 0);
 });
 
+test('new bot role assignments enable faction channels on the next sync without a restart', async () => {
+  const f = fixture();
+  let granted = false;
+  const botMember = hasChannels => ({ id: '723456789012345678', permissions: {
+    has: permission => permission === PermissionFlagsBits.ManageRoles || hasChannels,
+  } });
+  f.guild.members.fetchMe = async options => botMember(options?.force && granted);
+
+  assert.ok((await f.sync.apply(snapshot())).errors > 0);
+  assert.equal(f.channels.size, 0);
+  granted = true;
+  assert.equal((await f.sync.apply(snapshot())).errors, 0);
+  assert.equal(f.channels.size, 4);
+});
+
+test('fresh role permissions are loaded before checking whether the bot can sync', async () => {
+  const f = fixture();
+  let rolesRefreshed = false;
+  f.guild.roles.fetch = async () => { rolesRefreshed = true; };
+  f.guild.members.fetchMe = async () => ({ id: '723456789012345678', permissions: {
+    has: () => rolesRefreshed,
+  } });
+
+  assert.equal((await f.sync.apply(snapshot())).errors, 0);
+  assert.equal(f.channels.size, 4);
+});
+
 test('failed removals remain tracked for retry and never grant a second faction', async () => {
   const f = fixture({ failure: true });
   const result = await f.sync.apply(snapshot(otherFaction));

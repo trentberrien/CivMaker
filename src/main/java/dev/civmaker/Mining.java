@@ -128,8 +128,15 @@ final class Mining implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     void entityChange(EntityChangeBlockEvent event) {
-        if (isOre(event.getTo()) || isOre(event.getBlock().getType())) {
-            forget(event.getBlock());
+        Block block = event.getBlock();
+        Material from = block.getType();
+        Material to = event.getTo();
+        // Lighting redstone fires this event without replacing or moving the ore.
+        if (from == to && (from == Material.REDSTONE_ORE || from == Material.DEEPSLATE_REDSTONE_ORE)) {
+            return;
+        }
+        if (isOre(to) || isOre(from)) {
+            forget(block);
         }
     }
 

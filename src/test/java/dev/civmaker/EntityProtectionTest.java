@@ -26,6 +26,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 import java.util.UUID;
@@ -206,7 +208,7 @@ class EntityProtectionTest {
         var fishing = new PlayerFishEvent(outsider, cow, mock(FishHook.class), EquipmentSlot.HAND, PlayerFishEvent.State.CAUGHT_ENTITY);
         protection.fish(fishing);
         assertTrue(fishing.isCancelled());
-        var mount = new EntityMountEvent(outsider, entity(Horse.class));
+        var mount = new EntityMountEvent(outsider, entity(Boat.class));
         protection.mount(mount);
         assertTrue(mount.isCancelled());
         var shear = mock(PlayerShearEntityEvent.class);
@@ -260,5 +262,53 @@ class EntityProtectionTest {
         var cow = new PlayerInteractEntityEvent(outsider, entity(Cow.class), EquipmentSlot.HAND);
         protection.interact(cow);
         assertTrue(cow.isCancelled());
+    }
+
+    private void held(Material material) {
+        PlayerInventory inventory = mock(PlayerInventory.class);
+        when(outsider.getInventory()).thenReturn(inventory);
+        ItemStack item = mock(ItemStack.class);
+        when(item.getType()).thenReturn(material);
+        when(inventory.getItem(EquipmentSlot.HAND)).thenReturn(item);
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void visitorsCanMountHorsesInClaimsAndUnclaimedVillages(boolean naturalVillage) {
+        if (naturalVillage) {
+            when(store.protectedClaimAt(block)).thenReturn(null);
+            when(natural.reserved(eq(world), any())).thenReturn(true);
+        }
+        held(Material.AIR);
+        Horse horse = entity(Horse.class);
+        var interact = new PlayerInteractEntityEvent(outsider, horse, EquipmentSlot.HAND);
+        protection.interact(interact);
+        assertFalse(interact.isCancelled());
+        var mount = new EntityMountEvent(outsider, horse);
+        protection.mount(mount);
+        assertFalse(mount.isCancelled());
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"LEAD", "SADDLE", "DIAMOND_HORSE_ARMOR", "NAME_TAG", "GOLDEN_CARROT"})
+    void mountingPermissionDoesNotAllowVisitorsToChangeHorseEquipmentOrFeedIt(String material) {
+        held(Material.valueOf(material));
+        var interact = new PlayerInteractEntityEvent(outsider, entity(Horse.class), EquipmentSlot.HAND);
+        protection.interact(interact);
+        assertTrue(interact.isCancelled());
+    }
+
+    @Test void horsesRemainProtectedFromDamageLeadsAndSneakInteraction() {
+        held(Material.AIR);
+        Horse horse = entity(Horse.class);
+        when(outsider.isSneaking()).thenReturn(true);
+        var sneak = new PlayerInteractEntityEvent(outsider, horse, EquipmentSlot.HAND);
+        protection.interact(sneak);
+        assertTrue(sneak.isCancelled());
+        var damage = hit(horse, outsider);
+        protection.damage(damage);
+        assertTrue(damage.isCancelled());
+        var leash = new PlayerLeashEntityEvent(horse, outsider, outsider, EquipmentSlot.HAND);
+        protection.leash(leash);
+        assertTrue(leash.isCancelled());
+
     }
 }

@@ -70,9 +70,13 @@ Players without a civilization can buy multiple Founding Beacons. Each player ca
 
 Invited players join as **elders by default**, keeping that rank until the owner uses `/civ demote <player>` or they leave. Set `village.invite-as-elder: false` in `plugins/CivMaker/config.yml` (or turn off **Invite players as elders** in the local config editor) and restart to make future invitees ordinary members. The setting is checked when `/civ join` accepts an invite; existing members' ranks and demotions stay as they are. Older configs without this setting also default to inviting players as elders.
 
+To rename your faction, right-click its **capital beacon** in Survival and select **Rename faction**, enter the new name, and confirm. Only the faction owner can rename it. Names follow the same 2–24-character rules and name filter as founding, and must be unique regardless of capitalization. Renaming keeps all claims, members, points, upgrades, and Discord links. Owners and elders can open the capital menu before or after upgrading; after upgrading, select **Beacon effects** to open the normal beacon screen. Ordinary members can still use upgraded beacon effects directly. The in-game points leaderboard shows only the first **10 characters** of each faction name; the saved name and other displays retain the full name.
+
 Plot protection covers blocks from **Y=61 through Y=200** in capital chunks and their expansions, and **Y=61 through Y=99** in settlements. Capital beacons and registered settlement bells and vaults are protected at any height.
 
-Within the protected area, outsiders cannot damage or take equipment from villagers, animals, pets, armor stands, item frames, paintings, or vehicles outside eligible raid windows. Leads, fishing rods, buckets, shearing, and mounting cannot bypass this protection. Unclaimed natural villages protect their inhabitants and decorations even during raids. Faction members can manage their own ordinary animals, decorations, and vehicles, and visitors can still trade with villagers. These protections preserve ordinary hostile mob combat and fall/lava-based farms.
+Crops can grow and farming plants can spread within their protected area, including near settlement bells and in unclaimed natural villages. Farmland hydrates, dries, and returns to dirt under normal Minecraft conditions. Members can till, plant, and harvest their own farms, including near their settlement bell. Outsiders cannot break, harvest, or trample protected farms, and mobs cannot trample protected farmland. Farming plants cannot spread across claim boundaries; beacon sky clearance and settlement fixtures stay protected. Farm Station requirements for automatic harvesting still apply.
+
+Within the protected area, outsiders cannot damage or take equipment from villagers, animals, pets, armor stands, item frames, paintings, or vehicles outside eligible raid windows. Leads, fishing rods, buckets, and shearing cannot bypass this protection. Visitors can mount horses in protected claims and unclaimed natural villages by right-clicking with an empty hand without sneaking. Horse inventories, equipment, and damage keep the normal protection rules. Unclaimed natural villages protect their inhabitants and decorations even during raids. Faction members can manage their own ordinary animals, decorations, and vehicles, and visitors can still trade with villagers. These protections preserve ordinary hostile mob combat and fall/lava-based farms.
 
 Village owners can run `/civ disband` and then `/civ disband confirm` within 60 seconds. This releases the capital, expansions, and settlements and clears memberships and pending invites. A released Founding Beacon locks again and can be used to found a new civilization. Released capitals and expansions return to wilderness rules. Released natural villages regain unclaimed village protection. Disbanding gives no refunds.
 
@@ -147,7 +151,7 @@ mvn install
 mvn -f VillagerRework/pom.xml package
 ```
 
-Copy `target/civmaker-0.15.2.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
+Copy `target/civmaker-0.16.2.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
 
 ## Farm Stations
 
@@ -298,7 +302,7 @@ The optional [CivMaker Discord bot](discord-bot/README.md) runs on the server co
 ### Build and install
 
 1. Install JDK 25 and Maven, then run `mvn package` from this directory. This preserves older versioned JARs in `target/`.
-2. Copy `target/civmaker-0.15.2.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+2. Copy `target/civmaker-0.16.2.jar` into your Paper 26.3 server's `plugins` directory and start the server.
 3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
 
 ### Optional Xaero map companion

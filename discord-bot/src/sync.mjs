@@ -36,11 +36,13 @@ export class RoleSync {
 
   async apply(snapshot) {
     this.checkServer(snapshot);
-    const me = await this.guild.members.fetchMe();
+    // Permission checks use both the role definitions and the bot's assigned roles.
+    // Refresh both so grants made while the bot is running take effect next poll.
+    await this.guild.roles.fetch();
+    const me = await this.guild.members.fetchMe({ force: true });
     if (!me.permissions.has(PermissionFlagsBits.ManageRoles)) {
       throw new Error('The bot needs Manage Roles. Place its role above every CivMaker faction role.');
     }
-    await this.guild.roles.fetch();
     this.state.serverId = snapshot.serverId;
     // Persist the cleanup list before granting any roles, including across crashes.
     const tracked = new Set([...this.state.trackedUsers, ...snapshot.players.map(player => player.discordId)]);

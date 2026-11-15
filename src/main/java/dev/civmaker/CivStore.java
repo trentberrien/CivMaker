@@ -126,7 +126,7 @@ final class CivStore {
 
     static final class Village {
         final UUID id = UUID.randomUUID();
-        final String name;
+        String name;
         final UUID owner;
         final Position beacon;
         int color;

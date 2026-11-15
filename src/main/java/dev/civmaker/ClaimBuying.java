@@ -27,6 +27,7 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.MenuType;
 
 import java.util.HashSet;
 import java.util.List;
@@ -37,25 +38,33 @@ import java.util.UUID;
 final class ClaimBuying implements Listener {
     static final String PROMOTION_MESSAGE = "You must be promoted to elder to buy plots for your civilization. Ask your owner to use /civ promote <player>.";
     private static final int BUY_SLOT = 11;
+    private static final int RENAME_SLOT = 13;
     private static final int CANCEL_SLOT = 15;
 
-    private static final class UpgradeMenu implements InventoryHolder {
+    private static final class CapitalMenu implements InventoryHolder {
         final Village village;
+        final boolean upgraded;
         final Inventory inventory;
 
-        UpgradeMenu(Village village) {
+        CapitalMenu(Village village) {
             this.village = village;
-            inventory = Bukkit.createInventory(this, 27, Component.text("Upgrade Land Claims"));
-            inventory.setItem(4, item(Material.BEACON, "Expand " + village.name,
-                    "Increase the expansion limit from 100 to 200 chunks.",
-                    "Unlock vanilla beacon effects and effect selection.",
+            upgraded = village.expandedClaims;
+            inventory = Bukkit.createInventory(this, 27, Component.text("Capital Beacon"));
+            inventory.setItem(4, item(Material.BEACON, village.name + " capital",
+                    upgraded ? "Upgraded to 200 expansion chunks." : "Deposit 1 beacon to unlock 200 expansion chunks.",
+                    upgraded ? "Vanilla beacon effects are unlocked." : "The upgrade also unlocks vanilla beacon effects.",
                     "One upgrade for your entire civilization.",
                     "Current expansions: " + village.capitalExpansionCount() + "/" + village.capitalExpansionLimit()));
-            inventory.setItem(BUY_SLOT, item(Material.BEACON, "Deposit 1 Beacon to upgrade",
+            inventory.setItem(BUY_SLOT, upgraded ? item(Material.BEACON, "Beacon effects",
+                    "Open your upgraded beacon's effect menu.") : item(Material.BEACON, "Deposit 1 Beacon to upgrade",
                     "Consumes one ordinary beacon from your inventory.",
                     "Craft it normally using a Nether Star.",
                     "Founding Beacons cannot be deposited. No money cost.",
                     "Requires an elder or owner in Survival."));
+            inventory.setItem(RENAME_SLOT, item(Material.NAME_TAG, "Rename faction",
+                    "Current name: " + village.name,
+                    "Only the faction owner can rename it.",
+                    "Names must be unique and follow the naming rules."));
             inventory.setItem(CANCEL_SLOT, item(Material.BARRIER, "Cancel"));
         }
 
@@ -80,6 +89,7 @@ final class ClaimBuying implements Listener {
     private final CivStore store;
     private final Wallets wallets;
     private final NaturalVillages natural;
+    private final FactionRenaming renaming;
     private final long price;
     private final Set<UUID> buying = new HashSet<>();
 
@@ -88,6 +98,7 @@ final class ClaimBuying implements Listener {
         this.store = store;
         this.wallets = wallets;
         this.natural = natural;
+        renaming = new FactionRenaming(plugin, store);
         price = Math.max(0, plugin.getConfig().getLong("village.chunk-price"));
     }
 
@@ -127,12 +138,12 @@ final class ClaimBuying implements Listener {
         Block block = event.getClickedBlock();
         Village capital = block == null || block.getType() != Material.BEACON ? null : store.claimAt(block);
         if (capital != null && capital.beacon.equals(Position.at(block))) {
-            if (capital.expandedClaims) {
+            if (capital.expandedClaims && !capital.canManage(player.getUniqueId())) {
                 return;
             }
             event.setCancelled(true);
-            if (event.getHand() == EquipmentSlot.HAND && canUpgrade(player, capital)) {
-                player.openInventory(new UpgradeMenu(capital).inventory);
+            if (event.getHand() == EquipmentSlot.HAND && canOpenCapital(player, capital)) {
+                player.openInventory(new CapitalMenu(capital).inventory);
             }
             return;
         }
@@ -162,12 +173,19 @@ final class ClaimBuying implements Listener {
         return true;
     }
 
-    private boolean canUpgrade(Player player, Village village) {
+    private boolean canOpenCapital(Player player, Village village) {
         if (!canBuy(player, village)) {
             return false;
         }
         if (player.getGameMode() != GameMode.SURVIVAL) {
-            player.sendMessage("Switch to Survival to upgrade your land claims.");
+            player.sendMessage("Switch to Survival to manage your capital beacon.");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean canUpgrade(Player player, Village village) {
+        if (!canOpenCapital(player, village)) {
             return false;
         }
         if (village.expandedClaims) {
@@ -179,13 +197,13 @@ final class ClaimBuying implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     void menuClick(InventoryClickEvent event) {
-        if (!(event.getView().getTopInventory().getHolder() instanceof UpgradeMenu menu)) {
+        if (!(event.getView().getTopInventory().getHolder() instanceof CapitalMenu menu)) {
             return;
         }
         event.setCancelled(true);
         int slot = event.getRawSlot();
         if (!(event.getWhoClicked() instanceof Player player) || !event.getClick().isLeftClick()
-                || (slot != BUY_SLOT && slot != CANCEL_SLOT)) {
+                || (slot != BUY_SLOT && slot != RENAME_SLOT && slot != CANCEL_SLOT)) {
             return;
         }
         plugin.getServer().getScheduler().runTask(plugin, () -> {
@@ -193,10 +211,27 @@ final class ClaimBuying implements Listener {
                 return;
             }
             player.closeInventory();
-            if (slot == BUY_SLOT) {
-                depositUpgrade(player, menu.village);
+            if (slot == RENAME_SLOT) {
+                renaming.open(player, menu.village);
+            } else if (slot == BUY_SLOT) {
+                if (menu.upgraded) {
+                    openBeaconEffects(player, menu.village);
+                } else {
+                    depositUpgrade(player, menu.village);
+                }
             }
         });
+    }
+
+    private void openBeaconEffects(Player player, Village village) {
+        if (!store.hasVillage(village.id) || !village.expandedClaims || !canOpenCapital(player, village)
+                || !FactionRenaming.inReach(player, village)) {
+            return;
+        }
+        Position position = village.beacon;
+        player.openInventory(MenuType.BEACON.builder()
+                .location(new Location(player.getWorld(), position.x(), position.y(), position.z()))
+                .checkReachable(true).build(player));
     }
 
     private void depositUpgrade(Player player, Village village) {
@@ -237,7 +272,7 @@ final class ClaimBuying implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     void menuDrag(InventoryDragEvent event) {
-        if (event.getView().getTopInventory().getHolder() instanceof UpgradeMenu) {
+        if (event.getView().getTopInventory().getHolder() instanceof CapitalMenu) {
             event.setCancelled(true);
         }
     }
@@ -264,7 +299,7 @@ final class ClaimBuying implements Listener {
     void closeAll() {
         buying.clear();
         for (Player player : plugin.getServer().getOnlinePlayers()) {
-            if (player.getOpenInventory().getTopInventory().getHolder() instanceof UpgradeMenu) {
+            if (player.getOpenInventory().getTopInventory().getHolder() instanceof CapitalMenu) {
                 player.closeInventory();
             }
         }

@@ -11,6 +11,7 @@ import org.bukkit.entity.EnderCrystal;
 import org.bukkit.entity.Enemy;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Hanging;
+import org.bukkit.entity.Horse;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Pillager;
 import org.bukkit.entity.Player;
@@ -165,6 +166,11 @@ final class EntityProtection implements Listener {
         if (event.getRightClicked() instanceof Pillager guard && guards.owner(guard) != null) {
             return;
         }
+        // An empty-hand click mounts the horse without applying items or opening its inventory.
+        if (event.getRightClicked() instanceof Horse && !event.getPlayer().isSneaking()
+                && event.getPlayer().getInventory().getItem(event.getHand()).getType() == Material.AIR) {
+            return;
+        }
         if (forbidden(event.getRightClicked(), event.getPlayer().getUniqueId())) {
             event.setCancelled(true);
         }
@@ -214,7 +220,8 @@ final class EntityProtection implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void mount(EntityMountEvent event) {
-        if (event.getEntity() instanceof Player player && forbidden(event.getMount(), player.getUniqueId())) {
+        if (event.getEntity() instanceof Player player && !(event.getMount() instanceof Horse)
+                && forbidden(event.getMount(), player.getUniqueId())) {
             event.setCancelled(true);
         }
     }

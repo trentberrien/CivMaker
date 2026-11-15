@@ -23,12 +23,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.StreamSupport;
 
 final class PlayerHud implements Listener {
     private static final int RANK_COUNT = 5;
-    private record Banner(Village village, int color, long balance, long points, BossBar bar) {}
+    private record Banner(Village village, String name, int color, long balance, long points, BossBar bar) {}
     private record ListName(int color, Component original, Component applied) {}
     private record Standing(String name, int color, long points) {}
 
@@ -40,6 +41,7 @@ final class PlayerHud implements Listener {
         final Score[] ranks = new Score[RANK_COUNT];
         List<Standing> ranking = List.of();
         Village village;
+        String name;
         int color = -1;
         long balance = -1;
         Component raidStatus;
@@ -115,10 +117,10 @@ final class PlayerHud implements Listener {
         long balance = village == null ? 0 : store.villageBalance(village);
         long points = village == null ? 0 : village.points();
         if (banner != null && banner.village() == village) {
-            if (banner.color() != village.color || banner.balance() != balance || banner.points() != points) {
+            if (!banner.name().equals(village.name) || banner.color() != village.color || banner.balance() != balance || banner.points() != points) {
                 banner.bar().name(bannerText(village, balance, points));
                 banner.bar().color(VillageColors.bar(village.color));
-                banners.put(id, new Banner(village, village.color, balance, points, banner.bar()));
+                banners.put(id, new Banner(village, village.name, village.color, balance, points, banner.bar()));
             }
             return;
         }
@@ -129,7 +131,7 @@ final class PlayerHud implements Listener {
         if (village != null) {
             BossBar bar = BossBar.bossBar(bannerText(village, balance, points),
                     1, VillageColors.bar(village.color), BossBar.Overlay.PROGRESS);
-            banners.put(id, new Banner(village, village.color, balance, points, bar));
+            banners.put(id, new Banner(village, village.name, village.color, balance, points, bar));
             player.showBossBar(bar);
         }
     }
@@ -188,11 +190,13 @@ final class PlayerHud implements Listener {
         }
 
         int color = membership == null ? 0 : membership.color;
-        if (sidebar.village != membership || sidebar.color != color) {
+        String name = membership == null ? null : membership.name;
+        if (sidebar.village != membership || !Objects.equals(sidebar.name, name) || sidebar.color != color) {
             Component villageName = membership == null ? Component.text("None", NamedTextColor.WHITE)
                     : Component.text(membership.name, TextColor.color(color));
             sidebar.villageLine.customName(Component.text("Village: ", NamedTextColor.GRAY).append(villageName));
             sidebar.village = membership;
+            sidebar.name = name;
             sidebar.color = color;
         }
 
@@ -213,7 +217,7 @@ final class PlayerHud implements Listener {
                 line.setScore(-i - 1);
                 line.numberFormat(NumberFormat.blank());
                 line.customName(Component.text((i + 1) + ". ", NamedTextColor.GRAY)
-                        .append(Component.text(entry.name(), TextColor.color(entry.color())))
+                        .append(Component.text(leaderboardName(entry.name()), TextColor.color(entry.color())))
                         .append(Component.text(" " + entry.points() + " pts", NamedTextColor.GREEN)));
             }
             for (int i = ranking.size(); i < sidebar.ranking.size(); i++) {
@@ -221,6 +225,10 @@ final class PlayerHud implements Listener {
             }
             sidebar.ranking = ranking;
         }
+    }
+
+    static String leaderboardName(String name) {
+        return name.substring(0, Math.min(10, name.length()));
     }
 
     @EventHandler
