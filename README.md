@@ -124,7 +124,7 @@ Once placed, the vault produces its reward every Minecraft day (24,000 world tic
 | --- | --- | --- |
 | Desert | 5 Settlement Gunpowder | Grenades, C4, and Blast Rockets |
 | Plains | 5 Settlement Iron | Secure Vault Kits, Vault Doors, and Defender Golems |
-| Savanna | 5 Settlement Copper | Lockpicks and Battering Rams |
+| Savanna | 5 Settlement Copper | Lockpicks, Battering Rams, and Radars |
 | Taiga | 1 Super Totem | Keep your items on death and drop 10% of carried money |
 | Snowy plains | 64 Obsidian | Ordinary building material |
 | Meadow | 5 Muster Amethyst | Pillager Guards, Happy Harnesses, and Super Saddles |
@@ -151,7 +151,7 @@ mvn install
 mvn -f VillagerRework/pom.xml package
 ```
 
-Copy `target/civmaker-0.16.2.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
+Copy `target/civmaker-0.16.5.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
 
 ## Farm Stations
 
@@ -209,6 +209,8 @@ A floating nametag shows the farm name above the owner's faction name in that fa
 Use a **Secure Vault Kit** on a chest, barrel, or shulker box inside your own claim. The entire container, including both halves of a double chest, must be inside your village. A floating nameplate identifies the vault, and its banknotes count toward the village balance. Withdrawals and theft reduce that balance. Previously unloaded vaults are counted when their chunks load.
 
 Only elders and owners can take banknotes or settlement currency out of their civilization's Secure Vaults. Ordinary members can still deposit funds and use non-currency contents. This restriction also covers shift-clicks, hotbar swaps, double-click collection, and containers holding currency. Breaking a vault containing currency cannot bypass the rank requirement. Raid lockpicking keeps its existing loot rules.
+
+Mining a secure chest in your faction's protected claim in Survival returns **one Secure Vault Kit** alongside the normal chest and contents. A double chest returns no kit when only one half is broken: the remaining half stays secure, and the kit drops when that last chest block is mined. The same rule applies to trapped chests. Creative mode, suppressed or cancelled drops, and chests outside your own protected claims do not return kits. Existing currency-withdrawal restrictions still apply.
 
 ## Trading items
 
@@ -274,7 +276,7 @@ The Founding Beacon appears alone in the center of the top row before you join o
 | --- | --- |
 | Pillager Guard | Right-click the top of a solid block inside your own village to post a pillager with a visible `guard` nametag. During active raids, it fires at eligible raiders it can see within four chunks (64 blocks), even across the village border. Rockets damage only targeted enemies and mobs they're riding. Guards can only be damaged by eligible enemy raiders during an open raid against their post; friendly and environmental damage cannot remove them. |
 | Defender Golem | Buy a kit for $10,000 or 5 Settlement Iron under Village Defense, then right-click your faction's settlement bell with it in your main hand. Each bell can have one defender. Leave a clear 3-by-3 spot with six blocks of headroom near the bell. The golem is twice normal size, has **200 health (100 hearts)**, and stays within 16 blocks of the bell. It swings in melee and throws 1½-block-wide boulders at targets up to 24 blocks away. Both attacks deal normal iron golem hit damage. The golem is immune to arrows and to splash and lingering potions. A living golem in the ring contests enemy capture in either mode. Its boss health bar appears at the top of the screen within 32 blocks. Existing defenders upgrade when loaded, preserving their remaining health percentage. |
-| Lockpick | A glinting stick. Spend one to start a puzzle with a fixed 14-pane trail. Click the glowing yellow pane in order as completed panes turn green. Each correct click has a 5% break chance, giving one lockpick a 48.77% chance of finishing all 14 steps. Solving it opens a Vault Door or grants one session of storage access. |
+| Lockpick | A glinting stick. Spend one to start a puzzle with a fixed 14-pane trail. Click the glowing yellow pane in order as completed panes turn green. Each correct click has a 5% break chance, giving one lockpick a 48.77% chance of finishing all 14 steps. Solving it toggles a Vault Door between open and closed or grants one session of storage access. |
 | C4 | Right-click a block face to detonate at TNT strength. The blast can break unclaimed blocks at any time. Targeting a village claim requires an active raid against that village. The blast spares secure vaults and claim anchors, deals no direct damage to players or mobs, and cannot start a TNT chain. |
 | Grenade | Right-click to launch primed TNT in the direction you're looking, including from a Happy Ghast. After a five-second fuse it uses C4 block damage rules and can damage enemy Defender Golems during the same raid. To damage a village claim, throw it during a raid and have it detonate inside the enemy claim before that raid window ends. |
 | Blast Rockets | A stack of 64 fireworks with a flight duration of 2 and a large-ball burst. Fire one from a crossbow to damage entities in a TNT-sized blast. An unarmored player can be taken out in one close hit. |
@@ -282,14 +284,18 @@ The Founding Beacon appears alone in the center of the top row before you join o
 | Happy Harness | Equip this yellow harness on a Happy Ghast to give it five times its normal max health and double its flying speed while a player pilots it. |
 | Super Saddle | Equipped camels gain triple max health and match the fastest horse's normal riding speed under a player's control. They keep the boost when stepping down blocks. Charging and dashing suspend the speed boost. Equipped horses gain the highest natural movement speed (0.3375), jump strength (1.0), and 96 max health (48 hearts), matching a normal camel wearing the saddle. Right-click it in the shop to pay 5 Muster Amethyst. |
 | Secure Vault Kit | A glinting iron ingot. Reinforces a chest, barrel, or shulker box in your own village. Raiders see stained-glass placeholders and left-click to take an entire stack from each of up to five slots. Reinforced storage blocks hopper transfers while in a claim. |
-| Vault Door | A glinting iron door that can be placed in your own village. Village members can open and close it by hand. A lockpick can open it during a raid, and a ram can break it. Visitors can operate ordinary doors in claims. |
+| Vault Door | A glinting iron door that can be placed in your own village. Village members can open and close it by hand. A successful lockpick toggles its current state during a raid, and a ram can break it. Visitors can operate ordinary doors in claims. |
 | Super Totem | Carry it anywhere in your inventory. When you die, one Super Totem is consumed and you respawn with the rest of your items. Death and experience loss follow the usual rules, even if you hold it in either hand. |
 | Radar | Hold this compass in either hand for a private chat map every second. The map covers your chunk and five chunks in each direction. North stays at the top, and the aqua arrow at the center points in the direction you're facing. Colored `#` tiles show each village's territory. Farm Station chunks use `F` in the owning faction's color, or gray for an unaffiliated owner. Yellow `B` markers show registered settlement bells. Red `X` markers show outsiders outside their own village, and gold `G` markers show loaded enemy guards, including those inside their village. Hover over a tile for its block range, any marked bell coordinates, and its Farm Station name and owner. |
 
 Sneak-right-click one of your faction's settlement defenders to toggle between Always Hostile and Retaliate Only for the whole settlement. The golem and every guard posted in its claims share that setting, including newly deployed defenders. Settlements default to Retaliate Only. Guards in capital claims have individual settings and default to Always Hostile. In Retaliate Only mode, damage from an eligible raider makes the defender they hit hostile to the raider's entire faction for the raid. Unaffiliated raiders trigger retaliation individually. Changing the stance clears the settlement defenders' retaliation targets.
 
+Defender Golems ignore naturally spawned hostile mobs in both stances, including mobs saved as old retaliation targets. They still fight eligible raiders and enemy faction guards under the normal raid rules. Ordinary iron golems keep their vanilla targeting behavior. Radars can be bought with a left-click for **$10,000** or a right-click for **5 Settlement Copper**.
+
 Offensive tools can affect another village's claim while raids are active. A storage session ends when you close it, leave reach, or raiding stops.
 Leaving the lockpicking puzzle ends the attempt. Each correct click is accepted at least four server ticks after the previous one.
+
+Vault Doors can be lockpicked whether their block state is open or closed. Success flips both halves to the opposite of the door's state at completion, so an open-state door that obstructs a passage can still be moved. Raid eligibility, Raid Protection, reach, and lockpick consumption rules still apply.
 
 Loading fireworks into a Multishot crossbow consumes three rockets. If you have fewer than three, the crossbow stays unloaded and you keep your rockets.
 
@@ -302,7 +308,7 @@ The optional [CivMaker Discord bot](discord-bot/README.md) runs on the server co
 ### Build and install
 
 1. Install JDK 25 and Maven, then run `mvn package` from this directory. This preserves older versioned JARs in `target/`.
-2. Copy `target/civmaker-0.16.2.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+2. Copy `target/civmaker-0.16.5.jar` into your Paper 26.3 server's `plugins` directory and start the server.
 3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
 
 ### Optional Xaero map companion

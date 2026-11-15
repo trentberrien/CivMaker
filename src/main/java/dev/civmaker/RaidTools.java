@@ -265,7 +265,7 @@ final class RaidTools implements Listener {
             return false;
         }
         Doorway door = Doorway.at(target);
-        if (door == null ? pickableStorage(player, target, village) == null : !pickableDoor(player, target, village, door)) {
+        if (door == null ? pickableStorage(player, target, village) == null : !pickableDoor(player, target, village)) {
             return false;
         }
         LockpickPuzzle puzzle = new LockpickPuzzle(ThreadLocalRandom.current());
@@ -279,13 +279,9 @@ final class RaidTools implements Listener {
         return true;
     }
 
-    private boolean pickableDoor(Player player, Block target, Village village, Doorway door) {
+    private boolean pickableDoor(Player player, Block target, Village village) {
         if (!vaultDoors.isVaultDoor(target, village)) {
             player.sendMessage("Ordinary doors can be opened without a lockpick.");
-            return false;
-        }
-        if (door.lower().isOpen()) {
-            player.sendMessage("That door is already open.");
             return false;
         }
         return true;
@@ -325,9 +321,10 @@ final class RaidTools implements Listener {
         Doorway door = Doorway.at(target);
         if (door != null) {
             player.closeInventory();
-            if (pickableDoor(player, target, attempt.village(), door)) {
-                door.setOpen(true);
-                player.sendMessage("Vault Door picked open.");
+            if (pickableDoor(player, target, attempt.village())) {
+                boolean open = !door.lower().isOpen();
+                door.setOpen(open);
+                player.sendMessage(open ? "Vault Door picked open." : "Vault Door picked closed.");
             }
             return;
         }

@@ -151,6 +151,7 @@ public class CivMaker extends JavaPlugin {
         events.registerEvents(trading, this);
         events.registerEvents(new WalletDrops(wallets, notes, trading), this);
         events.registerEvents(new MoneyStorage(notes, store, equipment, resources), this);
+        events.registerEvents(new SecureChestRecovery(this, store, equipment), this);
         events.registerEvents(equipment, this);
         events.registerEvents(vaultTracking, this);
         events.registerEvents(combatTimeout, this);

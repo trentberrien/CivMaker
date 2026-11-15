@@ -49,9 +49,9 @@ final class SettlementResources {
             return switch (tool) {
                 case GRENADE, C4, BLAST_ROCKET -> GUNPOWDER;
                 case VAULT, VAULT_DOOR, DEFENDER_GOLEM -> IRON;
-                case LOCKPICK, RAM -> COPPER;
+                case LOCKPICK, RAM, RADAR -> COPPER;
                 case PILLAGER_GUARD, HAPPY_HARNESS, SUPER_SADDLE -> AMETHYST;
-                case SUPER_TOTEM, RADAR, RAID_SHIELD, WARP_PORTAL -> null;
+                case SUPER_TOTEM, RAID_SHIELD, WARP_PORTAL -> null;
             };
         }
     }

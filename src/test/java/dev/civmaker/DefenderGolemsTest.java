@@ -2,12 +2,19 @@ package dev.civmaker;
 
 import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarStyle;
+import org.bukkit.boss.BossBar;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.IronGolem;
 import org.bukkit.entity.Mob;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Pillager;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Zombie;
 import org.bukkit.event.entity.EntityDamageEvent;
@@ -16,9 +23,13 @@ import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -27,12 +38,16 @@ import static org.mockito.Mockito.*;
 class DefenderGolemsTest {
     private DefenderGolems defenders;
     private IronGolem golem;
+    private CivStore store;
+    private PillagerGuards guards;
 
     @BeforeEach void setup() throws Exception {
         CivMaker plugin = mock(CivMaker.class);
         when(plugin.getName()).thenReturn("CivMaker");
         when(plugin.namespace()).thenReturn("civmaker");
-        defenders = new DefenderGolems(plugin, mock(CivStore.class), mock(PillagerGuards.class));
+        store = mock(CivStore.class);
+        guards = mock(PillagerGuards.class);
+        defenders = new DefenderGolems(plugin, store, guards);
         golem = mock(IronGolem.class);
         var loaded = DefenderGolems.class.getDeclaredField("loaded");
         loaded.setAccessible(true);
@@ -46,6 +61,80 @@ class DefenderGolemsTest {
                 EntityTargetEvent.TargetReason.CLOSEST_ENTITY);
         defenders.targeted(event);
         assertTrue(event.isCancelled());
+    }
+
+    @Test void defendersCannotAcquireHostileMobTargetsButOrdinaryGolemsStillCan() {
+        Zombie zombie = mock(Zombie.class);
+        var defenderTarget = new EntityTargetLivingEntityEvent(golem, zombie, EntityTargetEvent.TargetReason.CLOSEST_ENTITY);
+        defenders.targeted(defenderTarget);
+        assertTrue(defenderTarget.isCancelled());
+        var ordinaryTarget = new EntityTargetLivingEntityEvent(mock(IronGolem.class), zombie, EntityTargetEvent.TargetReason.CLOSEST_ENTITY);
+        defenders.targeted(ordinaryTarget);
+        assertFalse(ordinaryTarget.isCancelled());
+    }
+
+    private record Combat(Object defender, World world, CivStore.Village village) {}
+
+    private Combat combat() throws Exception {
+        World world = mock(World.class);
+        when(world.getUID()).thenReturn(UUID.randomUUID());
+        when(golem.getWorld()).thenReturn(world);
+        var village = new CivStore.Village("Defenders", UUID.randomUUID(), new CivStore.Position(world.getUID(), 0, 80, 0));
+        Class<?> type = Class.forName("dev.civmaker.DefenderGolems$Defender");
+        var constructor = type.getDeclaredConstructors()[0];
+        constructor.setAccessible(true);
+        Object defender;
+        try (var bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(() -> Bukkit.createBossBar(anyString(), any(BarColor.class), any(BarStyle.class)))
+                    .thenReturn(mock(BossBar.class));
+            defender = constructor.newInstance(golem, new int[]{0, 80, 0, 0, 80, 0}, village.id.toString(), mock(DefenseStance.RaidAggro.class));
+        }
+        return new Combat(defender, world, village);
+    }
+
+    private boolean hostile(LivingEntity target, Combat combat, boolean alwaysHostile) throws Exception {
+        var method = DefenderGolems.class.getDeclaredMethod("isHostile", LivingEntity.class, combat.defender().getClass(),
+                CivStore.Village.class, boolean.class, CivStore.Window.class);
+        method.setAccessible(true);
+        return (boolean) method.invoke(defenders, target, combat.defender(), combat.village(), alwaysHostile,
+                new CivStore.Window(1, Long.MAX_VALUE));
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void hostileMobsAreIgnoredEvenIfPreviouslyRecordedAsAttackers(boolean alwaysHostile) throws Exception {
+        Combat combat = combat();
+        for (LivingEntity mob : List.of(mock(Zombie.class), mock(Creeper.class), mock(Pillager.class))) {
+            when(mob.getWorld()).thenReturn(combat.world());
+            when(mob.isValid()).thenReturn(true);
+            var field = combat.defender().getClass().getDeclaredField("attackers");
+            field.setAccessible(true);
+            @SuppressWarnings("unchecked") Set<LivingEntity> attackers = (Set<LivingEntity>) field.get(combat.defender());
+            attackers.add(mob);
+            assertFalse(hostile(mob, combat, alwaysHostile));
+        }
+    }
+
+    @Test void eligibleRaidersAndEnemyFactionGuardsRemainCombatTargets() throws Exception {
+        Combat combat = combat();
+        when(store.activeWindow(anyLong())).thenReturn(new CivStore.Window(1, Long.MAX_VALUE));
+        when(store.raidCovers(any())).thenReturn(true);
+        Player raider = mock(Player.class);
+        when(raider.getUniqueId()).thenReturn(UUID.randomUUID());
+        when(raider.getGameMode()).thenReturn(GameMode.SURVIVAL);
+        Pillager guard = mock(Pillager.class);
+        var attackers = new CivStore.Village("Attackers", UUID.randomUUID(),
+                new CivStore.Position(combat.world().getUID(), 32, 80, 0));
+        when(guards.owner(guard)).thenReturn(attackers);
+        for (LivingEntity enemy : List.of(raider, guard)) {
+            when(enemy.getWorld()).thenReturn(combat.world());
+            when(enemy.isValid()).thenReturn(true);
+            when(enemy.getLocation()).thenReturn(new Location(combat.world(), 1, 80, 1));
+            assertTrue(hostile(enemy, combat, true));
+        }
+        when(store.memberOf(raider.getUniqueId())).thenReturn(combat.village());
+        assertFalse(hostile(raider, combat, true));
+        when(store.raidCovers(any())).thenReturn(false);
+        assertFalse(hostile(guard, combat, true));
     }
 
     @Test void ordinaryGolemsAndPlayerTargetsUseNormalTargeting() {

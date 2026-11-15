@@ -234,6 +234,7 @@ final class DefenderGolems implements Listener {
         if (coordinates != null && coordinates.length == 6 && villageId != null && !loaded.containsKey(golem)) {
             syncHealth(golem, golem.getAttribute(Attribute.MAX_HEALTH));
             Bukkit.getMobGoals().removeAllGoals(golem);
+            golem.setTarget(null);
             loaded.put(golem, new Defender(golem, coordinates, villageId, stance.raidAggro(golem)));
             clearHostileTargets = true;
         }
@@ -265,9 +266,15 @@ final class DefenderGolems implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void targeted(EntityTargetLivingEntityEvent event) {
-        if (event.getEntity() instanceof Enemy && loaded.containsKey(event.getTarget())) {
+        if ((event.getEntity() instanceof Enemy && loaded.containsKey(event.getTarget()))
+                || (loaded.containsKey(event.getEntity()) && ignoredHostileMob(event.getTarget()))) {
             event.setCancelled(true);
         }
+    }
+
+    private boolean ignoredHostileMob(Entity entity) {
+        // Faction guards are military targets; naturally spawned hostile mobs are not.
+        return entity instanceof Enemy && !(entity instanceof Pillager guard && guards.owner(guard) != null);
     }
 
     private void clearHostileTarget(Mob mob) {
@@ -682,7 +689,8 @@ final class DefenderGolems implements Listener {
     }
 
     private boolean canFight(LivingEntity entity, Defender defender, Village village) {
-        if (village == null || !entity.isValid() || entity.isDead() || entity.getWorld() != defender.center.getWorld()) {
+        if (ignoredHostileMob(entity) || village == null || !entity.isValid() || entity.isDead()
+                || entity.getWorld() != defender.center.getWorld()) {
             return false;
         }
         if (entity instanceof Pillager guard) {
