@@ -169,6 +169,8 @@ final class Protection implements Listener {
     void interact(PlayerInteractEvent event) {
         Block block = event.getClickedBlock();
         if (block != null && store.eggAt(block) != null) return;
+        // Visitors must be able to trigger tripwire defenses in protected plots.
+        if (block != null && event.getAction() == Action.PHYSICAL && block.getType() == Material.TRIPWIRE) return;
         if (block != null && event.getAction() == Action.RIGHT_CLICK_BLOCK
                 && equipment.identify(event.getItem()) == RaidEquipment.Tool.RAID_SCAFFOLDING
                 && event.useItemInHand() != org.bukkit.event.Event.Result.DENY) {

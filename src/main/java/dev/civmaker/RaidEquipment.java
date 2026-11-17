@@ -54,9 +54,9 @@ final class RaidEquipment implements Listener {
                 "Fires rockets at outsiders in or near your claims during raids.",
                 "Sneak-right-click your guard to toggle its defense stance."),
         DEFENDER_GOLEM("defender_golem", "Defender Golem", Material.IRON_BLOCK, NamedTextColor.GOLD,
-                "Right-click your faction's settlement bell to deploy.",
+                "Right-click your faction's capital beacon or settlement bell.",
                 "A giant iron golem with a boss health bar and boulder attacks.",
-                "Sneak-right-click to toggle the stance for the whole settlement."),
+                "Sneak-right-click to toggle defense stance."),
         LOCKPICK("lockpick", "Lockpick", Material.STICK, NamedTextColor.AQUA,
                 "Pick doors, storage, or an enemy capital beacon during raids.",
                 "Beacons: offline money, ender chest, or inventory.", "Each option once per raid; items use five hidden slots.", LockpickPuzzle.BREAK_ODDS, LockpickPuzzle.SUCCESS_ODDS),
@@ -367,6 +367,12 @@ final class RaidEquipment implements Listener {
             }
         }
         return null;
+    }
+
+    static boolean isDefenderGolemKit(ItemStack item) {
+        return item != null && item.getAmount() > 0 && item.getType() == Tool.DEFENDER_GOLEM.material
+                && Tool.DEFENDER_GOLEM.id.equals(item.getPersistentDataContainer().get(
+                new NamespacedKey("civmaker", "raid_item_v1"), PersistentDataType.STRING));
     }
 
     boolean isVault(Block block) {

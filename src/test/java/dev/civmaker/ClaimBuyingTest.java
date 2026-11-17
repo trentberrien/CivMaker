@@ -132,6 +132,26 @@ class ClaimBuyingTest {
         return event;
     }
 
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void defenderKitSkipsCapitalMenuAtEitherBeaconTier(boolean upgraded) {
+        village.expandedClaims = upgraded;
+        ItemStack kit = mock(ItemStack.class);
+        when(kit.getType()).thenReturn(Material.IRON_BLOCK);
+        when(kit.getAmount()).thenReturn(1);
+        PersistentDataContainer data = mock(PersistentDataContainer.class);
+        when(kit.getPersistentDataContainer()).thenReturn(data);
+        when(data.get(new org.bukkit.NamespacedKey("civmaker", "raid_item_v1"),
+                org.bukkit.persistence.PersistentDataType.STRING)).thenReturn("defender_golem");
+        PlayerInteractEvent event = mock(PlayerInteractEvent.class);
+        when(event.getAction()).thenReturn(Action.RIGHT_CLICK_BLOCK);
+        when(event.getPlayer()).thenReturn(owner);
+        when(event.getClickedBlock()).thenReturn(beacon);
+        when(event.getItem()).thenReturn(kit);
+        claims.click(event);
+        verify(owner, never()).openInventory(any(Inventory.class));
+        verify(event, never()).setCancelled(true);
+    }
+
     private Inventory openUpgrade(Player player) {
         Inventory inventory = mock(Inventory.class);
         try (var bukkit = mockStatic(Bukkit.class); var icons = mockConstruction(ItemStack.class)) {

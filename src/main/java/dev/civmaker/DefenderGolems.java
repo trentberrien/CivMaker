@@ -128,19 +128,21 @@ final class DefenderGolems implements Listener {
         Position bell = Position.at(block);
         Settlement settlement = store.settlementAt(bell.plot());
         Village village = store.claimAt(bell.plot());
-        if (block.getType() != Material.BELL || settlement == null || !bell.equals(settlement.bell())
-                || village == null || village != store.registeredVillage(player.getUniqueId())) {
-            player.sendMessage("Use the Defender Golem kit on your faction's settlement bell.");
+        boolean capital = village != null && block.getType() == Material.BEACON && bell.equals(village.beacon);
+        boolean settlementBell = block.getType() == Material.BELL && settlement != null && bell.equals(settlement.bell());
+        if ((!capital && !settlementBell) || village == null || village != store.registeredVillage(player.getUniqueId())) {
+            player.sendMessage("Use the Defender Golem kit on your faction's capital beacon or settlement bell.");
             return false;
         }
-        UUID assigned = settlement.defense().golem;
+        UUID assigned = assigned(bell, village);
         if (assigned != null && (Bukkit.getEntity(assigned) != null || !defenseAreaLoaded(block.getWorld(), bell))) {
-            player.sendMessage("This settlement already has a Defender Golem.");
+            player.sendMessage("This " + (capital ? "capital" : "settlement") + " already has a Defender Golem.");
             return false;
         }
         Location post = findPost(block);
         if (post == null) {
-            player.sendMessage("Clear a 3-by-3 space with six blocks of headroom and solid ground near the bell.");
+            player.sendMessage("Clear a 3-by-3 space with six blocks of headroom and solid ground near the "
+                    + (capital ? "beacon." : "bell."));
             return false;
         }
         IronGolem golem = block.getWorld().spawn(post, IronGolem.class, false, entity -> {
@@ -162,11 +164,24 @@ final class DefenderGolems implements Listener {
             player.sendMessage("The Defender Golem could not spawn here.");
             return false;
         }
-        settlement.defense().golem = golem.getUniqueId();
-        store.dirty = true;
+        assign(bell, village, golem.getUniqueId());
         track(golem);
-        player.sendMessage("The Defender Golem is guarding this settlement bell.");
+        player.sendMessage("The Defender Golem is guarding this " + (capital ? "capital beacon." : "settlement bell."));
         return true;
+    }
+
+    private UUID assigned(Position anchor, Village village) {
+        if (anchor.equals(village.beacon)) return village.capitalGolem;
+        return store.settlementAt(anchor.plot()).defense().golem;
+    }
+
+    private void assign(Position anchor, Village village, UUID golem) {
+        if (anchor.equals(village.beacon)) {
+            village.capitalGolem = golem;
+        } else {
+            store.settlementAt(anchor.plot()).defense().golem = golem;
+        }
+        store.dirty = true;
     }
 
     // An absent UUID is conclusive only when every chunk the defender can occupy has loaded its entities.
@@ -304,10 +319,9 @@ final class DefenderGolems implements Listener {
         }
         defender.bar.removeAll();
         if (event.getCause() != EntityRemoveEvent.Cause.UNLOAD) {
-            Settlement settlement = store.settlementAt(defender.bell.plot());
-            if (settlement != null && event.getEntity().getUniqueId().equals(settlement.defense().golem)) {
-                settlement.defense().golem = null;
-                store.dirty = true;
+            Village village = owner(defender);
+            if (village != null && event.getEntity().getUniqueId().equals(assigned(defender.bell, village))) {
+                assign(defender.bell, village, null);
             }
         }
     }
@@ -363,16 +377,14 @@ final class DefenderGolems implements Listener {
                 continue;
             }
             Defender defender = loaded.get(golem);
-            Settlement settlement = store.settlementAt(defender.bell.plot());
             Village village = owner(defender);
-            UUID assigned = settlement == null ? null : settlement.defense().golem;
+            UUID assigned = village == null ? null : assigned(defender.bell, village);
             if (village == null || (assigned != null && !assigned.equals(golem.getUniqueId()))) {
                 golem.remove();
                 continue;
             }
             if (assigned == null) {
-                settlement.defense().golem = golem.getUniqueId();
-                store.dirty = true;
+                assign(defender.bell, village, golem.getUniqueId());
             }
             updateBar(golem, defender);
             if (golem.isTicking()) {
@@ -685,7 +697,8 @@ final class DefenderGolems implements Listener {
         Village village = store.claimAt(defender.bell.plot());
         Settlement settlement = store.settlementAt(defender.bell.plot());
         return village != null && defender.villageId.equals(village.id.toString())
-                && settlement != null && defender.bell.equals(settlement.bell()) ? village : null;
+                && (defender.bell.equals(village.beacon)
+                || (settlement != null && defender.bell.equals(settlement.bell()))) ? village : null;
     }
 
     private boolean canFight(LivingEntity entity, Defender defender, Village village) {

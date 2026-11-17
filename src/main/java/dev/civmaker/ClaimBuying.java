@@ -142,6 +142,7 @@ final class ClaimBuying implements Listener {
         }
         Village capital = block == null || block.getType() != Material.BEACON ? null : store.claimAt(block);
         if (capital != null && capital.beacon.equals(Position.at(block))) {
+            if (RaidEquipment.isDefenderGolemKit(event.getItem())) return;
             if (capital.expandedClaims && !capital.canManage(player.getUniqueId())) {
                 return;
             }

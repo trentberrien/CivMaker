@@ -130,7 +130,7 @@ final class RaidTools implements Listener {
 
         Block target = event.getClickedBlock();
         if (tool == Tool.DEFENDER_GOLEM) {
-            // Settlement protection denies vanilla item placement on the bell.
+            // Deploy through the anchor interaction even when vanilla item placement is denied.
             if (!blockDenied && target != null && defenders.deploy(player, target)) {
                 consumeMainHand(player, held);
             }

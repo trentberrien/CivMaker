@@ -35,6 +35,7 @@ final class CivCommands implements TabExecutor {
 
     private record Invite(Village village, long expires) {}
     private record DisbandConfirmation(Village village, long expires) {}
+    private record KillStanding(UUID player, String name, long kills) {}
 
     private final CivMaker plugin;
     private final CivStore store;
@@ -80,6 +81,18 @@ final class CivCommands implements TabExecutor {
                 case "help" -> help(sender);
                 case "villages" -> villages(sender);
                 case "points" -> points(sender);
+                case "kills" -> {
+                    require(args.length == 1, "Use /civ kills.");
+                    kills(sender);
+                }
+                case "settlements" -> {
+                    require(args.length == 1, "Use /civ settlements.");
+                    settlements(sender);
+                }
+                case "egg", "dragonegg" -> {
+                    require(args.length == 1, "Use /civ egg.");
+                    dragonEgg(sender);
+                }
                 case "raids" -> raids(sender, args);
                 case "raidprotection" -> shields.configure(sender, args, isAdmin(sender));
                 case "raidmode" -> raidMode(sender, args);
@@ -181,6 +194,7 @@ final class CivCommands implements TabExecutor {
             }
         }
         sender.sendMessage("/civ villages | points | raids | raidprotection");
+        sender.sendMessage("/civ kills | settlements | egg (private rankings and dragon egg location)");
         if (isAdmin(sender)) {
             sender.sendMessage("/civ schedule <start ISO-8601> <end ISO-8601> | cancelraid <start ISO-8601>");
             sender.sendMessage("/civ setbalance <online player> <amount>");
@@ -202,7 +216,8 @@ final class CivCommands implements TabExecutor {
     }
 
     private List<String> availableCommands(CommandSender sender) {
-        List<String> commands = new ArrayList<>(List.of("help", "villages", "points", "raids", "raidprotection"));
+        List<String> commands = new ArrayList<>(List.of("help", "villages", "points", "kills", "settlements", "egg",
+                "dragonegg", "raids", "raidprotection"));
         if (sender instanceof Player player) {
             UUID id = player.getUniqueId();
             Village village = store.registeredVillage(id);
@@ -564,6 +579,78 @@ final class CivCommands implements TabExecutor {
         for (int i = 0; i < leaders.size(); i++) {
             Village village = leaders.get(i);
             sender.sendMessage((i + 1) + ". " + village.name + " — " + village.points() + " points");
+        }
+    }
+
+    private void kills(CommandSender sender) {
+        var leaders = store.raidKillCounts().entrySet().stream().filter(entry -> entry.getValue() > 0)
+                .map(entry -> {
+                    OfflinePlayer player = plugin.getServer().getOfflinePlayer(entry.getKey());
+                    String name = player == null ? entry.getKey().toString() : memberName(player);
+                    return new KillStanding(entry.getKey(), name, entry.getValue());
+                })
+                .sorted(Comparator.comparingLong(KillStanding::kills).reversed()
+                        .thenComparing(KillStanding::name, String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(standing -> standing.player().toString()))
+                .limit(10).toList();
+        if (leaders.isEmpty()) {
+            sender.sendMessage("No raid-hour player kills have been recorded yet.");
+            return;
+        }
+        sender.sendMessage("Raid Kill Leaderboard (individual players, top 10)");
+        int rank = 0;
+        long previous = -1;
+        for (int i = 0; i < leaders.size(); i++) {
+            KillStanding leader = leaders.get(i);
+            if (leader.kills() != previous) rank = i + 1;
+            previous = leader.kills();
+            Village faction = store.registeredVillage(leader.player());
+            sender.sendMessage(rank + ". " + leader.name() + " — " + leader.kills() + " kills | "
+                    + (faction == null ? "No faction" : faction.name));
+        }
+    }
+
+    private void settlements(CommandSender sender) {
+        var leaders = StreamSupport.stream(store.villages().spliterator(), false)
+                .sorted(Comparator.<Village>comparingInt(village -> village.settlements.size()).reversed()
+                        .thenComparing(village -> village.name, String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(village -> village.id.toString()))
+                .limit(10).toList();
+        if (leaders.isEmpty()) {
+            sender.sendMessage("No villages have been founded yet.");
+            return;
+        }
+        sender.sendMessage("Settlement Leaderboard (factions, top 10)");
+        int rank = 0;
+        int previous = -1;
+        for (int i = 0; i < leaders.size(); i++) {
+            Village village = leaders.get(i);
+            int count = village.settlements.size();
+            if (count != previous) rank = i + 1;
+            previous = count;
+            sender.sendMessage(rank + ". " + village.name + " — " + count + (count == 1 ? " settlement" : " settlements"));
+        }
+    }
+
+    private void dragonEgg(CommandSender sender) {
+        // Use the normal physical-block check so a query cannot report a stale saved holder.
+        new DragonEggs(plugin, store).refresh();
+        var holders = StreamSupport.stream(store.villages().spliterator(), false)
+                .filter(village -> village.dragonEgg)
+                .sorted(Comparator.comparing(village -> village.name, String.CASE_INSENSITIVE_ORDER)).toList();
+        if (holders.isEmpty()) {
+            sender.sendMessage("No faction is displaying the dragon egg on a capital beacon. "
+                    + "Its location is unknown while carried, stored, or placed elsewhere.");
+            return;
+        }
+        for (Village village : holders) {
+            Position beacon = village.beacon;
+            World world = plugin.getServer().getWorld(beacon.world());
+            String worldName = world == null ? beacon.world().toString() : world.getName();
+            sender.sendMessage("Dragon Egg — " + village.name + " | " + worldName
+                    + " | X " + beacon.x() + ", Y " + (beacon.y() + 1) + ", Z " + beacon.z()
+                    + " | " + (village.eggProtected ? "Permanently protected"
+                    : "Raids defended: " + village.eggDefendedRaids + "/3"));
         }
     }
 

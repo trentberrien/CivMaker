@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.command.Command;
@@ -41,6 +42,11 @@ final class Trading implements Listener, TabExecutor {
     private static final int OFFER_SLOTS = OFFER_COLUMNS * 3;
     private static final int CONFIRM_SLOT = 22;
     private static final long REQUEST_MILLIS = 60_000;
+    private static final String LOCATION_REQUIREMENT =
+            "To trade, both players must be in their own faction's claimed plot or settlement, "
+                    + "or within render distance of each other in the same world.";
+    private static final String RAID_LOCATION_REQUIREMENT =
+            "You cannot trade while either player is in an enemy faction's claim during a raid period.";
 
     private record Request(UUID recipient, long expires) {
         boolean isFor(Player player, long now) {
@@ -144,12 +150,14 @@ final class Trading implements Listener, TabExecutor {
     }
 
     private final CivMaker plugin;
+    private final CivStore store;
     private final NamespacedKey escrowKey;
     private final Map<UUID, Request> requests = new HashMap<>();
     private final Map<UUID, Trade> active = new HashMap<>();
 
-    Trading(CivMaker plugin) {
+    Trading(CivMaker plugin, CivStore store) {
         this.plugin = plugin;
+        this.store = store;
         escrowKey = new NamespacedKey(plugin, "trade_escrow_v1");
     }
 
@@ -208,6 +216,11 @@ final class Trading implements Listener, TabExecutor {
             player.sendMessage("Choose another available player in Survival.");
             return;
         }
+        String blocked = locationBlockReason(player, partner);
+        if (blocked != null) {
+            player.sendMessage(blocked);
+            return;
+        }
         long now = System.currentTimeMillis();
         Request incoming = requests.get(partner.getUniqueId());
         if (incoming != null && incoming.isFor(player, now)) {
@@ -227,6 +240,14 @@ final class Trading implements Listener, TabExecutor {
     }
 
     private void start(Player first, Player second) {
+        String blocked = locationBlockReason(first, second);
+        if (blocked != null) {
+            first.sendMessage(blocked);
+            if (second != null) {
+                second.sendMessage(blocked);
+            }
+            return;
+        }
         if (!refund(first)) {
             if (second != null) {
                 second.sendMessage(first.getName() + " needs room to recover items from a previous trade.");
@@ -272,6 +293,9 @@ final class Trading implements Listener, TabExecutor {
         ClickType click = event.getClick();
         if (cancelled || event.getWhoClicked() != player || !viewing(menu.own) || !empty(event.getCursor())
                 || (click != ClickType.LEFT && click != ClickType.RIGHT && click != ClickType.SHIFT_LEFT)) {
+            return;
+        }
+        if (!checkLocations(menu.trade)) {
             return;
         }
         int raw = event.getRawSlot();
@@ -339,6 +363,9 @@ final class Trading implements Listener, TabExecutor {
         }
         if (!viewing(trade.first) || (trade.second.player != null && !viewing(trade.second))) {
             cancel(trade);
+            return;
+        }
+        if (!checkLocations(trade)) {
             return;
         }
 
@@ -485,6 +512,57 @@ final class Trading implements Listener, TabExecutor {
 
     private boolean viewing(Side side) {
         return canTrade(side.player) && isActive(side.menu.trade) && hasMenuOpen(side);
+    }
+
+    private boolean checkLocations(Trade trade) {
+        String blocked = locationBlockReason(trade.first.player, trade.second.player);
+        if (blocked == null) {
+            return true;
+        }
+        notifyBoth(trade, blocked);
+        cancel(trade);
+        return false;
+    }
+
+    boolean locationsAllowTrade(Player first, Player second) {
+        return locationBlockReason(first, second) == null;
+    }
+
+    private String locationBlockReason(Player first, Player second) {
+        if (store.activeWindow(System.currentTimeMillis()) != null
+                && (inEnemyClaim(first) || (second != null && inEnemyClaim(second)))) {
+            return RAID_LOCATION_REQUIREMENT;
+        }
+        if (second == null) {
+            return null;
+        }
+        Location firstLocation = first.getLocation();
+        Location secondLocation = second.getLocation();
+        if (inOwnClaim(first, firstLocation) && inOwnClaim(second, secondLocation)) {
+            return null;
+        }
+        if (!firstLocation.getWorld().equals(secondLocation.getWorld())) {
+            return LOCATION_REQUIREMENT;
+        }
+        int range = Math.min(renderDistance(first), renderDistance(second));
+        // Render distance is horizontal and measured in chunks, independent of height.
+        long chunkX = Math.abs((long) (firstLocation.getBlockX() >> 4) - (secondLocation.getBlockX() >> 4));
+        long chunkZ = Math.abs((long) (firstLocation.getBlockZ() >> 4) - (secondLocation.getBlockZ() >> 4));
+        return chunkX <= range && chunkZ <= range ? null : LOCATION_REQUIREMENT;
+    }
+
+    private boolean inEnemyClaim(Player player) {
+        CivStore.Village claim = store.claimAt(player.getLocation());
+        return claim != null && claim != store.registeredVillage(player.getUniqueId());
+    }
+
+    private boolean inOwnClaim(Player player, Location location) {
+        CivStore.Village village = store.registeredVillage(player.getUniqueId());
+        return village != null && store.claimAt(location) == village;
+    }
+
+    private static int renderDistance(Player player) {
+        return Math.min(player.getClientViewDistance(), player.getSendViewDistance());
     }
 
     private boolean isActive(Trade trade) {

@@ -3,8 +3,11 @@ package dev.civmaker;
 import com.google.gson.JsonParser;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
+import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Server;
+import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -95,7 +98,7 @@ class CivCommandsTest {
         assertTrue(help.contains("/civ shop"));
         for (String hidden : List.of("claim", "settlement", "invite", "join", "leave", "promote", "demote",
                 "kick", "disband", "banner", "schedule", "cancelraid", "raidmode", "admin")) {
-            assertFalse(help.contains(hidden), hidden);
+            assertFalse(help.matches("(?s).*\\b" + hidden + "\\b.*"), hidden);
             assertFalse(completions(outsider).contains(hidden), hidden);
         }
         assertTrue(commands.onTabComplete(outsider, null, "civ", new String[]{"claim", ""}).isEmpty());
@@ -152,7 +155,7 @@ class CivCommandsTest {
                 String help = help(player, "help");
                 assertTrue(help.contains("/civ balance"));
                 for (String hidden : List.of("withdraw", "deposit", "create", "join", "claim", "settlement", "invite", "shop")) {
-                    assertFalse(help.contains(hidden), hidden);
+                    assertFalse(help.matches("(?s).*\\b" + hidden + "\\b.*"), hidden);
                     assertFalse(completions(player).contains(hidden), hidden);
                 }
                 assertEquals(player == owner, help.contains("/civ disband"));
@@ -400,6 +403,127 @@ class CivCommandsTest {
         assertEquals(4, faction.members.size());
         assertEquals(2, faction.elders.size());
         assertFalse(store.dirty);
+    }
+
+    @Test void incentiveCommandsAreAvailableToAllPlayersAndConsole() {
+        for (CommandSender sender : List.of(owner, member, outsider, mock(CommandSender.class))) {
+            assertTrue(completions(sender).containsAll(List.of("kills", "settlements", "egg", "dragonegg")));
+            assertTrue(help(sender, "help").contains("/civ kills | settlements | egg"));
+        }
+        when(outsider.getGameMode()).thenReturn(GameMode.SPECTATOR);
+        assertTrue(completions(outsider).containsAll(List.of("kills", "settlements", "egg")));
+        for (String action : List.of("kills", "settlements", "egg", "dragonegg")) {
+            String message = help(outsider, action, "extra");
+            assertEquals("Use /civ " + (action.equals("dragonegg") ? "egg" : action) + ".", message);
+        }
+    }
+
+    private void recordKills(Player player, int count) {
+        store.setRaidMode(CivStore.RaidMode.ON);
+        for (int i = 0; i < count; i++) {
+            store.recordRaidKill(player.getUniqueId(), outsider.getUniqueId(), System.currentTimeMillis());
+        }
+    }
+
+    @Test void killLeaderboardUsesIndividualTotalsSharedRanksOfflineNamesAndCurrentFactions() {
+        recordKills(owner, 5);
+        recordKills(elder, 3);
+        recordKills(otherElder, 3);
+        recordKills(member, 5);
+        store.removeMember(faction, member.getUniqueId());
+        when(server.getPlayer(member.getUniqueId())).thenReturn(null);
+        String message = help(outsider, "kills");
+        assertTrue(message.contains("1. Member — 5 kills | No faction"));
+        assertTrue(message.contains("1. Owner — 5 kills | Test faction"));
+        assertTrue(message.contains("3. Elder — 3 kills | Test faction"));
+        assertTrue(message.contains("3. OtherElder — 3 kills | Test faction"));
+        assertTrue(message.indexOf("1. Member") < message.indexOf("1. Owner"));
+        assertFalse(message.contains("16 kills"));
+        assertFalse(message.contains("Outsider —"));
+    }
+
+    @Test void killLeaderboardHandlesEmptyCountsAndLimitsResultsToTen() {
+        assertEquals("No raid-hour player kills have been recorded yet.", help(outsider, "kills"));
+        for (int i = 1; i <= 12; i++) {
+            Player player = player("Killer" + i);
+            store.addMember(faction, player.getUniqueId());
+            recordKills(player, i);
+        }
+        String message = help(outsider, "kills");
+        assertEquals(11, message.lines().count());
+        assertTrue(message.contains("1. Killer12 — 12 kills"));
+        assertTrue(message.contains("10. Killer3 — 3 kills"));
+        assertFalse(message.contains("Killer2 —"));
+    }
+
+    @Test void settlementLeaderboardCountsOwnershipAndUpdatesAfterCapture() {
+        var rival = new CivStore.Village("Rival", UUID.randomUUID(),
+                new CivStore.Position(faction.beacon.world(), 32, 80, 0));
+        store.addVillage(rival);
+        var first = new CivStore.Settlement(null, new CivStore.Position(faction.beacon.world(), 64, 80, 0),
+                java.util.Set.of(new CivStore.Plot(faction.beacon.world(), 4, 0)));
+        var second = new CivStore.Settlement(null, new CivStore.Position(faction.beacon.world(), 96, 80, 0),
+                java.util.Set.of(new CivStore.Plot(faction.beacon.world(), 6, 0)));
+        store.addSettlement(faction, first);
+        store.addSettlement(rival, second);
+        String tied = help(outsider, "settlements");
+        assertTrue(tied.contains("1. Rival — 1 settlement"));
+        assertTrue(tied.contains("1. Test faction — 1 settlement"));
+        store.transferSettlement(first, faction, rival);
+        String captured = help(outsider, "settlements");
+        assertTrue(captured.contains("1. Rival — 2 settlements"));
+        assertTrue(captured.contains("2. Test faction — 0 settlements"));
+        store.disband(rival);
+        store.disband(faction);
+        assertEquals("No villages have been founded yet.", help(outsider, "settlements"));
+    }
+
+    private Block displayedEgg() {
+        World world = mock(World.class);
+        when(world.getName()).thenReturn("overworld");
+        when(server.getWorld(faction.beacon.world())).thenReturn(world);
+        when(world.isChunkLoaded(0, 0)).thenReturn(true);
+        Block beacon = mock(Block.class);
+        when(beacon.getType()).thenReturn(Material.BEACON);
+        when(world.getBlockAt(0, 80, 0)).thenReturn(beacon);
+        Block egg = mock(Block.class);
+        when(egg.getType()).thenReturn(Material.DRAGON_EGG);
+        when(world.getBlockAt(0, 81, 0)).thenReturn(egg);
+        return egg;
+    }
+
+    @Test void eggCommandShowsActualEggCoordinatesDefenseProgressAndPermanentProtection() {
+        displayedEgg();
+        store.observeEgg(faction, true, System.currentTimeMillis() - 1000);
+        faction.eggDefendedRaids = 2;
+        String message = help(outsider, "egg");
+        assertEquals("Dragon Egg — Test faction | overworld | X 0, Y 81, Z 0 | Raids defended: 2/3", message);
+        faction.eggProtected = true;
+        assertTrue(help(outsider, "dragonegg").endsWith("Permanently protected"));
+    }
+
+    @Test void eggCommandDoesNotReportAStaleHolderOrInventUntrackedLocations() {
+        Block egg = displayedEgg();
+        store.observeEgg(faction, true, System.currentTimeMillis() - 1000);
+        when(egg.getType()).thenReturn(Material.AIR);
+        String message = help(outsider, "egg");
+        assertTrue(message.contains("No faction is displaying the dragon egg"));
+        assertTrue(message.contains("location is unknown while carried, stored, or placed elsewhere"));
+        assertFalse(message.contains("X 0"));
+        assertFalse(faction.dragonEgg);
+    }
+
+    @Test void incentiveQueriesSendOnlyPrivateRepliesToTheRequester() {
+        recordKills(owner, 1);
+        displayedEgg();
+        clearInvocations(owner, elder, otherElder, member, outsider, server);
+        for (String action : List.of("kills", "settlements", "egg")) run(outsider, action);
+        verify(outsider, atLeast(3)).sendMessage(anyString());
+        for (Player player : List.of(owner, elder, otherElder, member)) {
+            verify(player, never()).sendMessage(anyString());
+        }
+        verify(server, never()).broadcastMessage(anyString());
+        verify(server, never()).broadcast(any(net.kyori.adventure.text.Component.class));
     }
 
     @Test void rolesSurviveSaveAndReloadAndOldSavesDefaultToNoElders() throws Exception {

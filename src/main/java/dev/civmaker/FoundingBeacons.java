@@ -161,6 +161,7 @@ final class FoundingBeacons implements Listener {
         }
         if (DragonEggs.placingOnCapital(event, store)) return;
         if (isCapital(block)) {
+            if (RaidEquipment.isDefenderGolemKit(event.getItem())) return;
             if (locked(block)) {
                 event.setCancelled(true);
             }

@@ -130,7 +130,7 @@ public class CivMaker extends JavaPlugin {
         Radar radar = new Radar(this, store, equipment, guards);
         raidTools = new RaidTools(this, store, equipment, protection, vaultDoors, guards, defenders, settlementVaults);
         raidTools.beaconEscrow(beaconEscrow);
-        trading = new Trading(this);
+        trading = new Trading(this, store);
         combatTimeout = new CombatTimeout(this);
         wilderness = new Wilderness(this, store, combatTimeout);
         warpPortals = new WarpPortals(this, store, equipment, combatTimeout, capture);

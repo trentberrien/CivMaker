@@ -147,6 +147,7 @@ final class CivStore {
         long shieldUsedAt;
         Long shieldWindow;
         boolean endUnlocked;
+        UUID capitalGolem;
         boolean dragonEgg;
         long dragonEggSince;
         int eggDefendedRaids;
@@ -681,6 +682,10 @@ final class CivStore {
 
     long raidKills(UUID player) {
         return data.raidPlayerKills.getOrDefault(player, 0L);
+    }
+
+    Map<UUID, Long> raidKillCounts() {
+        return Map.copyOf(data.raidPlayerKills);
     }
 
     void recordRaidKill(UUID killer, UUID victim, long now) {

@@ -13,6 +13,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.NamespacedKey;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.BeforeEach;
@@ -122,5 +124,22 @@ class FoundingBeaconsTest {
         village.expandedClaims = true;
         store.disband(village);
         checkEffects(capital, true);
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void capitalAllowsDefenderKitBeforeAndAfterUpgrading(boolean upgraded) {
+        village.expandedClaims = upgraded;
+        ItemStack kit = mock(ItemStack.class);
+        when(kit.getType()).thenReturn(Material.IRON_BLOCK);
+        when(kit.getAmount()).thenReturn(1);
+        PersistentDataContainer data = mock(PersistentDataContainer.class);
+        when(kit.getPersistentDataContainer()).thenReturn(data);
+        when(data.get(new NamespacedKey("civmaker", "raid_item_v1"), PersistentDataType.STRING)).thenReturn("defender_golem");
+        PlayerInteractEvent event = mock(PlayerInteractEvent.class);
+        when(event.getAction()).thenReturn(Action.RIGHT_CLICK_BLOCK);
+        when(event.getClickedBlock()).thenReturn(capital);
+        when(event.getItem()).thenReturn(kit);
+        beacons.interact(event);
+        verify(event, never()).setCancelled(true);
     }
 }
