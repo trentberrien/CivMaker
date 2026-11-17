@@ -3,6 +3,8 @@ package dev.civmaker;
 import dev.civmaker.BeaconEscrowLedger.Holding;
 import dev.civmaker.BeaconEscrowLedger.Snapshot;
 import dev.civmaker.BeaconEscrowLedger.Transfer;
+import dev.civmaker.BeaconEscrowLedger.Offline;
+import dev.civmaker.BeaconEscrowLedger.Option;
 import dev.civmaker.CivStore.Position;
 import dev.civmaker.CivStore.Village;
 import dev.civmaker.CivStore.Window;
@@ -29,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -69,6 +72,7 @@ final class BeaconEscrow implements Listener {
     void returning(Player player) {
         try {
             recover(player);
+            ledger.returning(player.getUniqueId());
             refund(player);
         } catch (IOException | RuntimeException error) {
             failed(player, error);
@@ -82,7 +86,7 @@ final class BeaconEscrow implements Listener {
             Village village = store.registeredVillage(player.getUniqueId());
             if (village == null) return;
             // Repeated quit/disable notifications cannot deposit the same inventory twice.
-            if (ledger.holding(player.getUniqueId()) != null) return;
+            if (ledger.offline(player.getUniqueId()) != null) return;
             ItemStack[] contents = player.getInventory().getContents().clone();
             BigInteger value = BigInteger.valueOf(balance(player));
             for (int slot = 0; slot < contents.length; slot++) {
@@ -92,10 +96,13 @@ final class BeaconEscrow implements Listener {
             }
             Stripped cursor = strip(player.getItemOnCursor(), 0);
             value = value.add(cursor.value);
-            if (value.signum() == 0) return;
-            Transfer transfer = transfer(player, 0, contents, cursor.item);
-            ledger.deposit(player.getUniqueId(), new Holding(village.id, village.beacon, value), transfer);
-            recover(player);
+            if (value.signum() > 0 && ledger.holding(player.getUniqueId()) == null) {
+                Transfer transfer = transfer(player, 0, contents, cursor.item);
+                ledger.deposit(player.getUniqueId(), new Holding(village.id, village.beacon, value), transfer);
+                recover(player);
+            }
+            ledger.departing(player.getUniqueId(), new Offline(village.id, village.beacon, player.getName(),
+                    transfer(player, balance(player), player.getInventory().getContents(), player.getItemOnCursor())));
         } catch (IOException | RuntimeException error) {
             failed(player, error);
         }
@@ -128,7 +135,15 @@ final class BeaconEscrow implements Listener {
         return reason == null;
     }
 
-    private String unavailable(Player player, Block target, Village village, Window window) {
+    String unavailable(Player player, Block target, Village village, Window window) {
+        String reason = raidUnavailable(player, target, village, window);
+        if (reason != null) return reason;
+        if (looted(village, window)) return "Offline money has already been looted during this raid period.";
+        if (ledger.lootAmount(village).signum() == 0) return "This beacon needs at least $4 in offline funds to be looted.";
+        return null;
+    }
+
+    String raidUnavailable(Player player, Block target, Village village, Window window) {
         if (village == null || !store.hasVillage(village.id) || target.getType() != Material.BEACON
                 || !village.beacon.equals(Position.at(target))) return "Use the lockpick on a faction's capital beacon.";
         if (window == null || !window.equals(store.activeWindow(System.currentTimeMillis()))
@@ -139,9 +154,89 @@ final class BeaconEscrow implements Listener {
         if (!player.isOnline() || player.isDead() || !player.getWorld().equals(target.getWorld())
                 || player.getLocation().distanceSquared(target.getLocation().add(0.5, 0.5, 0.5)) > 36)
             return "Move closer to the capital beacon.";
-        if (looted(village, window)) return "This beacon has already been looted during this raid period.";
-        if (ledger.lootAmount(village).signum() == 0) return "This beacon needs at least $4 in offline funds to be looted.";
         return null;
+    }
+
+    boolean looted(Village village, Window window, Option option) {
+        return ledger.looted(village.beacon, window.start(), option);
+    }
+
+    Map<UUID, Offline> offlinePlayers(Village village) {
+        var result = new java.util.LinkedHashMap<UUID, Offline>();
+        ledger.offlinePlayers().entrySet().stream()
+                .filter(entry -> eligible(entry.getKey(), entry.getValue(), village))
+                .sorted(java.util.Comparator.comparing(entry -> entry.getValue().name(),
+                        java.util.Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                .forEach(entry -> result.put(entry.getKey(), entry.getValue()));
+        return result;
+    }
+
+    private boolean eligible(UUID id, Offline offline, Village village) {
+        Player online = plugin.getServer().getPlayer(id);
+        return offline != null && (online == null || !online.isOnline())
+                && offline.village().equals(village.id) && offline.beacon().equals(village.beacon)
+                && store.registeredVillage(id) == village;
+    }
+
+    ItemStack[] items(UUID owner, Village village, Option option) {
+        Offline offline = ledger.offline(owner);
+        if (option == Option.MONEY || !eligible(owner, offline, village)) return null;
+        Snapshot snapshot = offline.contents().snapshot();
+        ItemStack[] items = ItemStack.deserializeItemsFromBytes(decode(option == Option.ENDER_CHEST
+                ? snapshot.enderChest() : snapshot.inventory()));
+        if (option == Option.INVENTORY) {
+            // The carried cursor is part of the offline player's personal inventory too.
+            ItemStack[] cursor = ItemStack.deserializeItemsFromBytes(decode(snapshot.cursor()));
+            items = java.util.Arrays.copyOf(items, items.length + 1);
+            items[items.length - 1] = cursor[0];
+        }
+        return items;
+    }
+
+    boolean claimItems(Player player, Block target, Village village, Window window, Option option, UUID owner) {
+        String reason = raidUnavailable(player, target, village, window);
+        if (reason != null) { player.sendMessage(reason); return false; }
+        if (looted(village, window, option)) {
+            player.sendMessage("This option has already been picked during this raid period.");
+            return false;
+        }
+        ItemStack[] contents = items(owner, village, option);
+        if (contents == null || java.util.Arrays.stream(contents).noneMatch(item -> item != null && !item.isEmpty())) {
+            player.sendMessage("That offline inventory is no longer available or is empty.");
+            return false;
+        }
+        try {
+            ledger.claimItems(village, window.start(), option);
+            village.timesRaided++;
+            store.dirty = true;
+            return true;
+        } catch (IOException | RuntimeException error) { failed(player, error); return false; }
+    }
+
+    boolean takeItem(Player player, UUID owner, Village village, Option option, int slot) {
+        try {
+            recover(player, false);
+            Offline offline = ledger.offline(owner);
+            ItemStack[] source = items(owner, village, option);
+            if (source == null || slot < 0 || slot >= source.length || source[slot] == null || source[slot].isEmpty()) return false;
+            ItemStack[] storage = player.getInventory().getStorageContents();
+            if (ItemTransfers.insert(storage, source[slot], player.getInventory().getMaxStackSize()) != 0) {
+                player.sendMessage("Free up enough inventory space for the whole stack.");
+                return false;
+            }
+            source[slot] = null;
+            ItemStack[] after = player.getInventory().getContents();
+            System.arraycopy(storage, 0, after, 0, storage.length);
+            Snapshot before = offline.contents().snapshot();
+            Snapshot victim = option == Option.ENDER_CHEST
+                    ? new Snapshot(before.inventory(), before.cursor(), before.data(), encode(ItemStack.serializeItemsAsBytes(source)))
+                    : new Snapshot(encode(ItemStack.serializeItemsAsBytes(java.util.Arrays.copyOf(source, source.length - 1))),
+                            encode(ItemStack.serializeItemsAsBytes(new ItemStack[]{source[source.length - 1]})), before.data(), before.enderChest());
+            ledger.takeItems(owner, offline, new Transfer(UUID.randomUUID().toString(), offline.contents().walletAfter(), victim),
+                    player.getUniqueId(), transfer(player, balance(player), after, player.getItemOnCursor()));
+            recover(player, false);
+            return true;
+        } catch (IOException | RuntimeException error) { failed(player, error); return false; }
     }
 
     void loot(Player player, Block target, Village village, Window window) {
@@ -176,11 +271,16 @@ final class BeaconEscrow implements Listener {
     private Transfer transfer(Player player, long walletAfter, ItemStack[] contents, ItemStack cursor) throws IOException {
         Snapshot snapshot = new Snapshot(encode(ItemStack.serializeItemsAsBytes(contents)),
                 encode(ItemStack.serializeItemsAsBytes(new ItemStack[]{cursor})),
-                encode(player.getPersistentDataContainer().serializeToBytes()));
+                encode(player.getPersistentDataContainer().serializeToBytes()),
+                encode(ItemStack.serializeItemsAsBytes(player.getEnderChest().getContents())));
         return new Transfer(UUID.randomUUID().toString(), walletAfter, snapshot);
     }
 
     void recover(Player player) throws IOException {
+        recover(player, true);
+    }
+
+    private void recover(Player player, boolean close) throws IOException {
         UUID id = player.getUniqueId();
         Transfer transfer = ledger.lastTransfer(id);
         if (transfer == null) return;
@@ -196,9 +296,11 @@ final class BeaconEscrow implements Listener {
             data.readFromBytes(decode(snapshot.data()), true);
             player.getInventory().setContents(contents);
             player.setItemOnCursor(cursor[0]);
+            if (snapshot.enderChest() != null)
+                player.getEnderChest().setContents(ItemStack.deserializeItemsFromBytes(decode(snapshot.enderChest())));
             wallets.setBalance(player, transfer.walletAfter());
             data.set(receipt, PersistentDataType.STRING, transfer.id());
-            player.closeInventory();
+            if (close) player.closeInventory();
         }
         if (!applied || ledger.pending(id) != null) {
             // Receipt, wallet, and inventory are in the SAME player save. A replay sets absolute values.
@@ -254,6 +356,6 @@ final class BeaconEscrow implements Listener {
         plugin.getLogger().log(Level.SEVERE, "Beacon escrow transfer failed for " + player.getUniqueId()
                 + ". Recovery records retained; do not delete beacon-escrow.json.", error);
         if (player.isOnline() && disconnecting.add(player.getUniqueId()))
-            player.kick(Component.text("Your money transfer needs recovery. Please reconnect; contact an admin if this continues."));
+            player.kick(Component.text("Your beacon transfer needs recovery. Please reconnect; contact an admin if this continues."));
     }
 }

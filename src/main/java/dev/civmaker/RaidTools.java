@@ -4,6 +4,7 @@ import dev.civmaker.CivStore.Plot;
 import dev.civmaker.CivStore.Village;
 import dev.civmaker.CivStore.Window;
 import dev.civmaker.RaidEquipment.Tool;
+import dev.civmaker.BeaconEscrowLedger.Option;
 import dev.civmaker.VaultDoors.Doorway;
 import org.bukkit.Bukkit;
 import org.bukkit.FluidCollisionMode;
@@ -13,6 +14,7 @@ import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.Chest;
 import org.bukkit.entity.HappyGhast;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TNTPrimed;
@@ -46,7 +48,8 @@ final class RaidTools implements Listener {
 
     private record Grenade(UUID thrower, Window window) {}
     private record Picking(InventoryView view, LockpickPuzzle puzzle, Location location, Material material,
-                           Village village, Window window) {}
+                           Village village, Window window, Option option, UUID owner) {}
+    private record BeaconAccess(InventoryView view, BeaconRaidMenu menu) {}
     private record Storage(Inventory inventory, List<Block> blocks) {}
     private record PickedStorage(InventoryView view, Location location, Village village, Window window,
                                  List<Block> blocks, VaultLoot loot) {}
@@ -63,6 +66,7 @@ final class RaidTools implements Listener {
     private final Map<TNTPrimed, Grenade> grenades = new HashMap<>();
     private final Map<UUID, Picking> picking = new HashMap<>();
     private final Map<UUID, PickedStorage> picked = new HashMap<>();
+    private final Map<UUID, BeaconAccess> beaconMenus = new HashMap<>();
 
     RaidTools(CivMaker plugin, CivStore store, RaidEquipment equipment, Protection protection, VaultDoors vaultDoors,
               PillagerGuards guards, DefenderGolems defenders, SettlementVaults settlementVaults) {
@@ -243,8 +247,8 @@ final class RaidTools implements Listener {
 
     private boolean reinforce(Player player, Block target, Village village, boolean member) {
         var storage = equipment.storageAt(target);
-        if (!member || storage == null) {
-            player.sendMessage("Use the kit on a chest, barrel, or shulker box in your own village.");
+        if (!member || !(storage instanceof Chest)) {
+            player.sendMessage("Use the kit on a chest or trapped chest in your own village.");
             return false;
         }
         var blocks = Protection.inventoryBlocks(storage.getInventory());
@@ -270,8 +274,14 @@ final class RaidTools implements Listener {
         }
         Doorway door = Doorway.at(target);
         boolean beacon = beaconEscrow != null && target.getType() == Material.BEACON;
-        if (beacon ? !beaconEscrow.canPick(player, target, village, window)
-                : door == null ? pickableStorage(player, target, village) == null : !pickableDoor(player, target, village)) {
+        if (beacon) {
+            String reason = beaconEscrow.raidUnavailable(player, target, village, window);
+            if (reason != null) player.sendMessage(reason);
+            else openBeaconMenu(player, new BeaconRaidMenu(target.getLocation().add(0.5, 0.5, 0.5), village, window,
+                    BeaconRaidMenu.Page.OPTIONS, null, null, 0, beaconEscrow));
+            return false;
+        }
+        if (door == null ? pickableStorage(player, target, village) == null : !pickableDoor(player, target, village)) {
             return false;
         }
         LockpickPuzzle puzzle = new LockpickPuzzle(ThreadLocalRandom.current());
@@ -280,9 +290,51 @@ final class RaidTools implements Listener {
             return false;
         }
         Location center = new Location(target.getWorld(), target.getX() + 0.5, target.getY() + 0.5, target.getZ() + 0.5);
-        picking.put(id, new Picking(view, puzzle, center, target.getType(), village, window));
+        picking.put(id, new Picking(view, puzzle, center, target.getType(), village, window, null, null));
         player.sendMessage("Follow the glowing panes. " + LockpickPuzzle.BREAK_ODDS + " " + LockpickPuzzle.SUCCESS_ODDS);
         return true;
+    }
+
+    private void openBeaconMenu(Player player, BeaconRaidMenu menu) {
+        InventoryView view = player.openInventory(menu.getInventory());
+        if (view != null) beaconMenus.put(player.getUniqueId(), new BeaconAccess(view, menu));
+    }
+
+    private boolean validBeaconMenu(Player player, BeaconRaidMenu menu) {
+        return beaconEscrow.raidUnavailable(player, menu.location.getBlock(), menu.village, menu.window) == null
+                && (menu.page != BeaconRaidMenu.Page.LOOT
+                || (menu.remaining > 0 && beaconEscrow.items(menu.owner, menu.village, menu.option) != null));
+    }
+
+    private void startBeaconPicking(Player player, BeaconRaidMenu menu, Option option, UUID owner) {
+        if (picking.containsKey(player.getUniqueId()) || !validBeaconMenu(player, menu)) return;
+        Block target = menu.location.getBlock();
+        if (option == Option.MONEY) {
+            if (!beaconEscrow.canPick(player, target, menu.village, menu.window)) return;
+        } else {
+            if (beaconEscrow.looted(menu.village, menu.window, option)) {
+                player.sendMessage("This option has already been picked during this raid period.");
+                return;
+            }
+            ItemStack[] items = beaconEscrow.items(owner, menu.village, option);
+            if (items == null || java.util.Arrays.stream(items).noneMatch(item -> item != null && !item.isEmpty())) {
+                player.sendMessage("That offline inventory is no longer available or is empty.");
+                return;
+            }
+        }
+        ItemStack held = player.getInventory().getItemInMainHand();
+        if (equipment.identify(held) != Tool.LOCKPICK) {
+            player.sendMessage("Hold a lockpick to start picking this option.");
+            return;
+        }
+        LockpickPuzzle puzzle = new LockpickPuzzle(ThreadLocalRandom.current());
+        InventoryView view = player.openInventory(puzzle.getInventory());
+        if (view == null) return;
+        picking.put(player.getUniqueId(), new Picking(view, puzzle, menu.location, Material.BEACON,
+                menu.village, menu.window, option, owner));
+        consumeMainHand(player, held);
+        plugin.discordRaidAlert(menu.village, player.getName(), menu.location, "lockpick");
+        player.sendMessage("Follow the glowing panes. " + LockpickPuzzle.BREAK_ODDS + " " + LockpickPuzzle.SUCCESS_ODDS);
     }
 
     private boolean pickableDoor(Player player, Block target, Village village) {
@@ -326,7 +378,14 @@ final class RaidTools implements Listener {
         Block target = attempt.location().getBlock();
         if (beaconEscrow != null && target.getType() == Material.BEACON) {
             player.closeInventory();
-            beaconEscrow.loot(player, target, attempt.village(), attempt.window());
+            if (attempt.option() == Option.MONEY) {
+                beaconEscrow.loot(player, target, attempt.village(), attempt.window());
+            } else if (attempt.option() != null && beaconEscrow.claimItems(player, target, attempt.village(),
+                    attempt.window(), attempt.option(), attempt.owner())) {
+                openBeaconMenu(player, new BeaconRaidMenu(attempt.location(), attempt.village(), attempt.window(),
+                        BeaconRaidMenu.Page.LOOT, attempt.option(), attempt.owner(), 0, beaconEscrow));
+                player.sendMessage("Lock picked. Click a hidden slot to take its whole stack. You can take up to five slots. Closing ends access.");
+            }
             return;
         }
         Doorway door = Doorway.at(target);
@@ -422,6 +481,8 @@ final class RaidTools implements Listener {
         if (access != null && access.view().equals(event.getView())) {
             picked.remove(id);
         }
+        BeaconAccess beacon = beaconMenus.get(id);
+        if (beacon != null && beacon.view().equals(event.getView())) beaconMenus.remove(id);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -429,7 +490,19 @@ final class RaidTools implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
-        if (event.getInventory().getHolder() instanceof LockpickPuzzle puzzle) {
+        if (event.getInventory().getHolder() instanceof BeaconRaidMenu menu) {
+            boolean cancelled = event.isCancelled();
+            event.setCancelled(true);
+            BeaconAccess access = beaconMenus.get(player.getUniqueId());
+            int slot = event.getRawSlot();
+            if (cancelled || access == null || access.menu() != menu || !access.view().equals(event.getView())
+                    || event.getClick() != ClickType.LEFT || (event.getCursor() != null && !event.getCursor().isEmpty())
+                    || slot < 0 || slot >= menu.getInventory().getSize() || event.getCurrentItem() == null) return;
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                if (beaconMenus.get(player.getUniqueId()) == access && access.view().equals(player.getOpenInventory()))
+                    clickBeaconMenu(player, menu, slot);
+            });
+        } else if (event.getInventory().getHolder() instanceof LockpickPuzzle puzzle) {
             clickPuzzle(event, player, puzzle);
         } else if (event.getInventory().getHolder() instanceof VaultLoot loot) {
             boolean alreadyCancelled = event.isCancelled();
@@ -455,6 +528,31 @@ final class RaidTools implements Listener {
         }
     }
 
+    private void clickBeaconMenu(Player player, BeaconRaidMenu menu, int slot) {
+        if (!validBeaconMenu(player, menu)) { player.closeInventory(); return; }
+        if (menu.page == BeaconRaidMenu.Page.OPTIONS) {
+            Option option = switch (slot) { case 11 -> Option.MONEY; case 13 -> Option.ENDER_CHEST; case 15 -> Option.INVENTORY; default -> null; };
+            if (option == null) return;
+            if (option == Option.MONEY) startBeaconPicking(player, menu, option, null);
+            else if (beaconEscrow.looted(menu.village, menu.window, option))
+                player.sendMessage("This option has already been picked during this raid period.");
+            else openBeaconMenu(player, new BeaconRaidMenu(menu.location, menu.village, menu.window,
+                    BeaconRaidMenu.Page.PLAYERS, option, null, 0, beaconEscrow));
+        } else if (menu.page == BeaconRaidMenu.Page.PLAYERS) {
+            UUID owner = menu.players.get(slot);
+            if (owner != null) startBeaconPicking(player, menu, menu.option, owner);
+            else if (slot == 49) openBeaconMenu(player, new BeaconRaidMenu(menu.location, menu.village, menu.window,
+                    BeaconRaidMenu.Page.OPTIONS, null, null, 0, beaconEscrow));
+            else if (slot == 45 || slot == 53) openBeaconMenu(player, new BeaconRaidMenu(menu.location, menu.village, menu.window,
+                    menu.page, menu.option, null, Math.max(0, menu.offset + (slot == 45 ? -45 : 45)), beaconEscrow));
+        } else if (!menu.taken[slot] && beaconEscrow.takeItem(player, menu.owner, menu.village, menu.option, slot)) {
+            menu.taken[slot] = true;
+            menu.remaining--;
+            if (menu.remaining == 0) player.closeInventory();
+            else menu.refresh(beaconEscrow);
+        }
+    }
+
     private void clickPuzzle(InventoryClickEvent event, Player player, LockpickPuzzle puzzle) {
         boolean alreadyCancelled = event.isCancelled();
         event.setCancelled(true);
@@ -474,7 +572,7 @@ final class RaidTools implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void drag(InventoryDragEvent event) {
         var holder = event.getInventory().getHolder();
-        if (holder instanceof LockpickPuzzle || holder instanceof VaultLoot
+        if (holder instanceof LockpickPuzzle || holder instanceof VaultLoot || holder instanceof BeaconRaidMenu
                 || (event.getWhoClicked() instanceof Player player && accessExpired(player, event.getView()))) {
             event.setCancelled(true);
         }
@@ -514,7 +612,10 @@ final class RaidTools implements Listener {
             return false;
         }
         Block target = attempt.location().getBlock();
-        return target.getType() == attempt.material() && store.protectedClaimAt(target) == attempt.village();
+        return target.getType() == attempt.material() && store.protectedClaimAt(target) == attempt.village()
+                && (attempt.option() == null || (beaconEscrow.raidUnavailable(player, target, attempt.village(), attempt.window()) == null
+                && !beaconEscrow.looted(attempt.village(), attempt.window(), attempt.option())
+                && (attempt.owner() == null || beaconEscrow.items(attempt.owner(), attempt.village(), attempt.option()) != null)));
     }
 
     private boolean canReachDuringRaid(Player player, Location location, Village village, Window window) {
@@ -526,6 +627,15 @@ final class RaidTools implements Listener {
     }
 
     void closeExpired() {
+        for (var entry : List.copyOf(beaconMenus.entrySet())) {
+            Player player = plugin.getServer().getPlayer(entry.getKey());
+            BeaconAccess access = entry.getValue();
+            if (player == null || !access.view().equals(player.getOpenInventory())) beaconMenus.remove(entry.getKey());
+            else if (!validBeaconMenu(player, access.menu())) {
+                beaconMenus.remove(entry.getKey());
+                player.closeInventory();
+            }
+        }
         grenades.keySet().removeIf(grenade -> !grenade.isValid());
         var attempts = picking.entrySet().iterator();
         while (attempts.hasNext()) {
@@ -567,11 +677,14 @@ final class RaidTools implements Listener {
             Picking attempt = picking.get(id);
             PickedStorage access = picked.get(id);
             var view = player.getOpenInventory();
-            if ((attempt != null && attempt.view().equals(view)) || (access != null && access.view().equals(view))) {
+            BeaconAccess beacon = beaconMenus.get(id);
+            if ((attempt != null && attempt.view().equals(view)) || (access != null && access.view().equals(view))
+                    || (beacon != null && beacon.view().equals(view))) {
                 player.closeInventory();
             }
         }
         picking.clear();
         picked.clear();
+        beaconMenus.clear();
     }
 }

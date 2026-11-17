@@ -42,7 +42,11 @@ final class BeaconLabels {
                         "Offline funds: $" + String.format("%,d", beaconEscrow.total(village)), NamedTextColor.GOLD))
                         .append(Component.newline()).append(Component.text(!store.raidCovers(village.beacon.plot())
                                 ? "Capital protected this raid" : beaconEscrow.looted(village, window)
-                                ? "Already looted this raid" : "Lockpick loot: 25% • once per raid", NamedTextColor.GRAY));
+                                ? "Money: Already looted this raid" : "Money: 25% • once per raid", NamedTextColor.GRAY))
+                        .append(Component.newline()).append(Component.text("Ender chest: "
+                                + (beaconEscrow.looted(village, window, BeaconEscrowLedger.Option.ENDER_CHEST) ? "picked" : "available")
+                                + " • Inventory: "
+                                + (beaconEscrow.looted(village, window, BeaconEscrowLedger.Option.INVENTORY) ? "picked" : "available"), NamedTextColor.GRAY));
             }
             if (village.dragonEgg) {
                 capitalLabel = capitalLabel.append(Component.newline()).append(Component.text("Dragon Egg • +250 points", NamedTextColor.LIGHT_PURPLE))

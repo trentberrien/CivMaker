@@ -97,7 +97,7 @@ final class CivCommands implements TabExecutor {
                 case "disbandvillage" -> adminDisband(sender, args);
                 case "setbalance" -> setBalance(sender, args);
                 case "treasury" -> sender.sendMessage("Banknotes in Secure Vaults now count toward village wealth.");
-                case "raid" -> sender.sendMessage("Use lockpicks on vaults or enemy capital beacons (25% of offline funds, once per raid), or hold an enemy settlement bell to capture it during a raid.");
+                case "raid" -> sender.sendMessage("Use lockpicks on vaults or enemy capital beacons. Beacons offer offline money (25%), an offline member's ender chest, or their inventory (five hidden slots); each option once per raid. Hold an enemy settlement bell to capture it during a raid.");
                 default -> {
                     require(sender instanceof Player, "Only a player can use this command.");
                     Player player = (Player) sender;

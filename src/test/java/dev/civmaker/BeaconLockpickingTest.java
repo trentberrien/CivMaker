@@ -3,6 +3,8 @@ package dev.civmaker;
 import dev.civmaker.CivStore.Position;
 import dev.civmaker.CivStore.Village;
 import dev.civmaker.CivStore.Window;
+import dev.civmaker.BeaconEscrowLedger.Option;
+import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -81,13 +83,29 @@ class BeaconLockpickingTest {
     }
 
     private Object start() throws Exception {
-        try (var puzzles = mockConstruction(LockpickPuzzle.class, (puzzle, context) ->
+        try (var bukkit = mockStatic(Bukkit.class); var icons = mockConstruction(ItemStack.class);
+             var puzzles = mockConstruction(LockpickPuzzle.class, (puzzle, context) ->
                 when(puzzle.getInventory()).thenReturn(puzzleInventory))) {
+            Inventory menuInventory = mock(Inventory.class);
+            bukkit.when(() -> Bukkit.createInventory(any(), anyInt(), any(net.kyori.adventure.text.Component.class)))
+                    .thenReturn(menuInventory);
+            when(player.openInventory(menuInventory)).thenReturn(mock(InventoryView.class));
             PlayerInteractEvent event = new PlayerInteractEvent(player, Action.RIGHT_CLICK_BLOCK, lockpick,
                     beacon, BlockFace.NORTH, EquipmentSlot.HAND);
             // Unupgraded capital/menu protection cancels vanilla beacon interaction first.
             event.setCancelled(true);
             tools.use(event);
+            assertEquals(1, lockpick.getAmount(), "Opening the option menu must not consume a pick");
+            var menusField = RaidTools.class.getDeclaredField("beaconMenus");
+            menusField.setAccessible(true);
+            Object access = ((Map<?, ?>) menusField.get(tools)).get(player.getUniqueId());
+            assertNotNull(access);
+            var menuMethod = access.getClass().getDeclaredMethod("menu");
+            menuMethod.setAccessible(true);
+            var startMethod = RaidTools.class.getDeclaredMethod("startBeaconPicking", Player.class,
+                    BeaconRaidMenu.class, Option.class, UUID.class);
+            startMethod.setAccessible(true);
+            startMethod.invoke(tools, player, menuMethod.invoke(access), Option.MONEY, null);
         }
         var field = RaidTools.class.getDeclaredField("picking");
         field.setAccessible(true);
@@ -115,7 +133,7 @@ class BeaconLockpickingTest {
         when(escrow.canPick(player, beacon, village, window)).thenReturn(false);
         assertNull(start());
         assertEquals(1, lockpick.getAmount());
-        verify(player, never()).openInventory(any(Inventory.class));
+        verify(player, never()).openInventory(puzzleInventory);
     }
 
     @ParameterizedTest @ValueSource(strings = {"broken", "ended", "shield", "restricted", "moved", "removed"})

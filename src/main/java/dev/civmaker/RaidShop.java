@@ -307,6 +307,8 @@ final class RaidShop implements Listener {
             try {
                 var design = FactionBanner.of(menu.village);
                 var decorated = design.applyTo(input);
+                decorated.editMeta(meta -> meta.getPersistentDataContainer().set(EnderChestStorage.PURCHASED,
+                        org.bukkit.persistence.PersistentDataType.BYTE, (byte) 1));
                 var inventory = player.getInventory();
                 var contents = inventory.getStorageContents().clone();
                 if (ItemTransfers.insert(contents, decorated, inventory.getMaxStackSize()) > 0) {

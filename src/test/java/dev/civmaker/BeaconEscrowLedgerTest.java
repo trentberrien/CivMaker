@@ -3,6 +3,8 @@ package dev.civmaker;
 import dev.civmaker.BeaconEscrowLedger.Holding;
 import dev.civmaker.BeaconEscrowLedger.Snapshot;
 import dev.civmaker.BeaconEscrowLedger.Transfer;
+import dev.civmaker.BeaconEscrowLedger.Offline;
+import dev.civmaker.BeaconEscrowLedger.Option;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -181,5 +183,63 @@ class BeaconEscrowLedgerTest {
     @Test void corruptFileIsRejectedInsteadOfResettingMoney() throws Exception {
         Files.writeString(directory.resolve("beacon-escrow.json"), "{broken");
         assertThrows(IOException.class, () -> new BeaconEscrowLedger(directory));
+    }
+
+    @Test void eachOptionHasItsOwnDurableAllowanceAcrossAttackersAndRefounding() throws Exception {
+        var ledger = new BeaconEscrowLedger(directory);
+        UUID victim = UUID.randomUUID();
+        deposit(ledger, victim, BigInteger.valueOf(400));
+        ledger.claimItems(village, 10, Option.INVENTORY);
+        assertFalse(ledger.looted(beacon, 10, Option.ENDER_CHEST));
+        assertFalse(ledger.looted(beacon, 10, Option.MONEY));
+        ledger.claimItems(village, 10, Option.ENDER_CHEST);
+        ledger.loot(UUID.randomUUID(), village, 10, transfer(100));
+        var reloaded = new BeaconEscrowLedger(directory);
+        var refounded = new CivStore.Village("Refounded", UUID.randomUUID(), beacon);
+        for (Option option : Option.values()) {
+            assertTrue(reloaded.looted(refounded.beacon, 10, option));
+            assertFalse(reloaded.looted(beacon, 11, option));
+        }
+        assertThrows(IllegalStateException.class, () -> reloaded.claimItems(refounded, 10, Option.INVENTORY));
+        reloaded.claimItems(village, 11, Option.INVENTORY);
+    }
+
+    @Test void itemRemovalAndDeliveryRecoverTogetherAndLaterStacksKeepCumulativeRemainder() throws Exception {
+        var ledger = new BeaconEscrowLedger(directory);
+        UUID victim = UUID.randomUUID(), raider = UUID.randomUUID();
+        Transfer before = new Transfer("before", 0, new Snapshot("full", "cursor", "data", "ender"));
+        Offline offline = new Offline(village.id, beacon, "Victim", before);
+        ledger.departing(victim, offline);
+        Transfer after = new Transfer("after", 0, new Snapshot("less", "cursor", "data", "ender"));
+        Transfer delivery = transfer(0);
+        ledger.takeItems(victim, offline, after, raider, delivery);
+        ledger = new BeaconEscrowLedger(directory);
+        assertEquals(after, ledger.pending(victim));
+        assertEquals(delivery, ledger.pending(raider));
+        assertEquals(after, ledger.offline(victim).contents());
+        ledger.finish(raider, delivery.id());
+        Transfer last = new Transfer("last", 0, new Snapshot("empty", "cursor", "data", "less ender"));
+        ledger.takeItems(victim, ledger.offline(victim), last, raider, transfer(0));
+        ledger = new BeaconEscrowLedger(directory);
+        assertEquals(last, ledger.pending(victim));
+        ledger.finish(victim, last.id());
+        ledger.returning(victim);
+        assertNull(new BeaconEscrowLedger(directory).offline(victim));
+        assertEquals(last, new BeaconEscrowLedger(directory).lastTransfer(victim));
+    }
+
+    @Test void failedItemTransferChangesNeitherPlayerAndLegacyLedgerLoads() throws Exception {
+        var ledger = new BeaconEscrowLedger(directory);
+        UUID victim = UUID.randomUUID(), raider = UUID.randomUUID();
+        Transfer snapshot = new Transfer("before", 0, new Snapshot("full", "cursor", "data", "ender"));
+        Offline offline = new Offline(village.id, beacon, "Victim", snapshot);
+        ledger.departing(victim, offline);
+        Files.createDirectory(directory.resolve("beacon-escrow.json.tmp"));
+        assertThrows(IOException.class, () -> ledger.takeItems(victim, offline, transfer(0), raider, transfer(0)));
+        assertEquals(offline, ledger.offline(victim));
+        assertNull(ledger.pending(raider));
+        assertNull(ledger.pending(victim));
+        Files.writeString(directory.resolve("beacon-escrow.json"), "{\"version\":1,\"holdings\":{},\"credits\":{},\"pending\":{},\"receipts\":{},\"looted\":{}}");
+        assertTrue(new BeaconEscrowLedger(directory).offlinePlayers().isEmpty());
     }
 }

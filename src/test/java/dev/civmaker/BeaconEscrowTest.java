@@ -71,6 +71,9 @@ class BeaconEscrowTest {
         doReturn(List.of(player)).when(server).getOnlinePlayers();
         inventory = mock(PlayerInventory.class);
         when(player.getInventory()).thenReturn(inventory);
+        org.bukkit.inventory.Inventory ender = mock(org.bukkit.inventory.Inventory.class);
+        when(player.getEnderChest()).thenReturn(ender);
+        when(ender.getContents()).thenReturn(new ItemStack[27]);
         when(inventory.getContents()).thenAnswer(call -> contents.get().clone());
         doAnswer(call -> { contents.set(((ItemStack[]) call.getArgument(0)).clone()); return null; })
                 .when(inventory).setContents(any(ItemStack[].class));
@@ -289,6 +292,7 @@ class BeaconEscrowTest {
         }).when(raiderPdc).readFromBytes(any(), eq(true));
         when(raider.getPersistentDataContainer()).thenReturn(raiderPdc);
         when(raider.getInventory()).thenReturn(inventory);
+        doReturn(player.getEnderChest()).when(raider).getEnderChest();
         store.setRaidMode(CivStore.RaidMode.ON);
         var window = store.activeWindow(System.currentTimeMillis());
         escrow.loot(raider, beacon, village, window);

@@ -26,8 +26,12 @@ final class BeaconEscrowLedger {
     private static final BigInteger FOUR = BigInteger.valueOf(4);
 
     record Holding(UUID village, CivStore.Position beacon, BigInteger amount) {}
-    record Snapshot(String inventory, String cursor, String data) {}
+    record Snapshot(String inventory, String cursor, String data, String enderChest) {
+        Snapshot(String inventory, String cursor, String data) { this(inventory, cursor, data, null); }
+    }
     record Transfer(String id, long walletAfter, Snapshot snapshot) {}
+    record Offline(UUID village, CivStore.Position beacon, String name, Transfer contents) {}
+    enum Option { MONEY, ENDER_CHEST, INVENTORY }
 
     private static final class State {
         int version = 1;
@@ -36,6 +40,8 @@ final class BeaconEscrowLedger {
         Map<UUID, Transfer> pending = new LinkedHashMap<>();
         Map<UUID, Transfer> receipts = new LinkedHashMap<>();
         Map<String, Set<Long>> looted = new LinkedHashMap<>();
+        Map<UUID, Offline> offline = new LinkedHashMap<>();
+        Map<String, Set<Long>> itemRaids = new LinkedHashMap<>();
 
         State() {}
         State(State source) {
@@ -44,6 +50,8 @@ final class BeaconEscrowLedger {
             pending.putAll(source.pending);
             receipts.putAll(source.receipts);
             source.looted.forEach((beacon, windows) -> looted.put(beacon, new LinkedHashSet<>(windows)));
+            offline.putAll(source.offline);
+            source.itemRaids.forEach((key, windows) -> itemRaids.put(key, new LinkedHashSet<>(windows)));
         }
     }
 
@@ -56,7 +64,8 @@ final class BeaconEscrowLedger {
         try {
             state = Files.exists(file) ? JSON.fromJson(Files.readString(file), State.class) : new State();
             if (state == null || state.version != 1 || state.holdings == null || state.credits == null
-                    || state.pending == null || state.receipts == null || state.looted == null)
+                    || state.pending == null || state.receipts == null || state.looted == null
+                    || state.offline == null || state.itemRaids == null)
                 throw new IllegalArgumentException("Invalid ledger");
             state.holdings.forEach((id, holding) -> {
                 if (holding.village == null || holding.beacon == null || holding.amount.signum() < 0)
@@ -77,6 +86,18 @@ final class BeaconEscrowLedger {
                 if (beacon == null || windows == null || windows.contains(null))
                     throw new IllegalArgumentException("Invalid beacon raid history");
             });
+            state.offline.forEach((id, offline) -> {
+                if (offline.village == null || offline.beacon == null || offline.contents == null
+                        || offline.contents.id == null || offline.contents.walletAfter < 0
+                        || offline.contents.snapshot == null || offline.contents.snapshot.enderChest == null
+                        || offline.contents.snapshot.inventory == null || offline.contents.snapshot.cursor == null
+                        || offline.contents.snapshot.data == null)
+                    throw new IllegalArgumentException("Invalid offline inventory for " + id);
+            });
+            state.itemRaids.forEach((key, windows) -> {
+                if (key == null || windows == null || windows.contains(null))
+                    throw new IllegalArgumentException("Invalid item raid history");
+            });
         } catch (RuntimeException error) {
             throw new IOException("Invalid beacon-escrow.json; refusing to discard balances", error);
         }
@@ -85,6 +106,52 @@ final class BeaconEscrowLedger {
     Transfer pending(UUID player) { return state.pending.get(player); }
     Transfer lastTransfer(UUID player) { return state.receipts.get(player); }
     Holding holding(UUID player) { return state.holdings.get(player); }
+    Offline offline(UUID player) { return state.offline.get(player); }
+    Map<UUID, Offline> offlinePlayers() { return Map.copyOf(state.offline); }
+
+    void departing(UUID player, Offline offline) throws IOException {
+        requireIdle(player);
+        if (state.offline.containsKey(player)) return;
+        State next = new State(state);
+        next.offline.put(player, offline);
+        commit(next);
+    }
+
+    void returning(UUID player) throws IOException {
+        requireIdle(player);
+        if (!state.offline.containsKey(player)) return;
+        State next = new State(state);
+        next.offline.remove(player);
+        commit(next);
+    }
+
+    boolean looted(CivStore.Position beacon, long window, Option option) {
+        return option == Option.MONEY ? looted(beacon, window)
+                : state.itemRaids.getOrDefault(key(beacon) + ":" + option, Set.of()).contains(window);
+    }
+
+    void claimItems(CivStore.Village village, long window, Option option) throws IOException {
+        if (option == Option.MONEY || looted(village.beacon, window, option))
+            throw new IllegalStateException("Option already picked or invalid");
+        State next = new State(state);
+        next.itemRaids.computeIfAbsent(key(village.beacon) + ":" + option, ignored -> new LinkedHashSet<>()).add(window);
+        commit(next);
+    }
+
+    /** Victim removal and attacker delivery are a single durable commit, with absolute recovery snapshots. */
+    void takeItems(UUID victim, Offline expected, Transfer victimAfter, UUID raider, Transfer raiderAfter) throws IOException {
+        requireIdle(raider);
+        if (victim.equals(raider) || !expected.equals(state.offline.get(victim)))
+            throw new IllegalStateException("Offline inventory changed");
+        State next = new State(state);
+        next.offline.put(victim, new Offline(expected.village, expected.beacon, expected.name, victimAfter));
+        // A later stack replaces the victim's pending snapshot with its cumulative remainder.
+        next.pending.put(victim, victimAfter);
+        next.receipts.put(victim, victimAfter);
+        next.pending.put(raider, raiderAfter);
+        next.receipts.put(raider, raiderAfter);
+        commit(next);
+    }
 
     BigInteger refundable(UUID player) {
         Holding holding = holding(player);

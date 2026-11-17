@@ -126,6 +126,7 @@ final class VaultTracking implements Listener {
                 display.setPersistent(false);
                 display.setBillboard(Display.Billboard.CENTER);
                 display.setShadowed(true);
+                display.setSeeThrough(true);
                 display.text(Component.text("Secure Vault", NamedTextColor.GREEN));
             }));
         }

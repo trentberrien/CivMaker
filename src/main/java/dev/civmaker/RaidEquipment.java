@@ -16,6 +16,7 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.block.Block;
+import org.bukkit.block.Chest;
 import org.bukkit.block.Container;
 import org.bukkit.entity.AbstractHorse;
 import org.bukkit.entity.Camel;
@@ -58,7 +59,7 @@ final class RaidEquipment implements Listener {
                 "Sneak-right-click to toggle the stance for the whole settlement."),
         LOCKPICK("lockpick", "Lockpick", Material.STICK, NamedTextColor.AQUA,
                 "Pick doors, storage, or an enemy capital beacon during raids.",
-                "Beacons yield 25% of offline funds, once per raid.", LockpickPuzzle.BREAK_ODDS, LockpickPuzzle.SUCCESS_ODDS),
+                "Beacons: offline money, ender chest, or inventory.", "Each option once per raid; items use five hidden slots.", LockpickPuzzle.BREAK_ODDS, LockpickPuzzle.SUCCESS_ODDS),
         C4("c4", "C4", Material.TNT, NamedTextColor.RED,
                 "TNT-strength blast that spares secured storage.", "Use in unclaimed land or during a raid."),
         RAM("ram", "Battering Ram", Material.BLAZE_ROD, NamedTextColor.GOLD,
@@ -67,7 +68,7 @@ final class RaidEquipment implements Listener {
                 "64 scaffolding blocks for building in plots open to raids.",
                 "Place during an active raid; removed 30 minutes after it ends."),
         VAULT("vault", "Secure Vault Kit", Material.IRON_INGOT, NamedTextColor.GREEN,
-                "Limit lockpick loot from storage in your village.", "Right-click a chest, barrel, or shulker box."),
+                "Limit lockpick loot from chests in your village.", "Right-click a chest or trapped chest."),
         VAULT_DOOR("vault_door", "Vault Door", Material.IRON_DOOR, NamedTextColor.GREEN,
                 "Only village members can operate it by hand.", "Place inside your own village."),
         GRENADE("grenade", "Grenade", Material.TNT, NamedTextColor.RED,
@@ -383,6 +384,9 @@ final class RaidEquipment implements Listener {
     }
 
     boolean reinforce(Container container) {
+        if (!(container instanceof Chest)) {
+            return false;
+        }
         container.customName(Component.text("Secure Vault", NamedTextColor.GREEN));
         container.getPersistentDataContainer().set(vaultKey, PersistentDataType.BYTE, (byte) 1);
         return container.update(false, false);
