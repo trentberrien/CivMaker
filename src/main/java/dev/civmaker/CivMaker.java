@@ -8,6 +8,7 @@ import org.bukkit.entity.Pillager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -26,6 +27,7 @@ public class CivMaker extends JavaPlugin {
     private SettlementBuying settlementBuying;
     private RaidTools raidTools;
     private Trading trading;
+    private BeaconEscrow beaconEscrow;
     private SettlementCapture capture;
     private DefenderGolems defenders;
     private CombatTimeout combatTimeout;
@@ -98,6 +100,13 @@ public class CivMaker extends JavaPlugin {
 
         Notes notes = new Notes(this);
         Wallets wallets = new Wallets(this);
+        try {
+            beaconEscrow = new BeaconEscrow(this, store, wallets, notes);
+        } catch (IOException | RuntimeException error) {
+            getLogger().log(Level.SEVERE, "Could not load beacon escrow. Refusing to start with unavailable money records.", error);
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
         NaturalVillages natural = new NaturalVillages(this, store);
         naturalVillages = natural;
         claimBuying = new ClaimBuying(this, store, wallets, natural);
@@ -112,12 +121,15 @@ public class CivMaker extends JavaPlugin {
         FarmStationLoot farmStationLoot = new FarmStationLoot(this);
         FarmStations farmStations = new FarmStations(this, store, farmStationLoot);
         Protection protection = new Protection(store, equipment, vaultDoors, natural, defenders, farmStations);
+        RaidScaffolding raidScaffolding = new RaidScaffolding(store, equipment);
+        DragonEggs dragonEggs = new DragonEggs(this, store);
         RaidShields shields = new RaidShields(this, store, equipment);
         FoundingBeacons foundingBeacons = new FoundingBeacons(this, store, wallets, natural);
         raidShop = new RaidShop(this, store, wallets, equipment, resources, shields, foundingBeacons);
         capture = new SettlementCapture(this, store, defenders);
         Radar radar = new Radar(this, store, equipment, guards);
         raidTools = new RaidTools(this, store, equipment, protection, vaultDoors, guards, defenders, settlementVaults);
+        raidTools.beaconEscrow(beaconEscrow);
         trading = new Trading(this);
         combatTimeout = new CombatTimeout(this);
         wilderness = new Wilderness(this, store, combatTimeout);
@@ -127,11 +139,14 @@ public class CivMaker extends JavaPlugin {
         CompanionMaps companionMaps = new CompanionMaps(this, store, equipment);
         hud = new PlayerHud(this, store, wallets);
         beaconLabels = new BeaconLabels(this, store);
+        beaconLabels.beaconEscrow(beaconEscrow);
         vaultTracking = new VaultTracking(this, store, equipment, notes);
         var events = getServer().getPluginManager();
         events.registerEvents(new Mining(this, wallets), this);
         events.registerEvents(farmStationLoot, this);
         events.registerEvents(protection, this);
+        events.registerEvents(raidScaffolding, this);
+        events.registerEvents(dragonEggs, this);
         events.registerEvents(new EntityProtection(store, natural, guards), this);
         events.registerEvents(farmStations, this);
         events.registerEvents(new FarmHarvests(this, farmStations), this);
@@ -151,6 +166,7 @@ public class CivMaker extends JavaPlugin {
         events.registerEvents(defenders, this);
         events.registerEvents(new BlastRockets(this, equipment), this);
         events.registerEvents(trading, this);
+        events.registerEvents(beaconEscrow, this);
         events.registerEvents(new WalletDrops(wallets, notes, trading), this);
         events.registerEvents(new MoneyStorage(notes, store, equipment, resources), this);
         events.registerEvents(new SecureChestRecovery(this, store, equipment), this);
@@ -188,10 +204,14 @@ public class CivMaker extends JavaPlugin {
         getServer().getScheduler().runTaskTimer(this, claimBuying::showBorders, 1, 8);
         getServer().getScheduler().runTaskTimer(this, villageBorders::refresh, 1, 8);
         getServer().getScheduler().runTaskTimer(this, beaconLabels::refresh, 1, 20);
+        List.copyOf(getServer().getOnlinePlayers()).forEach(beaconEscrow::returning);
+        getServer().getScheduler().runTaskTimer(this, beaconEscrow::refresh, 20, 20);
         getServer().getScheduler().runTaskTimer(this, natural::discoverCenters, 1, 1);
         getServer().getScheduler().runTaskTimer(this, settlementBuying::refreshClaimants, 1, 20);
         getServer().getScheduler().runTaskTimer(this, settlementVaults::refresh, 1, 20);
         getServer().getScheduler().runTaskTimer(this, raidTools::closeExpired, 1, 5);
+        getServer().getScheduler().runTaskTimer(this, () -> raidScaffolding.refresh(), 1, 20);
+        getServer().getScheduler().runTaskTimer(this, dragonEggs::refresh, 1, 20);
         getServer().getScheduler().runTaskTimer(this, guards::refresh, 1, 40);
         getServer().getScheduler().runTaskTimer(this, defenders::refresh, 1, 5);
         getServer().getScheduler().runTaskTimer(this, defenders::tickBoulders, 1, 1);
@@ -250,6 +270,9 @@ public class CivMaker extends JavaPlugin {
         }
         if (raidTools != null) {
             raidTools.closeAll();
+        }
+        if (beaconEscrow != null) {
+            List.copyOf(getServer().getOnlinePlayers()).forEach(beaconEscrow::departing);
         }
         if (beaconLabels != null) {
             beaconLabels.clear();

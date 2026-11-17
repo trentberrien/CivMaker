@@ -64,6 +64,8 @@ final class CivStore {
         }
     }
 
+    record RaidScaffold(Position position, Window window, long clearAt) {}
+
     record ClaimPurchase(Plot plot, long price) {}
     record WarpPortal(Position spot, Position portal) {
         boolean touches(Plot plot) {
@@ -145,6 +147,14 @@ final class CivStore {
         long shieldUsedAt;
         Long shieldWindow;
         boolean endUnlocked;
+        boolean dragonEgg;
+        long dragonEggSince;
+        int eggDefendedRaids;
+        boolean eggProtected;
+        Window eggRaidWindow;
+        boolean eggRaidEligible;
+        long eggLastChecked;
+        transient CivStore store;
 
         Village(String name, UUID owner, Position beacon) {
             this.name = name;
@@ -168,7 +178,8 @@ final class CivStore {
         }
 
         long points() {
-            return CAPITAL_POINTS + (long) capitalExpansionCount() + (long) SETTLEMENT_POINTS * settlements.size();
+            return CAPITAL_POINTS + (long) capitalExpansionCount() + (long) SETTLEMENT_POINTS * settlements.size()
+                    + (store == null ? 0 : store.incentivePoints(this));
         }
 
     }
@@ -182,8 +193,11 @@ final class CivStore {
         List<FarmStation> farmStations = List.of();
         RaidMode raidMode = RaidMode.AUTO;
         long manualRaidId;
+        long manualRaidStartedAt;
+        Map<UUID, Long> raidPlayerKills = new LinkedHashMap<>();
         NightlyRaids nightly;
         Map<UUID, Long> raidRestrictions = new LinkedHashMap<>();
+        List<RaidScaffold> raidScaffolding = List.of();
     }
 
     private final Path directory;
@@ -195,6 +209,7 @@ final class CivStore {
     private final Map<Plot, FarmStation> farmStations = new HashMap<>();
     private final Map<UUID, Village> memberships = new HashMap<>();
     private final Map<UUID, Village> allegiances = new HashMap<>();
+    private final Map<Position, RaidScaffold> raidScaffolding = new LinkedHashMap<>();
     boolean dirty = true;
 
     CivStore(Path directory) throws IOException {
@@ -208,11 +223,18 @@ final class CivStore {
         if (data.raidRestrictions == null) {
             data.raidRestrictions = new LinkedHashMap<>();
         }
+        if (data.raidPlayerKills == null) data.raidPlayerKills = new LinkedHashMap<>();
+        if (data.raidScaffolding != null) {
+            for (RaidScaffold scaffold : data.raidScaffolding) {
+                raidScaffolding.put(scaffold.position(), scaffold);
+            }
+        }
         for (Position bell : data.naturalBells) {
             naturalBells.computeIfAbsent(bell.plot(), ignored -> new LinkedHashSet<>()).add(bell);
         }
         Set<Integer> usedColors = usedColors();
         for (Village village : data.villages.values()) {
+            village.store = this;
             if (village.color == 0) {
                 village.color = VillageColors.next(usedColors);
                 usedColors.add(village.color);
@@ -267,7 +289,7 @@ final class CivStore {
         Plot plot = Plot.at(block);
         Village village = claimAt(plot);
         return village != null && ((y > 60 && y <= (isCapitalClaim(village, plot) ? 200 : 99)) || village.beacon.equals(Position.at(block))
-                || isSettlementFixture(block)) ? village : null;
+                || isEggSite(village, block) || isSettlementFixture(block)) ? village : null;
     }
 
     Settlement settlementVaultAt(Block block) {
@@ -376,6 +398,7 @@ final class CivStore {
     }
 
     void addVillage(Village village) {
+        village.store = this;
         village.color = VillageColors.next(usedColors());
         data.villages.put(village.id, village);
         addMember(village, village.owner);
@@ -525,11 +548,16 @@ final class CivStore {
         if (data.raidMode == mode) {
             return;
         }
+        long now = System.currentTimeMillis();
+        refreshEggRaids(now);
         if (mode == RaidMode.ON || mode == RaidMode.SETTLEMENTS) {
             // Scheduled raid IDs are positive start times. Manual activations use negative IDs.
             data.manualRaidId--;
+            data.manualRaidStartedAt = now;
         }
         data.raidMode = mode;
+        refreshEggRaids(now);
+        closeRaidScaffoldingWindows(System.currentTimeMillis());
         dirty = true;
     }
 
@@ -547,7 +575,43 @@ final class CivStore {
 
     void setNightly(NightlyRaids nightly) {
         data.nightly = nightly;
+        closeRaidScaffoldingWindows(System.currentTimeMillis());
         dirty = true;
+    }
+
+    Collection<RaidScaffold> raidScaffolding() {
+        return List.copyOf(raidScaffolding.values());
+    }
+
+    boolean isRaidScaffolding(Block block) {
+        return block.getType() == org.bukkit.Material.SCAFFOLDING
+                && raidScaffolding.containsKey(Position.at(block));
+    }
+
+    void recordRaidScaffolding(Position position, Window window) {
+        long clearAt = window.end() == Long.MAX_VALUE ? Long.MAX_VALUE
+                : window.end() + RaidScaffolding.CLEAR_DELAY;
+        raidScaffolding.put(position, new RaidScaffold(position, window, clearAt));
+        dirty = true;
+    }
+
+    void forgetRaidScaffolding(Position position) {
+        if (raidScaffolding.remove(position) != null) {
+            dirty = true;
+        }
+    }
+
+    void closeRaidScaffoldingWindows(long now) {
+        Window active = activeWindow(now);
+        raidScaffolding.replaceAll((position, scaffold) -> {
+            // A manual close or schedule change can end a window before its saved end time.
+            long clearAt = now + RaidScaffolding.CLEAR_DELAY;
+            if (!scaffold.window().equals(active) && scaffold.clearAt() > clearAt) {
+                dirty = true;
+                return new RaidScaffold(position, scaffold.window(), clearAt);
+            }
+            return scaffold;
+        });
     }
 
     private Window scheduledWindow(long now) {
@@ -615,7 +679,112 @@ final class CivStore {
                 && !shielded(claimAt(plot), activeWindow(System.currentTimeMillis()));
     }
 
+    long raidKills(UUID player) {
+        return data.raidPlayerKills.getOrDefault(player, 0L);
+    }
+
+    void recordRaidKill(UUID killer, UUID victim, long now) {
+        Window window = activeWindow(now);
+        Village faction = registeredVillage(killer);
+        if (window == null || killer.equals(victim) || faction == null
+                || faction == registeredVillage(victim) || raidRestricted(killer, window)
+                || raidRestricted(victim, window)) return;
+        data.raidPlayerKills.merge(killer, 1L, Long::sum);
+        dirty = true;
+    }
+
+    long incentivePoints(Village village) {
+        int mostSettlements = data.villages.values().stream().mapToInt(v -> v.settlements.size()).max().orElse(0);
+        // Compare individual players, never the sum of a faction's kills.
+        long mostKills = data.villages.values().stream().flatMap(v -> v.members.stream())
+                .mapToLong(this::raidKills).max().orElse(0);
+        long bestMember = village.members.stream().mapToLong(this::raidKills).max().orElse(0);
+        return (mostSettlements > 0 && village.settlements.size() == mostSettlements ? 50 : 0)
+                + (mostKills > 0 && bestMember == mostKills ? 50 : 0) + (village.dragonEgg ? 250 : 0);
+    }
+
+    static boolean isEggSite(Village village, Block block) {
+        Position beacon = village.beacon;
+        return beacon.world().equals(block.getWorld().getUID()) && block.getX() == beacon.x()
+                && block.getZ() == beacon.z() && block.getY() == beacon.y() + 1;
+    }
+
+    Village eggAt(Block block) {
+        Village village = claimAt(block);
+        return village != null && isEggSite(village, block) && block.getType() == org.bukkit.Material.DRAGON_EGG
+                ? village : null;
+    }
+
+    void observeEgg(Village village, boolean present, long now) {
+        if (village.dragonEgg != present) {
+            village.dragonEgg = present;
+            village.dragonEggSince = now;
+            village.eggDefendedRaids = 0;
+            village.eggProtected = false;
+            village.eggRaidEligible = false;
+            dirty = true;
+        }
+    }
+
+    void refreshEggRaids(long now) {
+        Window active = activeWindow(now);
+        for (Village village : data.villages.values()) {
+            Window previous = village.eggRaidWindow;
+            // Exclude the observed pending period, but detect whole unobserved periods even between raids.
+            long checkedThrough = previous == null ? village.eggLastChecked
+                    : Math.max(village.eggLastChecked, previous.end());
+            boolean missedRaid = missedEggRaid(checkedThrough, now);
+            if (!java.util.Objects.equals(previous, active)) {
+                if (previous != null) {
+                    boolean finished = previous.start() < 0 || now >= previous.end();
+                    if (finished && village.eggRaidEligible && village.dragonEgg) {
+                        village.eggDefendedRaids++;
+                        if (village.eggDefendedRaids >= 3) village.eggProtected = true;
+                    } else if (!village.eggProtected) {
+                        village.eggDefendedRaids = 0;
+                    }
+                }
+                village.eggRaidWindow = active;
+                long start = active == null ? Long.MAX_VALUE
+                        : active.start() < 0 ? data.manualRaidStartedAt : active.start();
+                village.eggRaidEligible = active != null && village.dragonEgg
+                        && village.dragonEggSince <= start && eggOpenToRaid(village, active);
+                dirty = true;
+            } else if (active != null && village.eggRaidEligible && !eggOpenToRaid(village, active)) {
+                village.eggRaidEligible = false;
+                dirty = true;
+            }
+            if (!village.eggProtected && missedRaid && village.eggDefendedRaids != 0) {
+                village.eggDefendedRaids = 0;
+                dirty = true;
+            }
+            // Persist the observation boundary so reloads cannot turn missed periods into a streak.
+            if (village.dragonEgg && village.eggLastChecked != now) {
+                village.eggLastChecked = now;
+                dirty = true;
+            }
+        }
+    }
+
+    private boolean eggOpenToRaid(Village village, Window window) {
+        return data.raidMode != RaidMode.SETTLEMENTS && !shielded(village, window);
+    }
+
+    private boolean missedEggRaid(long after, long now) {
+        if (after == 0 || data.raidMode != RaidMode.AUTO) return false;
+        if (data.windows.stream().anyMatch(w -> w.start() >= after && w.end() <= now)) return true;
+        if (data.nightly != null) {
+            var end = data.nightly.dateAt(now);
+            for (var date = data.nightly.dateAt(after).minusDays(1); !date.isAfter(end); date = date.plusDays(1)) {
+                Window window = data.nightly.window(date);
+                if (window.start() >= after && window.end() <= now && !overlapsOneOff(window)) return true;
+            }
+        }
+        return false;
+    }
+
     void save() throws IOException {
+        data.raidScaffolding = List.copyOf(raidScaffolding.values());
         data.vaultFunds = vaultBalances.entrySet().stream()
                 .map(entry -> new VaultFunds(entry.getKey(), entry.getValue())).toList();
         data.farmStations = List.copyOf(farmStations.values());

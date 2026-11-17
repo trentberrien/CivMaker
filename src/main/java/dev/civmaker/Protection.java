@@ -118,7 +118,13 @@ final class Protection implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void place(BlockPlaceEvent event) {
-        if (cannotPlace(event.getPlayer(), event.getBlockPlaced())
+        if (equipment.identify(event.getItemInHand()) == RaidEquipment.Tool.RAID_SCAFFOLDING) {
+            if (!canPlaceRaidScaffolding(event.getPlayer(), event.getBlockPlaced())
+                    || event instanceof BlockMultiPlaceEvent) {
+                event.setCancelled(true);
+                event.getPlayer().sendMessage("Place Raid Scaffolding during a raid in a plot open to raids, away from protected fixtures.");
+            }
+        } else if (cannotPlace(event.getPlayer(), event.getBlockPlaced())
                 || (event instanceof BlockMultiPlaceEvent multi && multi.getReplacedBlockStates().stream()
                 .anyMatch(state -> cannotPlace(event.getPlayer(), state.getBlock())))) {
             event.setCancelled(true);
@@ -129,6 +135,14 @@ final class Protection implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void breakBlock(BlockBreakEvent event) {
         Block block = event.getBlock();
+        Village eggOwner = store.eggAt(block);
+        if (eggOwner != null) {
+            if (!DragonEggs.canBreak(store, eggOwner, event.getPlayer())) event.setCancelled(true);
+            return;
+        }
+        if (store.isRaidScaffolding(block) && canPlaceRaidScaffolding(event.getPlayer(), block)) {
+            return;
+        }
         // Stations have their own faction/raid mining policy, including inside foreign claims.
         if (farmStations.isStation(block)) {
             return;
@@ -154,6 +168,15 @@ final class Protection implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     void interact(PlayerInteractEvent event) {
         Block block = event.getClickedBlock();
+        if (block != null && store.eggAt(block) != null) return;
+        if (block != null && event.getAction() == Action.RIGHT_CLICK_BLOCK
+                && equipment.identify(event.getItem()) == RaidEquipment.Tool.RAID_SCAFFOLDING
+                && event.useItemInHand() != org.bukkit.event.Event.Result.DENY) {
+            // Let vanilla resolve scaffolding's actual placement target; place() checks that target.
+            event.setUseInteractedBlock(org.bukkit.event.Event.Result.DENY);
+            event.setUseItemInHand(org.bukkit.event.Event.Result.ALLOW);
+            return;
+        }
         if (block != null && event.getAction() == Action.RIGHT_CLICK_BLOCK && settlementAccess(block)
                 && !(farmingMember(event.getPlayer(), block) && farmingInteraction(event, block))) {
             event.setUseItemInHand(org.bukkit.event.Event.Result.DENY);
@@ -161,7 +184,8 @@ final class Protection implements Listener {
         if (block != null && (event.getAction() == Action.RIGHT_CLICK_BLOCK || event.getAction() == Action.PHYSICAL)
                 && forbidden(event.getPlayer(), block)) {
             if (event.getAction() == Action.RIGHT_CLICK_BLOCK
-                    && ((block.getBlockData() instanceof Door && !vaultDoors.isVaultDoor(block, store.protectedClaimAt(block)))
+                    && (unsecuredChest(block)
+                    || (block.getBlockData() instanceof Door && !vaultDoors.isVaultDoor(block, store.protectedClaimAt(block)))
                     || (block.getType() == Material.BELL && naturalPlot(block)))) {
                 event.setUseItemInHand(org.bukkit.event.Event.Result.DENY);
                 return;
@@ -187,7 +211,10 @@ final class Protection implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void open(InventoryOpenEvent event) {
         var blocks = inventoryBlocks(event.getInventory());
-        if (event.getInventory().getType() == InventoryType.MERCHANT && blocks.stream().anyMatch(this::naturalPlot)) {
+        if (unsecuredChest(blocks)) {
+            return;
+        }
+        if (blocks.stream().anyMatch(this::naturalPlot) && event.getInventory().getType() == InventoryType.MERCHANT) {
             return;
         }
         if (!blocks.equals(pickedOpen.get(event.getPlayer().getUniqueId()))
@@ -223,7 +250,7 @@ final class Protection implements Listener {
 
     private boolean canBreakWithC4(Block block, Charge charge) {
         Village claim = store.protectedClaimAt(block);
-        return !naturalPlot(block) && !settlementAccess(block)
+        return store.eggAt(block) == null && !naturalPlot(block) && !settlementAccess(block)
                 && (claim == null || (claim == charge.village() && store.raidCovers(Plot.at(block))
                 && !store.isClaimAnchor(claim, block)))
                 && !c4ProtectedStorage(block);
@@ -315,7 +342,8 @@ final class Protection implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void destroy(BlockDestroyEvent event) {
-        if (store.isSettlementFixture(event.getBlock()) || naturalPlot(event.getBlock()) || settlementAccess(event.getBlock())) {
+        if (store.eggAt(event.getBlock()) != null || store.isSettlementFixture(event.getBlock())
+                || naturalPlot(event.getBlock()) || settlementAccess(event.getBlock())) {
             event.setCancelled(true);
         }
     }
@@ -323,7 +351,7 @@ final class Protection implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void liquid(BlockFromToEvent event) {
         Block target = event.getToBlock();
-        if (blocksEnvironmentalChange(event.getBlock(), target)) {
+        if (store.eggAt(event.getBlock()) != null || blocksEnvironmentalChange(event.getBlock(), target)) {
             event.setCancelled(true);
         }
     }
@@ -447,7 +475,7 @@ final class Protection implements Listener {
         }
         for (Block block : blocks) {
             Block destination = block.getRelative(motion);
-            if (store.protectedClaimAt(block) != village || store.protectedClaimAt(destination) != village
+            if (beaconColumn(block) || store.protectedClaimAt(block) != village || store.protectedClaimAt(destination) != village
                     || beaconColumn(destination) || store.isSettlementFixture(block) || store.isSettlementFixture(destination)
                     || naturalPlot(block) || naturalPlot(destination) || settlementAccess(block) || settlementAccess(destination)) {
                 return true;
@@ -463,8 +491,18 @@ final class Protection implements Listener {
     }
 
     private boolean cannotPlace(HumanEntity player, Block block) {
+        Village village = store.claimAt(block);
+        if (block.getType() == Material.DRAGON_EGG && village != null && CivStore.isEggSite(village, block)
+                && store.registeredVillage(player.getUniqueId()) == village) return false;
         return forbidden(player, block) || beaconColumn(block) || (settlementAccess(block)
                 && !(farmingBlock(block.getType()) && farmingMember(player, block)));
+    }
+
+    private boolean canPlaceRaidScaffolding(Player player, Block block) {
+        return block.getType() == Material.SCAFFOLDING && player.getGameMode() == org.bukkit.GameMode.SURVIVAL
+                && store.activeWindow(System.currentTimeMillis()) != null
+                && !store.raidRestricted(player.getUniqueId()) && store.raidCovers(Plot.at(block))
+                && !naturalPlot(block) && !beaconColumn(block) && !store.isSettlementFixture(block);
     }
 
     private boolean farmingMember(HumanEntity player, Block block) {
@@ -523,6 +561,18 @@ final class Protection implements Listener {
         Village village = store.protectedClaimAt(block);
         return village != null && (store.settlementVaultAt(block) != null
                 || village.treasuries.contains(Position.at(block)) || equipment.isVault(block));
+    }
+
+    private boolean unsecuredChest(Block block) {
+        return (block.getType() == Material.CHEST || block.getType() == Material.TRAPPED_CHEST)
+                && block.getState(false) instanceof Chest chest
+                && unsecuredChest(inventoryBlocks(chest.getInventory()));
+    }
+
+    private boolean unsecuredChest(List<Block> blocks) {
+        return !blocks.isEmpty() && blocks.stream().allMatch(block ->
+                (block.getType() == Material.CHEST || block.getType() == Material.TRAPPED_CHEST)
+                        && !protectedStorage(block));
     }
 
     private boolean beaconColumn(Block block) {

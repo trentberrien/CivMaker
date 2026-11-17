@@ -59,6 +59,7 @@ final class RaidTools implements Listener {
     private final PillagerGuards guards;
     private final DefenderGolems defenders;
     private final SettlementVaults settlementVaults;
+    private BeaconEscrow beaconEscrow;
     private final Map<TNTPrimed, Grenade> grenades = new HashMap<>();
     private final Map<UUID, Picking> picking = new HashMap<>();
     private final Map<UUID, PickedStorage> picked = new HashMap<>();
@@ -75,6 +76,8 @@ final class RaidTools implements Listener {
         this.settlementVaults = settlementVaults;
     }
 
+    void beaconEscrow(BeaconEscrow escrow) { this.beaconEscrow = escrow; }
+
     @EventHandler(priority = EventPriority.HIGHEST)
     void use(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK && event.getAction() != Action.RIGHT_CLICK_AIR) {
@@ -85,14 +88,15 @@ final class RaidTools implements Listener {
         Tool tool = equipment.identify(event.getItem());
         if (tool == Tool.VAULT_DOOR || tool == Tool.HAPPY_HARNESS || tool == Tool.BLAST_ROCKET
                 || tool == Tool.SUPER_TOTEM || tool == Tool.RADAR || tool == Tool.SUPER_SADDLE || tool == Tool.RAID_SHIELD
-                || tool == Tool.WARP_PORTAL) {
+                || tool == Tool.WARP_PORTAL || tool == Tool.RAID_SCAFFOLDING) {
             return;
         }
         if (tool == null) {
             Tool mainHand = equipment.identify(player.getInventory().getItemInMainHand());
             if (event.getHand() == EquipmentSlot.OFF_HAND && mainHand != null
                     && mainHand != Tool.VAULT_DOOR && mainHand != Tool.HAPPY_HARNESS && mainHand != Tool.BLAST_ROCKET
-                    && mainHand != Tool.SUPER_TOTEM && mainHand != Tool.RADAR && mainHand != Tool.SUPER_SADDLE) {
+                    && mainHand != Tool.SUPER_TOTEM && mainHand != Tool.RADAR && mainHand != Tool.SUPER_SADDLE
+                    && mainHand != Tool.RAID_SCAFFOLDING) {
                 event.setCancelled(true);
             }
             return;
@@ -155,7 +159,7 @@ final class RaidTools implements Listener {
             case C4 -> blast(player, target, event.getBlockFace(), village);
             case VAULT -> reinforce(player, target, village, member);
             case VAULT_DOOR, GRENADE, HAPPY_HARNESS, BLAST_ROCKET, PILLAGER_GUARD, DEFENDER_GOLEM,
-                    SUPER_TOTEM, RADAR, SUPER_SADDLE, RAID_SHIELD, WARP_PORTAL -> false;
+                    SUPER_TOTEM, RADAR, SUPER_SADDLE, RAID_SHIELD, WARP_PORTAL, RAID_SCAFFOLDING -> false;
         };
         if (consume) {
             if (village != null && tool != Tool.VAULT) {
@@ -265,7 +269,9 @@ final class RaidTools implements Listener {
             return false;
         }
         Doorway door = Doorway.at(target);
-        if (door == null ? pickableStorage(player, target, village) == null : !pickableDoor(player, target, village)) {
+        boolean beacon = beaconEscrow != null && target.getType() == Material.BEACON;
+        if (beacon ? !beaconEscrow.canPick(player, target, village, window)
+                : door == null ? pickableStorage(player, target, village) == null : !pickableDoor(player, target, village)) {
             return false;
         }
         LockpickPuzzle puzzle = new LockpickPuzzle(ThreadLocalRandom.current());
@@ -290,7 +296,7 @@ final class RaidTools implements Listener {
     private Storage pickableStorage(Player player, Block target, Village village) {
         var storage = equipment.storageAt(target);
         if (storage == null) {
-            player.sendMessage("Use the lockpick on a door, chest, barrel, or shulker box.");
+            player.sendMessage("Use the lockpick on a capital beacon, door, chest, barrel, or shulker box.");
             return null;
         }
         var inventory = storage.getInventory();
@@ -318,6 +324,11 @@ final class RaidTools implements Listener {
         }
 
         Block target = attempt.location().getBlock();
+        if (beaconEscrow != null && target.getType() == Material.BEACON) {
+            player.closeInventory();
+            beaconEscrow.loot(player, target, attempt.village(), attempt.window());
+            return;
+        }
         Doorway door = Doorway.at(target);
         if (door != null) {
             player.closeInventory();

@@ -26,6 +26,7 @@ class RaidShopTest {
     private Inventory menu;
     private Wallets wallets;
     private ItemStack radar;
+    private ItemStack scaffolding;
     private ItemStack[] contents;
 
     @BeforeEach void setup() {
@@ -39,6 +40,11 @@ class RaidShopTest {
         when(radar.getMaxStackSize()).thenReturn(64);
         when(radar.asQuantity(1)).thenReturn(radar);
         when(equipment.item(Tool.RADAR, null)).thenReturn(radar);
+        scaffolding = mock(ItemStack.class);
+        when(scaffolding.getAmount()).thenReturn(64);
+        when(scaffolding.getMaxStackSize()).thenReturn(64);
+        when(scaffolding.asQuantity(64)).thenReturn(scaffolding);
+        when(equipment.item(Tool.RAID_SCAFFOLDING, null)).thenReturn(scaffolding);
         wallets = mock(Wallets.class);
         player = mock(Player.class);
         when(player.getGameMode()).thenReturn(GameMode.SURVIVAL);
@@ -72,12 +78,46 @@ class RaidShopTest {
     }
 
     private void buyRadar(ClickType click) {
+        buy(click, 39);
+    }
+
+    private void buy(ClickType click, int slot) {
         InventoryClickEvent event = mock(InventoryClickEvent.class);
         when(event.getInventory()).thenReturn(menu);
         when(event.getWhoClicked()).thenReturn(player);
         when(event.getClick()).thenReturn(click);
-        when(event.getRawSlot()).thenReturn(39);
+        when(event.getRawSlot()).thenReturn(slot);
         shop.click(event);
+    }
+
+    @Test void scaffoldingCostsTenThousandForAStack() {
+        when(wallets.balance(player)).thenReturn(10_000L);
+        buy(ClickType.LEFT, 17);
+        verify(wallets).setBalance(player, 0L);
+        var result = org.mockito.ArgumentCaptor.forClass(ItemStack[].class);
+        verify(inventory).setStorageContents(result.capture());
+        org.junit.jupiter.api.Assertions.assertSame(scaffolding, result.getValue()[0]);
+        verify(player).sendMessage("Bought 64 Raid Scaffolding for $10,000.");
+    }
+
+    @Test void scaffoldingCostsFiveSettlementCopperWithoutWalletMoney() {
+        contents[0] = copper(5, true);
+        buy(ClickType.RIGHT, 17);
+        var result = org.mockito.ArgumentCaptor.forClass(ItemStack[].class);
+        verify(inventory).setStorageContents(result.capture());
+        org.junit.jupiter.api.Assertions.assertSame(scaffolding, result.getValue()[0]);
+        verify(wallets, never()).setBalance(any(), anyLong());
+        verify(player).sendMessage("Bought 64 Raid Scaffolding for 5 Settlement Copper.");
+    }
+
+    @Test void scaffoldingRejectsOrdinaryAndInsufficientCopper() {
+        contents[0] = copper(64, false);
+        buy(ClickType.RIGHT, 17);
+        contents[0] = copper(4, true);
+        buy(ClickType.RIGHT, 17);
+        verify(inventory, never()).setStorageContents(any());
+        verify(wallets, never()).setBalance(any(), anyLong());
+        verify(player, times(2)).sendMessage("You need 5 Settlement Copper in your inventory.");
     }
 
     @Test void rightClickBuysRadarWithFiveSettlementCopperAndNoWalletMoney() {

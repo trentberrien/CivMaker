@@ -37,7 +37,7 @@ final class RaidShop implements Listener {
 
     private static final List<Section> SECTIONS = List.of(
             new Section("Raid Gear", Material.IRON_SWORD, NamedTextColor.RED,
-                    List.of(Tool.LOCKPICK, Tool.RAM, Tool.C4, Tool.GRENADE, Tool.BLAST_ROCKET)),
+                    List.of(Tool.LOCKPICK, Tool.RAM, Tool.C4, Tool.GRENADE, Tool.BLAST_ROCKET, Tool.RAID_SCAFFOLDING)),
             new Section("Village Defense", Material.SHIELD, NamedTextColor.GREEN,
                     List.of(Tool.PILLAGER_GUARD, Tool.VAULT, Tool.VAULT_DOOR, Tool.RAID_SHIELD, Tool.DEFENDER_GOLEM)),
             new Section("Mount Upgrades", Material.LEAD, NamedTextColor.GOLD,

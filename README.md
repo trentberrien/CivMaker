@@ -42,6 +42,9 @@ The command loads destination chunks asynchronously and checks for solid, non-da
 - `/civ withdraw 10` exchanges $10,000 for ten stackable $1,000 banknotes. `/civ deposit` redeems all banknotes in the main inventory, and `/civ deposit 3` redeems three. Genuine notes carry a server item tag. Renaming ordinary paper cannot create a note.
 - Carry banknotes yourself or deposit them in a Secure Vault inside your village. Ordinary storage, Ender Chests, and bundles reject banknote deposits. Hoppers and hopper minecarts cannot collect dropped banknotes. Banknotes on the ground can despawn like other dropped items. Banknotes already in ordinary storage can still be withdrawn.
 - On death, you drop 10% of your wallet balance, rounded down to the nearest $1,000, plus the banknotes that drop with your inventory. If you keep your inventory, including with a Super Totem, the 10% applies to your wallet and carried banknotes combined. Large death payouts are condensed into high-value banknotes. Picking up one credits your wallet immediately, even with a full inventory. It stays on the ground if your wallet can't hold the full amount.
+- When a faction member logs out, their whole wallet and carried banknotes move into temporary escrow at their capital beacon, even outside raid hours. This includes offhand/cursor notes, returned trade offers, and legacy notes inside carried containers. Other carried items stay with the player. Players without a faction have no capital and keep their money normally.
+- During raids, the beacon displays its pooled offline funds. An outsider can solve the usual lockpick puzzle to take **25% of the current pool**, rounded down to whole dollars, directly into their wallet. Each physical beacon can be looted **once per raid period**, across all attackers and restarts. Failed puzzles do not use that allowance. Raid Protection and settlement-only raid windows protect capitals as usual.
+- Each offline member bears their proportional share of the loss; whole-dollar rounding conserves the exact total. Returning players receive their remaining contribution into their wallet immediately, including during raids. Later deposits do not inherit earlier losses, and returning players do not take anyone else's share. Funds below $4 cannot yield a whole-dollar raid payout and do not use the beacon's allowance. A full wallet keeps any excess refund in a private reserve, automatically paid as space becomes available. Faction changes or disbanding do not erase a player's refund claim.
 - The **CivMaker** sidebar shows your village membership, wallet, current raid status, and the top five villages by points. `/civ help` appears at the bottom. The vanilla client displays the sidebar on the right. CivMaker leaves an existing custom scoreboard or sidebar in place.
 
 | Ore | Default payout per block |
@@ -73,6 +76,8 @@ Invited players join as **elders by default**, keeping that rank until the owner
 To rename your faction, right-click its **capital beacon** in Survival and select **Rename faction**, enter the new name, and confirm. Only the faction owner can rename it. Names follow the same 2–24-character rules and name filter as founding, and must be unique regardless of capitalization. Renaming keeps all claims, members, points, upgrades, and Discord links. Owners and elders can open the capital menu before or after upgrading; after upgrading, select **Beacon effects** to open the normal beacon screen. Ordinary members can still use upgraded beacon effects directly. The in-game points leaderboard shows only the first **10 characters** of each faction name; the saved name and other displays retain the full name.
 
 Plot protection covers blocks from **Y=61 through Y=200** in capital chunks and their expansions, and **Y=61 through Y=99** in settlements. Capital beacons and registered settlement bells and vaults are protected at any height.
+
+Any player can open unsecured chests and trapped chests, including double chests, inside protected plots and natural villages regardless of faction membership. Secure vaults, treasuries, and settlement vaults keep their normal access restrictions; securing either half protects the entire double chest.
 
 Crops can grow and farming plants can spread within their protected area, including near settlement bells and in unclaimed natural villages. Farmland hydrates, dries, and returns to dirt under normal Minecraft conditions. Members can till, plant, and harvest their own farms, including near their settlement bell. Outsiders cannot break, harvest, or trample protected farms, and mobs cannot trample protected farmland. Farming plants cannot spread across claim boundaries; beacon sky clearance and settlement fixtures stay protected. Farm Station requirements for automatic harvesting still apply.
 
@@ -114,17 +119,27 @@ The default faction banner uses the faction's color. To set a design, the owner 
 - Blocks within a **16-block horizontal radius**, starting **three blocks below the bell** and extending to the world height limit, are protected from building and breaking before and after purchase, including during raids.
 - The territory banner shows village points alongside wealth. Use `/civ points` to see the top villages by points.
 
+Factions also receive these **standing point bonuses**. These add to the current score rather than paying out again each raid:
+
+- **Most settlements: +50 points.** Every faction tied for the highest positive settlement count receives the bonus. The bonus follows ownership immediately when a settlement is bought or captured.
+- **Top raid killer: +50 points.** The faction containing the player with the most recorded raid-hour player kills receives the bonus. Each player's total is compared separately; faction kills are never added together. Tied leaders' factions each receive one bonus. Counts accumulate across raid periods and restarts, starting with this update. Only Survival player kills during raid hours count; self-kills, factionmate kills, and kills involving raid-protected players do not. The bonus follows the player's current faction membership.
+- **Dragon egg: +250 points.** Place the egg **directly on top of your faction's capital beacon**. Holding it in an inventory, storing it in a chest, or placing it elsewhere does not count. Hold the egg and right-click the beacon's top to place it. The egg allows the normal beam and pyramid-powered effects to continue; vanilla effects still require the existing capital upgrade. The floating beacon label shows the egg's defense progress.
+
+A displayed dragon egg cannot teleport when clicked. During raids open to the capital, an eligible Survival player can left-click or mine it to break it and drop one egg. Outside raid hours it is protected, including from its owners. Raid shields and settlement-only raids keep capital eggs protected. Explosions, pistons, liquids, and falling-block changes cannot bypass these rules.
+
+Keep the egg on the same capital beacon throughout **three consecutive full raid periods** to make it **permanently protected**, including from its owners and during future raids. Placing it midway through a raid does not count that period. Removing or replacing it resets the streak and removes the possession bonus while it is absent. Shielded, settlement-only, interrupted, or entirely unobserved raid periods do not qualify; missed periods break the streak. Progress and permanent protection survive restarts.
+
 ### Settlement vaults
 
 The nameplate below the bell shows the settlement type and its owning village. The vault has its own floating label. Owners of older settlements without a placed vault can look at their bell and run `/civ settlement vault` to place one in a clear spot nearby.
 
-Once placed, the vault produces its reward every Minecraft day (24,000 world ticks, about 20 minutes at normal speed). Currency settlements produce five items per day, worth $2,000 each toward eligible shop purchases. Each daily batch occupies its own slot. Five slots hold five days of currency deposits, for 25 items worth $50,000 in total. Production follows the world's day-night clock, so sleeping or advancing world time can bring the next deposit sooner. An unloaded vault catches up when its chunk loads, up to five daily batches. Production for days when it is full is lost. Village members can open it, but only elders and owners can withdraw settlement currency such as Settlement Copper, Iron, Gunpowder, and Muster Amethyst. Ordinary members can still withdraw non-currency rewards such as Obsidian and Super Totems. During a raid, outsiders can use a lockpick to loot it. Hoppers and players cannot deposit items, and hoppers cannot withdraw them.
+Once placed, the vault produces its reward every Minecraft day (24,000 world ticks, about 20 minutes at normal speed) **during raid hours only**, including manually opened raids. Currency settlements produce five items per production day, worth $2,000 each toward eligible shop purchases. Each daily batch occupies its own slot. Five slots hold five batches of currency deposits, for 25 items worth $50,000 in total. Each raid window starts a fresh production cycle when the vault is first loaded or checked; off-hours and unfinished cycles from earlier windows do not accumulate rewards. Production follows the world's day-night clock, so sleeping or advancing world time during raids can bring the next deposit sooner. An unloaded vault catches up when its chunk loads within the same raid window, up to five daily batches. Production for days when it is full is lost. Village members can open it, but only elders and owners can withdraw settlement currency such as Settlement Copper, Iron, Gunpowder, and Muster Amethyst. Ordinary members can still withdraw non-currency rewards such as Obsidian and Super Totems. During a raid, outsiders can use a lockpick to loot it. Hoppers and players cannot deposit items, and hoppers cannot withdraw them.
 
 | Village type | Daily reward | Use |
 | --- | --- | --- |
 | Desert | 5 Settlement Gunpowder | Grenades, C4, and Blast Rockets |
 | Plains | 5 Settlement Iron | Secure Vault Kits, Vault Doors, and Defender Golems |
-| Savanna | 5 Settlement Copper | Lockpicks, Battering Rams, and Radars |
+| Savanna | 5 Settlement Copper | Lockpicks, Battering Rams, Radars, and Raid Scaffolding |
 | Taiga | 1 Super Totem | Keep your items on death and drop 10% of carried money |
 | Snowy plains | 64 Obsidian | Ordinary building material |
 | Meadow | 5 Muster Amethyst | Pillager Guards, Happy Harnesses, and Super Saddles |
@@ -151,7 +166,7 @@ mvn install
 mvn -f VillagerRework/pom.xml package
 ```
 
-Copy `target/civmaker-0.17.0.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
+Copy `target/civmaker-0.17.1.jar` and `VillagerRework/target/villager-rework-0.2.3.jar` into your server's `plugins` directory and restart. See the [VillagerRework guide](VillagerRework/README.md) for the full trade rules and configuration.
 
 ## Farm Stations
 
@@ -256,6 +271,8 @@ Run `/civ raids` to see the current raid status and upcoming windows in UTC. Win
 
 During a raid, outsiders can use lockpicks on eligible containers and Vault Doors. A successful pick on a Secure Vault or Settlement Vault reveals a loot menu with hidden slots. Left-click a slot to take its entire stack. You can loot up to five slots per session. Picked ordinary storage opens its usual inventory for the session.
 
+Capital beacons also accept lockpicks during eligible raids. Success transfers 25% of the beacon's offline-member funds to the attacker's wallet and locks further beacon withdrawals for that raid period. The amount and looted/protected status appear above the beacon during raid hours. The beacon remains in place; its escrow is separate from Secure Vault and Settlement Vault contents. Re-founding at the same beacon position does not reset that period's limit.
+
 ### Settlement capture
 
 A living Survival or Adventure player from an enemy village can capture during a raid within 16 blocks of the settlement bell, measured in three dimensions. The first enemy presence alerts the server, and the boss bar shows progress in the acting village's color. Multiple factions stall the bar. An empty point holds its progress, and unaffiliated players cannot capture or contest.
@@ -284,7 +301,7 @@ The Founding Beacon appears alone in the center of the top row before you join o
 | --- | --- |
 | Pillager Guard | Right-click the top of a solid block inside your own village to post a pillager with a visible `guard` nametag. During active raids, it fires at eligible raiders it can see within four chunks (64 blocks), even across the village border. Rockets damage only targeted enemies and mobs they're riding. Guards can only be damaged by eligible enemy raiders during an open raid against their post; friendly and environmental damage cannot remove them. |
 | Defender Golem | Buy a kit for $10,000 or 5 Settlement Iron under Village Defense, then right-click your faction's settlement bell with it in your main hand. Each bell can have one defender. Leave a clear 3-by-3 spot with six blocks of headroom near the bell. The golem is twice normal size, has **200 health (100 hearts)**, and stays within 16 blocks of the bell. It swings in melee and throws 1½-block-wide boulders at targets up to 24 blocks away. Both attacks deal normal iron golem hit damage. The golem is immune to arrows and to splash and lingering potions. A living golem in the ring contests enemy capture in either mode. Its boss health bar appears at the top of the screen within 32 blocks. Existing defenders upgrade when loaded, preserving their remaining health percentage. |
-| Lockpick | A glinting stick. Spend one to start a puzzle with a fixed 14-pane trail. Click the glowing yellow pane in order as completed panes turn green. Each correct click has a 5% break chance, giving one lockpick a 48.77% chance of finishing all 14 steps. Solving it toggles a Vault Door between open and closed or grants one session of storage access. |
+| Lockpick | A glinting stick. Spend one to start a puzzle with a fixed 14-pane trail. Click the glowing yellow pane in order as completed panes turn green. Each correct click has a 5% break chance, giving one lockpick a 48.77% chance of finishing all 14 steps. Solving it toggles a Vault Door, grants one storage session, or takes 25% of an enemy capital beacon's offline funds once per raid period. |
 | C4 | Right-click a block face to detonate at TNT strength. The blast can break unclaimed blocks at any time. Targeting a village claim requires an active raid against that village. The blast spares secure vaults and claim anchors, deals no direct damage to players or mobs, and cannot start a TNT chain. |
 | Grenade | Right-click to launch primed TNT in the direction you're looking, including from a Happy Ghast. After a five-second fuse it uses C4 block damage rules and can damage enemy Defender Golems during the same raid. To damage a village claim, throw it during a raid and have it detonate inside the enemy claim before that raid window ends. |
 | Blast Rockets | A stack of 64 fireworks with a flight duration of 2 and a large-ball burst. Fire one from a crossbow to damage entities in a TNT-sized blast. An unarmored player can be taken out in one close hit. |
@@ -293,6 +310,7 @@ The Founding Beacon appears alone in the center of the top row before you join o
 | Super Saddle | Equipped camels gain triple max health and match the fastest horse's normal riding speed under a player's control. They keep the boost when stepping down blocks. Charging and dashing suspend the speed boost. Equipped horses, donkeys, and skeleton horses gain the highest natural horse movement speed (0.3375), jump strength (1.0), and 96 max health (48 hearts), matching a normal camel wearing the saddle. Right-click it in the shop to pay 5 Muster Amethyst. |
 | Secure Vault Kit | A glinting iron ingot. Reinforces a chest, barrel, or shulker box in your own village. Raiders see stained-glass placeholders and left-click to take an entire stack from each of up to five slots. Reinforced storage blocks hopper transfers while in a claim. |
 | Vault Door | A glinting iron door that can be placed in your own village. Village members can open and close it by hand. A successful lockpick toggles its current state during a raid, and a ram can break it. Visitors can operate ordinary doors in claims. |
+| Raid Scaffolding | Buy 64 blocks for $10,000 or 5 Settlement Copper. Place during active raids, including in enemy claims and settlement centers open to raids. Raid Protection, settlement-only raid limits, natural village protection, and beacon sky clearance still apply. Placed blocks disappear without drops 30 minutes after their raid window closes, including manually closed raids. Cleanup survives restarts and includes unloaded chunks. Ordinary scaffolding keeps its normal plot restrictions. |
 | Super Totem | Carry it anywhere in your inventory. When you die, one Super Totem is consumed and you respawn with the rest of your items. Death and experience loss follow the usual rules, even if you hold it in either hand. |
 | Radar | Hold this compass in either hand for a private chat map every second. The map covers your chunk and five chunks in each direction. North stays at the top, and the aqua arrow at the center points in the direction you're facing. Colored `#` tiles show each village's territory. Farm Station chunks use `F` in the owning faction's color, or gray for an unaffiliated owner. Yellow `B` markers show registered settlement bells. Red `X` markers show outsiders outside their own village, and gold `G` markers show loaded enemy guards, including those inside their village. Hover over a tile for its block range, any marked bell coordinates, and its Farm Station name and owner. |
 
@@ -316,7 +334,7 @@ The optional [CivMaker Discord bot](discord-bot/README.md) runs on the server co
 ### Build and install
 
 1. Install JDK 25 and Maven, then run `mvn package` from this directory. This preserves older versioned JARs in `target/`.
-2. Copy `target/civmaker-0.17.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
+2. Copy `target/civmaker-0.19.0.jar` into your Paper 26.3 server's `plugins` directory and start the server.
 3. Edit `plugins/CivMaker/config.yml` by hand or with the [local config editor](website/README.md#edit-the-civmaker-config). Restart after editing.
 
 ### Optional Xaero map companion
@@ -337,7 +355,7 @@ Set `warp-portal.cooldown-seconds` and `warp-portal.combat-death-timeout-seconds
 
 Chunks generated before CivMaker was installed are ineligible because their natural and placed ores cannot be reliably distinguished. Use a fresh world or explore new chunks on an existing server.
 
-Old registered treasury chests convert when their chunks load and keep their contents. Vaults upgraded from the real-time production schedule start their Minecraft-day cycle when first loaded and keep their stored items.
+Old registered treasury chests convert when their chunks load and keep their contents. Existing vaults keep their stored items and start a fresh Minecraft-day production cycle when first checked during an open raid after this update.
 
 Registered Farm Stations from earlier builds are indexed when their chunks load. Lodestones placed before station registration was added must be replaced using a tagged Farm Station.
 
@@ -356,7 +374,7 @@ Treat Creative access and world-editing tools as trusted admin access.
 ### Testing commands
 
 - `/civ farmstation test` gives an in-game CivMaker admin one tagged, glinting Farm Station. Make room in your inventory before running it.
-- To test production, leave an empty slot, look at the vault from within five blocks, and run `/civ testdeposit` as a CivMaker admin. The targeted vault's next stack is due in 1,200 world ticks (about one minute at normal speed). Its Minecraft-day cycle then continues from that test deposit.
+- To test production during an open raid, leave an empty slot, look at the vault from within five blocks, and run `/civ testdeposit` as a CivMaker admin. The targeted vault's next stack is due in 1,200 world ticks (about one minute at normal speed), provided the same raid window remains open. Its Minecraft-day cycle then continues from that test deposit. The command cannot schedule production outside raid hours.
 - Operators can run `/trade test` to trade with an imaginary player who offers 10 dirt and stays confirmed. Confirming the test trade exchanges any items you offer for the dirt.
 
 ### Scheduling raid windows
@@ -397,3 +415,5 @@ Review the export before sharing it. It includes player identifiers, vault balan
 ### Server data and backups
 
 CivMaker periodically saves village records and cached balances, including the last known totals in unloaded chunks, and flushes them on a clean stop. Paper saves each wallet with its player's inventory, and stores vault contents, ore provenance, and Farm Station positions, owners, and names with world data. The plugin also saves its Farm Station lookup index in `state.json`. Restore the plugin data and the world/player saves from the same backup when rolling back a server.
+
+Beacon escrow is saved separately in `plugins/CivMaker/beacon-escrow.json`. Transfers use forced writes and atomic file replacement, with persistent player receipts and absolute recovery snapshots to reconcile interrupted inventory debits, refunds, and raid payouts before join-time trade recovery. Raid losses and the once-per-period marker commit in the same ledger transaction. Clean shutdowns escrow connected members too. Storage errors retain recovery records and disconnect the affected player; a corrupt ledger prevents startup rather than silently resetting money. Keep this file with matching player/world backups; never delete it to repair a transfer. Existing offline players enter escrow after their first logout on this version. A hard process kill cannot fire logout events for players still connected at the moment of the crash; those players enter escrow on their next normal logout. Recorded transfers remain recoverable after a crash.

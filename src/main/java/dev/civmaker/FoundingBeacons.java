@@ -159,6 +159,7 @@ final class FoundingBeacons implements Listener {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK || block == null) {
             return;
         }
+        if (DragonEggs.placingOnCapital(event, store)) return;
         if (isCapital(block)) {
             if (locked(block)) {
                 event.setCancelled(true);

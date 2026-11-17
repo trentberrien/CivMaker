@@ -57,11 +57,15 @@ final class RaidEquipment implements Listener {
                 "A giant iron golem with a boss health bar and boulder attacks.",
                 "Sneak-right-click to toggle the stance for the whole settlement."),
         LOCKPICK("lockpick", "Lockpick", Material.STICK, NamedTextColor.AQUA,
-                "Follow a glowing trail to pick a lock.", LockpickPuzzle.BREAK_ODDS, LockpickPuzzle.SUCCESS_ODDS),
+                "Pick doors, storage, or an enemy capital beacon during raids.",
+                "Beacons yield 25% of offline funds, once per raid.", LockpickPuzzle.BREAK_ODDS, LockpickPuzzle.SUCCESS_ODDS),
         C4("c4", "C4", Material.TNT, NamedTextColor.RED,
                 "TNT-strength blast that spares secured storage.", "Use in unclaimed land or during a raid."),
         RAM("ram", "Battering Ram", Material.BLAZE_ROD, NamedTextColor.GOLD,
                 "Break down a protected door.", "Use during an active raid."),
+        RAID_SCAFFOLDING("raid_scaffolding", "Raid Scaffolding", Material.SCAFFOLDING, NamedTextColor.GOLD,
+                "64 scaffolding blocks for building in plots open to raids.",
+                "Place during an active raid; removed 30 minutes after it ends."),
         VAULT("vault", "Secure Vault Kit", Material.IRON_INGOT, NamedTextColor.GREEN,
                 "Limit lockpick loot from storage in your village.", "Right-click a chest, barrel, or shulker box."),
         VAULT_DOOR("vault_door", "Vault Door", Material.IRON_DOOR, NamedTextColor.GREEN,
@@ -131,7 +135,8 @@ final class RaidEquipment implements Listener {
     }
 
     ItemStack item(Tool tool, String priceLabel) {
-        ItemStack item = new ItemStack(tool.material, tool == Tool.BLAST_ROCKET ? 64 : 1);
+        ItemStack item = new ItemStack(tool.material,
+                tool == Tool.BLAST_ROCKET || tool == Tool.RAID_SCAFFOLDING ? 64 : 1);
         item.editMeta(meta -> {
             if (tool == Tool.BLAST_ROCKET) {
                 FireworkMeta rocket = (FireworkMeta) meta;

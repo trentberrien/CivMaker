@@ -66,6 +66,7 @@ final class SettlementVaults implements Listener {
     private final SettlementResources resources;
     private final NamespacedKey kitKey;
     private final NamespacedKey depositKey;
+    private final NamespacedKey depositWindowKey;
     private final NamespacedKey legacyDepositKey;
 
     SettlementVaults(CivMaker plugin, CivStore store, SettlementResources resources) {
@@ -74,6 +75,7 @@ final class SettlementVaults implements Listener {
         this.resources = resources;
         kitKey = new NamespacedKey(plugin, "settlement_vault_kit");
         depositKey = new NamespacedKey(plugin, "settlement_vault_last_deposit_tick");
+        depositWindowKey = new NamespacedKey(plugin, "settlement_vault_deposit_window");
         legacyDepositKey = new NamespacedKey(plugin, "settlement_vault_last_deposit");
     }
 
@@ -187,6 +189,10 @@ final class SettlementVaults implements Listener {
     private boolean register(Chest chest, Settlement settlement, Reward reward) {
         Block block = chest.getBlock();
         chest.getPersistentDataContainer().set(depositKey, PersistentDataType.LONG, block.getWorld().getFullTime());
+        var window = store.activeWindow(System.currentTimeMillis());
+        if (window != null) {
+            chest.getPersistentDataContainer().set(depositWindowKey, PersistentDataType.LONG, window.start());
+        }
         if (!chest.update(false, false)) {
             return false;
         }
@@ -219,6 +225,10 @@ final class SettlementVaults implements Listener {
             player.sendMessage("Look at a placed Settlement Vault within five blocks.");
             return;
         }
+        if (store.activeWindow(System.currentTimeMillis()) == null) {
+            player.sendMessage("Settlement Vaults only produce during raid hours. Open raids before scheduling a test deposit.");
+            return;
+        }
         deposit(block, settlement);
         Chest chest = (Chest) block.getState();
         Inventory inventory = chest.getSnapshotInventory();
@@ -228,7 +238,7 @@ final class SettlementVaults implements Listener {
                 long last = block.getWorld().getFullTime() - DAY_TICKS + TEST_DELAY_TICKS;
                 chest.getPersistentDataContainer().set(depositKey, PersistentDataType.LONG, last);
                 if (chest.update(false, false)) {
-                    player.sendMessage("Test deposit due in 1,200 world ticks (about one minute at normal speed).");
+                    player.sendMessage("Test deposit due in 1,200 world ticks (about one minute at normal speed), while this raid window remains open.");
                 } else {
                     player.sendMessage("Could not schedule the test deposit. Look at the vault and try again.");
                 }
@@ -243,8 +253,23 @@ final class SettlementVaults implements Listener {
         if (live == null || settlement.vault().reward == null) {
             return;
         }
+        var window = store.activeWindow(System.currentTimeMillis());
+        if (window == null) {
+            if (live.getPersistentDataContainer().has(depositWindowKey, PersistentDataType.LONG)) {
+                Chest chest = (Chest) block.getState();
+                chest.getPersistentDataContainer().remove(depositWindowKey);
+                chest.update(false, false);
+            }
+            return;
+        }
         long now = block.getWorld().getFullTime();
         Long last = live.getPersistentDataContainer().get(depositKey, PersistentDataType.LONG);
+        Long lastWindow = live.getPersistentDataContainer().get(depositWindowKey, PersistentDataType.LONG);
+        // Each raid starts a fresh cycle, including vaults unloaded throughout the off-hours.
+        // Existing vaults keep their contents but cannot cash in their old production backlog.
+        if (lastWindow == null || lastWindow.longValue() != window.start()) {
+            last = null;
+        }
         long elapsed = last == null ? 0 : Math.max(0, (now - last) / DAY_TICKS);
         if (last != null && elapsed == 0) {
             return;
@@ -259,9 +284,10 @@ final class SettlementVaults implements Listener {
                 days--;
             }
         }
-        // Start old wall-clock vaults on the current world tick and preserve their inventory.
+        // Start each new raid cycle on the current world tick and preserve stored items.
         var data = chest.getPersistentDataContainer();
         data.remove(legacyDepositKey);
+        data.set(depositWindowKey, PersistentDataType.LONG, window.start());
         // Advance even when full. The deposit time and items are saved together on the chest.
         data.set(depositKey, PersistentDataType.LONG, last == null ? now : last + elapsed * DAY_TICKS);
         chest.update(false, false);

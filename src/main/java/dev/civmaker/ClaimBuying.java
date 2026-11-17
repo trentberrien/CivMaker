@@ -136,6 +136,10 @@ final class ClaimBuying implements Listener {
             return;
         }
         Block block = event.getClickedBlock();
+        if (DragonEggs.placingOnCapital(event, store)) {
+            event.setUseInteractedBlock(org.bukkit.event.Event.Result.DENY);
+            return;
+        }
         Village capital = block == null || block.getType() != Material.BEACON ? null : store.claimAt(block);
         if (capital != null && capital.beacon.equals(Position.at(block))) {
             if (capital.expandedClaims && !capital.canManage(player.getUniqueId())) {

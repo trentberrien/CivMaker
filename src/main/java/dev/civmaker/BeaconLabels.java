@@ -21,6 +21,7 @@ final class BeaconLabels {
     private static final List<BlockFace> SIDES = List.of(BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST);
     private final CivMaker plugin;
     private final CivStore store;
+    private BeaconEscrow beaconEscrow;
     private final Map<Position, TextDisplay> labels = new HashMap<>();
 
     BeaconLabels(CivMaker plugin, CivStore store) {
@@ -28,11 +29,27 @@ final class BeaconLabels {
         this.store = store;
     }
 
+    void beaconEscrow(BeaconEscrow escrow) { this.beaconEscrow = escrow; }
+
     void refresh() {
         Set<Position> visible = new HashSet<>();
         for (var village : store.villages()) {
             TextColor color = TextColor.color(village.color);
-            refreshLabel(visible, village.beacon, Material.BEACON, Component.text(village.name + "'s beacon", color));
+            Component capitalLabel = Component.text(village.name + "'s beacon", color);
+            var window = store.activeWindow(System.currentTimeMillis());
+            if (beaconEscrow != null && window != null) {
+                capitalLabel = capitalLabel.append(Component.newline()).append(Component.text(
+                        "Offline funds: $" + String.format("%,d", beaconEscrow.total(village)), NamedTextColor.GOLD))
+                        .append(Component.newline()).append(Component.text(!store.raidCovers(village.beacon.plot())
+                                ? "Capital protected this raid" : beaconEscrow.looted(village, window)
+                                ? "Already looted this raid" : "Lockpick loot: 25% • once per raid", NamedTextColor.GRAY));
+            }
+            if (village.dragonEgg) {
+                capitalLabel = capitalLabel.append(Component.newline()).append(Component.text("Dragon Egg • +250 points", NamedTextColor.LIGHT_PURPLE))
+                        .append(Component.newline()).append(Component.text(village.eggProtected ? "Permanently protected"
+                                : "Raids defended: " + village.eggDefendedRaids + "/3", NamedTextColor.GOLD));
+            }
+            refreshLabel(visible, village.beacon, Material.BEACON, capitalLabel);
             for (var settlement : village.settlements) {
                 Position bell = settlement.bell();
                 World world = plugin.getServer().getWorld(bell.world());
@@ -71,8 +88,10 @@ final class BeaconLabels {
                 || world.getBlockAt(position.x(), position.y(), position.z()).getType() != type) {
             return;
         }
+        var capital = store.claimAt(plot);
+        double offset = type == Material.BEACON && capital != null && capital.dragonEgg ? 2.25 : 1.25;
         Location location = type == Material.BELL ? belowBell(world, position)
-                : new Location(world, position.x() + 0.5, position.y() + 1.25, position.z() + 0.5);
+                : new Location(world, position.x() + 0.5, position.y() + offset, position.z() + 0.5);
         if (location == null) {
             return;
         }

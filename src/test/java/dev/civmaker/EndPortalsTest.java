@@ -74,14 +74,14 @@ class EndPortalsTest {
         village = new Village("Test", UUID.randomUUID(), new Position(overworld.getUID(), 0, 80, 0));
         store.addVillage(village);
         store.addMember(village, member.getUniqueId());
-        // Four settlements plus the capital reach the existing 500-point threshold.
+        // Four settlements, the capital, and the settlement leader bonus exceed the 500-point threshold.
         for (int i = 1; i <= 4; i++) {
             Plot plot = new Plot(overworld.getUID(), i, 0);
             village.settlements.add(new CivStore.Settlement("minecraft:village_plains",
                     new Position(overworld.getUID(), i * 16, 80, 0), java.util.Set.of(plot)));
             store.addPlot(village, plot);
         }
-        assertEquals(500, village.points());
+        assertEquals(550, village.points());
         keeper = mock(Villager.class);
         when(keeper.getUniqueId()).thenReturn(UUID.randomUUID());
         // Register a discovered keeper without depending on stronghold generation.
