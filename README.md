@@ -231,7 +231,7 @@ A floating nametag shows the farm name above the owner's faction name in that fa
 
 ## Secure Vaults
 
-Use a **Secure Vault Kit** on a chest or trapped chest inside your own claim. Barrels and shulker boxes cannot be secured. The entire container, including both halves of a double chest, must be inside your village. A floating nameplate visible through walls identifies the vault, and its banknotes count toward the village balance. Withdrawals and theft reduce that balance. Previously unloaded vaults are counted when their chunks load.
+Use a **Secure Vault Kit** on a chest or trapped chest inside your own claim. Barrels and shulker boxes cannot be secured. The entire container, including both halves of a double chest, must be inside your village. A floating nameplate identifies the vault. Your faction always needs a clear view of its own vault labels. Outsiders can only see them through walls during raid hours when the claim is open to raids; otherwise, they also need a clear view. The vault's banknotes count toward the village balance. Withdrawals and theft reduce that balance. Previously unloaded vaults are counted when their chunks load.
 
 Only elders and owners can take banknotes or settlement currency out of their civilization's Secure Vaults. Ordinary members can still deposit funds and use non-currency contents. This restriction also covers shift-clicks, hotbar swaps, double-click collection, and containers holding currency. Breaking a vault containing currency cannot bypass the rank requirement. Raid lockpicking keeps its existing loot rules.
 

@@ -26,11 +26,22 @@ import java.util.Map;
 import java.util.Set;
 
 final class VaultTracking implements Listener {
+    private record Label(TextDisplay normal, TextDisplay throughWalls) {
+        boolean isValid() {
+            return normal.isValid() && throughWalls.isValid();
+        }
+
+        void remove() {
+            normal.remove();
+            throughWalls.remove();
+        }
+    }
+
     private final CivMaker plugin;
     private final CivStore store;
     private final RaidEquipment equipment;
     private final Notes notes;
-    private final Map<Position, TextDisplay> labels = new HashMap<>();
+    private final Map<Position, Label> labels = new HashMap<>();
 
     VaultTracking(CivMaker plugin, CivStore store, RaidEquipment equipment, Notes notes) {
         this.plugin = plugin;
@@ -102,7 +113,7 @@ final class VaultTracking implements Listener {
                     Integer.MAX_VALUE);
             balance += Math.min(contents, Long.MAX_VALUE - balance);
             if (visible != null && visible.add(Position.at(marker))) {
-                showLabel(marker);
+                showLabel(marker, village);
             }
         }
         store.updateVaultBalance(plot, balance);
@@ -116,24 +127,40 @@ final class VaultTracking implements Listener {
         return storage != null && (equipment.isVault(block) || equipment.reinforce(storage));
     }
 
-    private void showLabel(Block block) {
+    private void showLabel(Block block, Village village) {
         Position position = Position.at(block);
-        TextDisplay current = labels.get(position);
+        Label current = labels.get(position);
         if (current == null || !current.isValid()) {
+            if (current != null) {
+                current.remove();
+            }
             var world = block.getWorld();
             Location above = new Location(world, position.x() + 0.5, position.y() + 1.05, position.z() + 0.5);
-            labels.put(position, world.spawn(above, TextDisplay.class, display -> {
-                display.setPersistent(false);
-                display.setBillboard(Display.Billboard.CENTER);
-                display.setShadowed(true);
-                display.setSeeThrough(true);
-                display.text(Component.text("Secure Vault", NamedTextColor.GREEN));
-            }));
+            current = new Label(spawnLabel(above, false), spawnLabel(above, true));
+            labels.put(position, current);
+        }
+        boolean raidable = store.activeWindow(System.currentTimeMillis()) != null && store.raidCovers(position.plot());
+        for (var viewer : block.getWorld().getPlayers()) {
+            boolean throughWalls = raidable && store.memberOf(viewer.getUniqueId()) != village;
+            viewer.hideEntity(plugin, throughWalls ? current.normal() : current.throughWalls());
+            viewer.showEntity(plugin, throughWalls ? current.throughWalls() : current.normal());
         }
     }
 
+    private TextDisplay spawnLabel(Location location, boolean throughWalls) {
+        return location.getWorld().spawn(location, TextDisplay.class, display -> {
+            display.setPersistent(false);
+            // Both variants start hidden so joins never briefly reveal a vault through walls.
+            display.setVisibleByDefault(false);
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(throughWalls);
+            display.text(Component.text("Secure Vault", NamedTextColor.GREEN));
+        });
+    }
+
     void clear() {
-        labels.values().forEach(TextDisplay::remove);
+        labels.values().forEach(Label::remove);
         labels.clear();
     }
 }
