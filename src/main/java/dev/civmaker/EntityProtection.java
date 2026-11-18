@@ -44,11 +44,13 @@ final class EntityProtection implements Listener {
     private final CivStore store;
     private final NaturalVillages natural;
     private final PillagerGuards guards;
+    private final DefenderGolems defenders;
 
-    EntityProtection(CivStore store, NaturalVillages natural, PillagerGuards guards) {
+    EntityProtection(CivStore store, NaturalVillages natural, PillagerGuards guards, DefenderGolems defenders) {
         this.store = store;
         this.natural = natural;
         this.guards = guards;
+        this.defenders = defenders;
     }
 
     static UUID playerSource(Entity source) {
@@ -115,6 +117,8 @@ final class EntityProtection implements Listener {
     void damage(EntityDamageEvent event) {
         Entity target = event.getEntity();
         DamageSource source = event.getDamageSource();
+        // Defender targeting checks the mounted raiders, stance, and raid coverage for both combatants.
+        if (source != null && defenders.canDamageHappyGhast(source.getCausingEntity(), target)) return;
         UUID player = playerSource(source);
         boolean causedByEntity = source != null && (source.getCausingEntity() != null || source.getDirectEntity() != null);
         boolean explosion = event.getCause() == EntityDamageEvent.DamageCause.ENTITY_EXPLOSION

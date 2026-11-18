@@ -64,7 +64,11 @@ final class CivStore {
         }
     }
 
-    record RaidScaffold(Position position, Window window, long clearAt) {}
+    record RaidScaffold(Position position, Window window, long clearAt, UUID fallingEntity) {
+        RaidScaffold(Position position, Window window, long clearAt) {
+            this(position, window, clearAt, null);
+        }
+    }
 
     record ClaimPurchase(Plot plot, long price) {}
     record WarpPortal(Position spot, Position portal) {
@@ -211,6 +215,7 @@ final class CivStore {
     private final Map<UUID, Village> memberships = new HashMap<>();
     private final Map<UUID, Village> allegiances = new HashMap<>();
     private final Map<Position, RaidScaffold> raidScaffolding = new LinkedHashMap<>();
+    private final Map<UUID, RaidScaffold> fallingRaidScaffolding = new LinkedHashMap<>();
     boolean dirty = true;
 
     CivStore(Path directory) throws IOException {
@@ -227,7 +232,11 @@ final class CivStore {
         if (data.raidPlayerKills == null) data.raidPlayerKills = new LinkedHashMap<>();
         if (data.raidScaffolding != null) {
             for (RaidScaffold scaffold : data.raidScaffolding) {
-                raidScaffolding.put(scaffold.position(), scaffold);
+                if (scaffold.fallingEntity() == null) {
+                    raidScaffolding.put(scaffold.position(), scaffold);
+                } else {
+                    fallingRaidScaffolding.put(scaffold.fallingEntity(), scaffold);
+                }
             }
         }
         for (Position bell : data.naturalBells) {
@@ -581,7 +590,38 @@ final class CivStore {
     }
 
     Collection<RaidScaffold> raidScaffolding() {
-        return List.copyOf(raidScaffolding.values());
+        var scaffolds = new ArrayList<>(raidScaffolding.values());
+        scaffolds.addAll(fallingRaidScaffolding.values());
+        return List.copyOf(scaffolds);
+    }
+
+    RaidScaffold fallingRaidScaffolding(UUID entity) {
+        return fallingRaidScaffolding.get(entity);
+    }
+
+    RaidScaffold raidScaffoldingAt(Position position) {
+        return raidScaffolding.get(position);
+    }
+
+    void startRaidScaffoldingFall(Position position, UUID entity) {
+        RaidScaffold scaffold = raidScaffolding.remove(position);
+        if (scaffold != null) {
+            fallingRaidScaffolding.put(entity,
+                    new RaidScaffold(position, scaffold.window(), scaffold.clearAt(), entity));
+            dirty = true;
+        }
+    }
+
+    void landRaidScaffolding(UUID entity, Position position) {
+        RaidScaffold scaffold = fallingRaidScaffolding.remove(entity);
+        if (scaffold != null) {
+            raidScaffolding.put(position, new RaidScaffold(position, scaffold.window(), scaffold.clearAt()));
+            dirty = true;
+        }
+    }
+
+    void forgetFallingRaidScaffolding(UUID entity) {
+        if (fallingRaidScaffolding.remove(entity) != null) dirty = true;
     }
 
     boolean isRaidScaffolding(Block block) {
@@ -604,15 +644,18 @@ final class CivStore {
 
     void closeRaidScaffoldingWindows(long now) {
         Window active = activeWindow(now);
-        raidScaffolding.replaceAll((position, scaffold) -> {
-            // A manual close or schedule change can end a window before its saved end time.
-            long clearAt = now + RaidScaffolding.CLEAR_DELAY;
-            if (!scaffold.window().equals(active) && scaffold.clearAt() > clearAt) {
-                dirty = true;
-                return new RaidScaffold(position, scaffold.window(), clearAt);
-            }
-            return scaffold;
-        });
+        raidScaffolding.replaceAll((position, scaffold) -> closeRaidScaffoldingWindow(scaffold, active, now));
+        fallingRaidScaffolding.replaceAll((entity, scaffold) -> closeRaidScaffoldingWindow(scaffold, active, now));
+    }
+
+    private RaidScaffold closeRaidScaffoldingWindow(RaidScaffold scaffold, Window active, long now) {
+        // A manual close or schedule change can end a window before its saved end time.
+        long clearAt = now + RaidScaffolding.CLEAR_DELAY;
+        if (!scaffold.window().equals(active) && scaffold.clearAt() > clearAt) {
+            dirty = true;
+            return new RaidScaffold(scaffold.position(), scaffold.window(), clearAt, scaffold.fallingEntity());
+        }
+        return scaffold;
     }
 
     private Window scheduledWindow(long now) {
@@ -789,7 +832,7 @@ final class CivStore {
     }
 
     void save() throws IOException {
-        data.raidScaffolding = List.copyOf(raidScaffolding.values());
+        data.raidScaffolding = List.copyOf(raidScaffolding());
         data.vaultFunds = vaultBalances.entrySet().stream()
                 .map(entry -> new VaultFunds(entry.getKey(), entry.getValue())).toList();
         data.farmStations = List.copyOf(farmStations.values());

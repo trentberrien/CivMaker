@@ -11,16 +11,21 @@ import org.bukkit.boss.BossBar;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.entity.Creeper;
+import org.bukkit.entity.Firework;
+import org.bukkit.entity.HappyGhast;
 import org.bukkit.entity.IronGolem;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Pillager;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TNTPrimed;
 import org.bukkit.entity.Zombie;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.util.Vector;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -137,6 +142,116 @@ class DefenderGolemsTest {
         assertFalse(hostile(guard, combat, true));
     }
 
+    private Combat mountedCombat() throws Exception {
+        Combat combat = combat();
+        var loaded = DefenderGolems.class.getDeclaredField("loaded");
+        loaded.setAccessible(true);
+        @SuppressWarnings("unchecked") var tracked = (Map<IronGolem, Object>) loaded.get(defenders);
+        tracked.put(golem, combat.defender());
+        when(store.claimAt(combat.village().beacon.plot())).thenReturn(combat.village());
+        when(store.activeWindow(anyLong())).thenReturn(new CivStore.Window(1, Long.MAX_VALUE));
+        when(store.raidCovers(any())).thenReturn(true);
+        PersistentDataContainer data = mock(PersistentDataContainer.class);
+        when(golem.getPersistentDataContainer()).thenReturn(data);
+        when(data.getOrDefault(any(), eq(PersistentDataType.BOOLEAN), eq(false))).thenReturn(true);
+        return combat;
+    }
+
+    private Player rider(Combat combat) {
+        Player player = mock(Player.class);
+        when(player.getUniqueId()).thenReturn(UUID.randomUUID());
+        when(player.getWorld()).thenReturn(combat.world());
+        when(player.getLocation()).thenReturn(new Location(combat.world(), 18, 90, 0));
+        when(player.getGameMode()).thenReturn(GameMode.SURVIVAL);
+        when(player.isValid()).thenReturn(true);
+        return player;
+    }
+
+    private HappyGhast mount(Combat combat, Player... riders) {
+        HappyGhast ghast = mock(HappyGhast.class);
+        when(ghast.getWorld()).thenReturn(combat.world());
+        when(ghast.getLocation()).thenReturn(new Location(combat.world(), 18, 86, 0));
+        when(ghast.isValid()).thenReturn(true);
+        when(ghast.getPassengers()).thenReturn(List.of(riders));
+        for (Player rider : riders) when(rider.getVehicle()).thenReturn(ghast);
+        return ghast;
+    }
+
+    @Test void happyGhastTargetingFollowsItsRidersAndRetaliationStance() throws Exception {
+        Combat combat = mountedCombat();
+        Player enemy = rider(combat);
+        HappyGhast ghast = mount(combat, enemy);
+        assertTrue(hostile(ghast, combat, true));
+        assertFalse(hostile(ghast, combat, false));
+        var field = combat.defender().getClass().getDeclaredField("raidAggro");
+        field.setAccessible(true);
+        DefenseStance.RaidAggro aggro = (DefenseStance.RaidAggro) field.get(combat.defender());
+        when(aggro.includes(1, enemy, null)).thenReturn(true);
+        assertTrue(hostile(ghast, combat, false));
+        when(store.memberOf(enemy.getUniqueId())).thenReturn(combat.village());
+        assertFalse(hostile(ghast, combat, true));
+        when(ghast.getPassengers()).thenReturn(List.of());
+        assertFalse(hostile(ghast, combat, true));
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void boulderHitsDamageBothHappyGhastAndEnemyRiders(boolean hitRider) throws Exception {
+        Combat combat = mountedCombat();
+        Player enemy = rider(combat);
+        Player friendly = rider(combat);
+        when(store.memberOf(friendly.getUniqueId())).thenReturn(combat.village());
+        Player spectator = rider(combat);
+        when(spectator.getGameMode()).thenReturn(GameMode.SPECTATOR);
+        HappyGhast ghast = mount(combat, enemy, friendly, spectator);
+        DamageSource.Builder builder = mock(DamageSource.Builder.class);
+        DamageSource source = mock(DamageSource.class);
+        when(builder.withDamageLocation(any())).thenReturn(builder);
+        when(builder.build()).thenReturn(source);
+        defenders.damageBoulder(golem, hitRider ? enemy : ghast, 15, builder, new Vector(1, 0, 0));
+        verify(ghast).damage(15, source);
+        verify(enemy).damage(15, source);
+        verify(friendly, never()).damage(anyDouble(), any(DamageSource.class));
+        verify(spectator, never()).damage(anyDouble(), any(DamageSource.class));
+        verify(builder).withDamageLocation(new Location(combat.world(), 17, 86, 0));
+        verify(builder).withDamageLocation(new Location(combat.world(), 17, 90, 0));
+    }
+
+    @Test void mountedCombatRemainsSubjectToRaidCoverageAndPlayerModes() throws Exception {
+        Combat combat = mountedCombat();
+        Player enemy = rider(combat);
+        HappyGhast ghast = mount(combat, enemy);
+        assertTrue(defenders.canDamageHappyGhast(golem, ghast));
+        when(enemy.getGameMode()).thenReturn(GameMode.CREATIVE);
+        assertFalse(defenders.canDamageHappyGhast(golem, ghast));
+        when(enemy.getGameMode()).thenReturn(GameMode.SURVIVAL);
+        when(store.raidCovers(CivStore.Plot.at(ghast.getLocation()))).thenReturn(false);
+        assertFalse(defenders.canDamageHappyGhast(golem, ghast));
+        when(store.raidCovers(any())).thenReturn(true);
+        when(store.raidCovers(combat.village().beacon.plot())).thenReturn(false);
+        assertFalse(defenders.canDamageHappyGhast(golem, ghast));
+        when(store.raidCovers(any())).thenReturn(true);
+        when(store.activeWindow(anyLong())).thenReturn(null);
+        assertFalse(defenders.canDamageHappyGhast(golem, ghast));
+    }
+
+    @Test void protectionAndGolemDamageHandlersAllowBouldersToHitGhastsAndRiders() throws Exception {
+        Combat combat = mountedCombat();
+        Player enemy = rider(combat);
+        HappyGhast ghast = mount(combat, enemy);
+        EntityProtection protection = new EntityProtection(store, mock(NaturalVillages.class), guards, defenders);
+        for (LivingEntity target : List.of(ghast, enemy)) {
+            DamageSource source = mock(DamageSource.class);
+            when(source.getCausingEntity()).thenReturn(golem);
+            when(source.getDirectEntity()).thenReturn(mock(org.bukkit.entity.BlockDisplay.class));
+            EntityDamageEvent event = mock(EntityDamageEvent.class);
+            when(event.getEntity()).thenReturn(target);
+            when(event.getDamageSource()).thenReturn(source);
+            protection.damage(event);
+            defenders.damage(event);
+            verify(event, never()).setCancelled(true);
+        }
+    }
+
     @Test void ordinaryGolemsAndPlayerTargetsUseNormalTargeting() {
         Zombie zombie = mock(Zombie.class);
         var ordinary = new EntityTargetLivingEntityEvent(zombie, mock(IronGolem.class),
@@ -194,6 +309,42 @@ class DefenderGolemsTest {
         DamageSource source = mock(DamageSource.class);
         when(source.getCausingEntity()).thenReturn(mock(Zombie.class));
         when(event.getEntity()).thenReturn(mock(IronGolem.class));
+        when(event.getDamageSource()).thenReturn(source);
+        defenders.damage(event);
+        verify(event, never()).setCancelled(anyBoolean());
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void rocketsCannotDamageDefendersAsDirectOrCausingEntities(boolean direct) {
+        Firework rocket = mock(Firework.class);
+        DamageSource source = mock(DamageSource.class);
+        when(source.getDirectEntity()).thenReturn(direct ? rocket : null);
+        when(source.getCausingEntity()).thenReturn(direct ? mock(Player.class) : rocket);
+        EntityDamageEvent event = mock(EntityDamageEvent.class);
+        when(event.getEntity()).thenReturn(golem);
+        when(event.getDamageSource()).thenReturn(source);
+        defenders.damage(event);
+        verify(event).setCancelled(true);
+    }
+
+    @Test void rocketImmunityDoesNotApplyToOrdinaryGolemsOrPlayers() {
+        DamageSource source = mock(DamageSource.class);
+        when(source.getDirectEntity()).thenReturn(mock(Firework.class));
+        when(source.getCausingEntity()).thenReturn(mock(Player.class));
+        for (LivingEntity target : List.of(mock(IronGolem.class), mock(Player.class))) {
+            EntityDamageEvent event = mock(EntityDamageEvent.class);
+            when(event.getEntity()).thenReturn(target);
+            when(event.getDamageSource()).thenReturn(source);
+            defenders.damage(event);
+            verify(event, never()).setCancelled(anyBoolean());
+        }
+    }
+
+    @Test void rocketImmunityDoesNotBlockTntDamage() {
+        DamageSource source = mock(DamageSource.class);
+        when(source.getDirectEntity()).thenReturn(mock(TNTPrimed.class));
+        EntityDamageEvent event = mock(EntityDamageEvent.class);
+        when(event.getEntity()).thenReturn(golem);
         when(event.getDamageSource()).thenReturn(source);
         defenders.damage(event);
         verify(event, never()).setCancelled(anyBoolean());

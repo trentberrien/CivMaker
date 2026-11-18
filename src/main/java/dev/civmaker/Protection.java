@@ -14,6 +14,7 @@ import org.bukkit.block.DoubleChest;
 import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.Door;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TNTPrimed;
@@ -119,8 +120,9 @@ final class Protection implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void place(BlockPlaceEvent event) {
         if (equipment.identify(event.getItemInHand()) == RaidEquipment.Tool.RAID_SCAFFOLDING) {
-            if (!canPlaceRaidScaffolding(event.getPlayer(), event.getBlockPlaced())
-                    || event instanceof BlockMultiPlaceEvent) {
+            if (RaidScaffolding.placementStates(event).stream().anyMatch(state ->
+                    !RaidScaffolding.connectionUpdate(state)
+                            && !canPlaceRaidScaffolding(event.getPlayer(), state.getBlock()))) {
                 event.setCancelled(true);
                 event.getPlayer().sendMessage("Place Raid Scaffolding during a raid in a plot open to raids, away from protected fixtures.");
             }
@@ -173,9 +175,12 @@ final class Protection implements Listener {
         if (block != null && event.getAction() == Action.PHYSICAL && block.getType() == Material.TRIPWIRE) return;
         if (block != null && event.getAction() == Action.RIGHT_CLICK_BLOCK
                 && equipment.identify(event.getItem()) == RaidEquipment.Tool.RAID_SCAFFOLDING
-                && event.useItemInHand() != org.bukkit.event.Event.Result.DENY) {
-            // Let vanilla resolve scaffolding's actual placement target; place() checks that target.
-            event.setUseInteractedBlock(org.bukkit.event.Event.Result.DENY);
+                && event.useItemInHand() != org.bukkit.event.Event.Result.DENY
+                && (block.getType() == Material.SCAFFOLDING || !block.getType().isInteractable()
+                || event.getPlayer().isSneaking())) {
+            // Paper returns before item placement when block use is DENY. Keep native placement
+            // (including scaffolding extension/sneaking) and check its resolved targets in place().
+            // Interactive blocks still require sneaking, as with ordinary block items.
             event.setUseItemInHand(org.bukkit.event.Event.Result.ALLOW);
             return;
         }
@@ -315,6 +320,22 @@ final class Protection implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void entityChange(EntityChangeBlockEvent event) {
         Block block = event.getBlock();
+        if (event.getEntity() instanceof FallingBlock falling
+                && falling.getBlockData().getMaterial() == Material.SCAFFOLDING) {
+            if (store.isRaidScaffolding(block)
+                    && (event.getTo() == Material.AIR || event.getTo() == Material.WATER)) {
+                return;
+            }
+            var scaffold = store.fallingRaidScaffolding(falling.getUniqueId());
+            if (scaffold != null) {
+                long now = System.currentTimeMillis();
+                if (event.getTo() != Material.SCAFFOLDING || scaffold.clearAt() <= now
+                        || !scaffold.window().equals(store.activeWindow(now)) || !raidScaffoldingSite(block)) {
+                    event.setCancelled(true);
+                }
+                return;
+            }
+        }
         if (event.getEntity() instanceof Player player && farmlandChange(block.getType(), event.getTo())
                 && farmingMember(player, block) && !store.isClaimAnchor(store.protectedClaimAt(block), block)
                 && !store.isSettlementFixture(block)) {
@@ -344,6 +365,7 @@ final class Protection implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void destroy(BlockDestroyEvent event) {
+        if (store.isRaidScaffolding(event.getBlock())) return;
         if (store.eggAt(event.getBlock()) != null || store.isSettlementFixture(event.getBlock())
                 || naturalPlot(event.getBlock()) || settlementAccess(event.getBlock())) {
             event.setCancelled(true);
@@ -414,6 +436,10 @@ final class Protection implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void fade(BlockFadeEvent event) {
+        if (store.isRaidScaffolding(event.getBlock())
+                && (event.getNewState().getType() == Material.AIR || event.getNewState().getType() == Material.WATER)) {
+            return;
+        }
         if (event.getBlock().getType() == Material.FARMLAND && event.getNewState().getType() == Material.DIRT
                 && !store.isSettlementFixture(event.getBlock())) {
             return;
@@ -503,7 +529,11 @@ final class Protection implements Listener {
     private boolean canPlaceRaidScaffolding(Player player, Block block) {
         return block.getType() == Material.SCAFFOLDING && player.getGameMode() == org.bukkit.GameMode.SURVIVAL
                 && store.activeWindow(System.currentTimeMillis()) != null
-                && !store.raidRestricted(player.getUniqueId()) && store.raidCovers(Plot.at(block))
+                && !store.raidRestricted(player.getUniqueId()) && raidScaffoldingSite(block);
+    }
+
+    private boolean raidScaffoldingSite(Block block) {
+        return store.raidCovers(Plot.at(block))
                 && !naturalPlot(block) && !beaconColumn(block) && !store.isSettlementFixture(block);
     }
 

@@ -30,6 +30,8 @@ import org.bukkit.entity.Arrow;
 import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.Enemy;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Firework;
+import org.bukkit.entity.HappyGhast;
 import org.bukkit.entity.IronGolem;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Mob;
@@ -558,10 +560,8 @@ final class DefenderGolems implements Listener {
             // Vanilla iron golems add a random integer below attack damage to half the attribute value.
             int spread = (int) attack;
             float damage = spread > 0 ? attack / 2 + ThreadLocalRandom.current().nextInt(spread) : attack;
-            // Vanilla shields check the incoming direction, even when the boulder grazes the target.
-            Location incoming = target.getLocation().subtract(velocity);
-            target.damage(damage, DamageSource.builder(DamageType.MOB_PROJECTILE)
-                    .withDirectEntity(boulder.display()).withCausingEntity(boulder.golem()).withDamageLocation(incoming).build());
+            damageBoulder(boulder.golem(), target, damage, DamageSource.builder(DamageType.MOB_PROJECTILE)
+                    .withDirectEntity(boulder.display()).withCausingEntity(boulder.golem()), velocity);
             boulderImpact(impact);
             return false;
         }
@@ -571,6 +571,40 @@ final class DefenderGolems implements Listener {
         }
         velocity.setY(velocity.getY() - BOULDER_GRAVITY);
         return boulder.display().teleport(end);
+    }
+
+    void damageBoulder(IronGolem golem, LivingEntity hit, double damage, DamageSource.Builder source, Vector velocity) {
+        Defender defender = loaded.get(golem);
+        if (defender == null) return;
+        Village village = owner(defender);
+        boolean alwaysHostile = alwaysHostile(golem, defender);
+        var window = store.activeWindow(System.currentTimeMillis());
+        HappyGhast ghast = hit instanceof HappyGhast mount ? mount
+                : hit instanceof Player && hit.getVehicle() instanceof HappyGhast mount ? mount : null;
+        List<LivingEntity> targets = new ArrayList<>();
+        if (ghast == null) {
+            targets.add(hit);
+        } else {
+            targets.add(ghast);
+            for (Entity passenger : ghast.getPassengers()) {
+                if (passenger instanceof Player rider) targets.add(rider);
+            }
+        }
+        for (LivingEntity target : targets) {
+            if (isHostile(target, defender, village, alwaysHostile, window)) {
+                // Check each rider separately so faction members and spectators remain protected.
+                // Vanilla shields use the incoming direction, even when the boulder grazes its target.
+                Location incoming = target.getLocation().subtract(velocity);
+                target.damage(damage, source.withDamageLocation(incoming).build());
+            }
+        }
+    }
+
+    boolean canDamageHappyGhast(Entity attacker, Entity target) {
+        if (!(attacker instanceof IronGolem golem) || !(target instanceof HappyGhast ghast)) return false;
+        Defender defender = loaded.get(golem);
+        return defender != null && isHostile(ghast, defender, owner(defender), alwaysHostile(golem, defender),
+                store.activeWindow(System.currentTimeMillis()));
     }
 
     private static double wallDistance(Location start, Location end, Vector velocity, double distance) {
@@ -632,7 +666,8 @@ final class DefenderGolems implements Listener {
         Defender victim = loaded.get(event.getEntity());
         Entity direct = event.getDamageSource().getDirectEntity();
         Entity source = event.getDamageSource().getCausingEntity();
-        if (victim != null && (direct instanceof Arrow || direct instanceof SpectralArrow || source instanceof Enemy)) {
+        if (victim != null && (direct instanceof Arrow || direct instanceof SpectralArrow
+                || direct instanceof Firework || source instanceof Firework || source instanceof Enemy)) {
             event.setCancelled(true);
             return;
         }
@@ -682,6 +717,11 @@ final class DefenderGolems implements Listener {
 
     private boolean isHostile(LivingEntity target, Defender defender, Village village, boolean alwaysHostile,
                               CivStore.Window window) {
+        if (target instanceof HappyGhast ghast) {
+            return canFight(ghast, defender, village) && raidAllowsCombat(defender, ghast)
+                    && ghast.getPassengers().stream().anyMatch(passenger -> passenger instanceof Player rider
+                    && isHostile(rider, defender, village, alwaysHostile, window));
+        }
         boolean hostile;
         if (alwaysHostile) {
             hostile = target instanceof Player || target instanceof Enemy;

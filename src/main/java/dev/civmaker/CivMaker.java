@@ -121,7 +121,7 @@ public class CivMaker extends JavaPlugin {
         FarmStationLoot farmStationLoot = new FarmStationLoot(this);
         FarmStations farmStations = new FarmStations(this, store, farmStationLoot);
         Protection protection = new Protection(store, equipment, vaultDoors, natural, defenders, farmStations);
-        RaidScaffolding raidScaffolding = new RaidScaffolding(store, equipment);
+        RaidScaffolding raidScaffolding = new RaidScaffolding(this, store, equipment);
         DragonEggs dragonEggs = new DragonEggs(this, store);
         RaidShields shields = new RaidShields(this, store, equipment);
         FoundingBeacons foundingBeacons = new FoundingBeacons(this, store, wallets, natural);
@@ -147,7 +147,7 @@ public class CivMaker extends JavaPlugin {
         events.registerEvents(protection, this);
         events.registerEvents(raidScaffolding, this);
         events.registerEvents(dragonEggs, this);
-        events.registerEvents(new EntityProtection(store, natural, guards), this);
+        events.registerEvents(new EntityProtection(store, natural, guards, defenders), this);
         events.registerEvents(farmStations, this);
         events.registerEvents(new FarmHarvests(this, farmStations), this);
         events.registerEvents(foundingBeacons, this);

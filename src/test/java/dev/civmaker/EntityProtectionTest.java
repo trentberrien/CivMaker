@@ -39,6 +39,7 @@ class EntityProtectionTest {
     private CivStore store;
     private NaturalVillages natural;
     private PillagerGuards guards;
+    private DefenderGolems defenders;
     private EntityProtection protection;
     private CivStore.Village village;
     private Player outsider;
@@ -50,7 +51,8 @@ class EntityProtectionTest {
         store = mock(CivStore.class);
         natural = mock(NaturalVillages.class);
         guards = mock(PillagerGuards.class);
-        protection = new EntityProtection(store, natural, guards);
+        defenders = mock(DefenderGolems.class);
+        protection = new EntityProtection(store, natural, guards, defenders);
         world = mock(World.class);
         when(world.getUID()).thenReturn(UUID.randomUUID());
         block = mock(Block.class);
@@ -82,6 +84,16 @@ class EntityProtectionTest {
     private void openRaid() {
         when(store.activeWindow(anyLong())).thenReturn(new CivStore.Window(1, Long.MAX_VALUE));
         when(store.raidCovers(any())).thenReturn(true);
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {false, true})
+    void happyGhastDamageRequiresAnAuthorizedDefenderAttack(boolean authorized) {
+        HappyGhast ghast = entity(HappyGhast.class);
+        IronGolem golem = entity(IronGolem.class);
+        when(defenders.canDamageHappyGhast(golem, ghast)).thenReturn(authorized);
+        var event = hit(ghast, golem);
+        protection.damage(event);
+        assertEquals(!authorized, event.isCancelled());
     }
 
     @Test void peacetimeProtectsInhabitantsDecorationsAndVehiclesButPreservesMemberAccess() {

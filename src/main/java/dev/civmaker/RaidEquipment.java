@@ -9,6 +9,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.FireworkEffect;
+import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Tag;
@@ -18,6 +19,7 @@ import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
 import org.bukkit.block.Container;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.AbstractHorse;
 import org.bukkit.entity.Camel;
 import org.bukkit.entity.Donkey;
@@ -38,12 +40,17 @@ import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.random.RandomGenerator;
 
 final class RaidEquipment implements Listener {
     private static final String HARNESS_HEALTH_LORE = "Increases max health to five times normal.";
+    private static final int HARNESS_DURABILITY = 432;
     private static final double MAX_HORSE_SPEED = 0.3375;
     private static final double MAX_HORSE_JUMP = 1.0;
     private static final double SADDLED_HORSE_MAX_HEALTH = 96.0;
@@ -74,7 +81,9 @@ final class RaidEquipment implements Listener {
         GRENADE("grenade", "Grenade", Material.TNT, NamedTextColor.RED,
                 "Right-click to throw lit TNT with a five-second fuse.", "Can be thrown from a Happy Ghast."),
         HAPPY_HARNESS("happy_harness", "Happy Harness", Material.YELLOW_HARNESS, NamedTextColor.GOLD,
-                "Doubles a Happy Ghast's flying speed under a player's control.", HARNESS_HEALTH_LORE),
+                "Doubles a Happy Ghast's flying speed under a player's control.", HARNESS_HEALTH_LORE,
+                "Elytra durability with Unbreaking III; wears during piloted flight.",
+                "Bonuses stop when worn out. Repair with phantom membranes at an anvil."),
         BLAST_ROCKET("blast_rocket", "Blast Rockets", Material.FIREWORK_ROCKET, NamedTextColor.LIGHT_PURPLE,
                 "Crossbow ammo with a TNT-sized blast.", "A close hit can take out an unarmored player."),
         SUPER_TOTEM("super_totem", "Super Totem", Material.TOTEM_OF_UNDYING, NamedTextColor.GOLD,
@@ -120,8 +129,15 @@ final class RaidEquipment implements Listener {
     private final AttributeModifier saddleHealth;
     private final Set<LivingEntity> riddenSpeedBoosts = new HashSet<>();
     private final Set<Camel> camelDashReleases = new HashSet<>();
+    private final Map<HappyGhast, Integer> harnessFlightTicks = new HashMap<>();
+    private final RandomGenerator harnessRandom;
 
     RaidEquipment(CivMaker plugin) {
+        this(plugin, ThreadLocalRandom.current());
+    }
+
+    RaidEquipment(CivMaker plugin, RandomGenerator harnessRandom) {
+        this.harnessRandom = harnessRandom;
         itemKey = new NamespacedKey(plugin, "raid_item_v1");
         vaultKey = new NamespacedKey(plugin, "secure_vault_v1");
         legacyHarnessSpeedKey = new NamespacedKey(plugin, "happy_harness_speed");
@@ -163,6 +179,8 @@ final class RaidEquipment implements Listener {
         });
         if (tool == Tool.SUPER_TOTEM) {
             item.unsetData(DataComponentTypes.DEATH_PROTECTION);
+        } else if (tool == Tool.HAPPY_HARNESS) {
+            prepareHarness(item);
         }
         return item;
     }
@@ -205,6 +223,7 @@ final class RaidEquipment implements Listener {
         var item = equipment.getItem(EquipmentSlot.BODY);
         boolean equipped = identify(item) == Tool.HAPPY_HARNESS;
         if (equipped) {
+            boolean changed = prepareHarness(item);
             // Older harnesses applied their speed modifier directly from the item.
             var meta = item.getItemMeta();
             var modifiers = meta.getAttributeModifiers(Attribute.FLYING_SPEED);
@@ -213,19 +232,83 @@ final class RaidEquipment implements Listener {
                     if (modifier.getKey().equals(legacyHarnessSpeedKey)) {
                         meta.removeAttributeModifier(Attribute.FLYING_SPEED, modifier);
                         item.setItemMeta(meta);
-                        equipment.setItem(EquipmentSlot.BODY, item);
+                        changed = true;
                         break;
                     }
                 }
+            }
+            if (changed) {
+                equipment.setItem(EquipmentSlot.BODY, item);
             }
             var speed = ghast.getAttribute(Attribute.FLYING_SPEED);
             if (speed.getModifier(legacyHarnessSpeedKey) != null) {
                 speed.removeModifier(legacyHarnessSpeedKey);
             }
-        } else {
+        }
+        equipped = equipped && harnessUsable(item);
+        if (!equipped) {
             clearRiddenSpeed(ghast);
+            harnessFlightTicks.remove(ghast);
         }
         syncMountHealth(ghast, harnessHealth, equipped);
+    }
+
+    // Apply durability to old harnesses when equipped or loaded, preserving existing wear.
+    private boolean prepareHarness(ItemStack item) {
+        boolean changed = false;
+        if (!item.hasData(DataComponentTypes.MAX_DAMAGE)) {
+            item.setData(DataComponentTypes.MAX_STACK_SIZE, 1);
+            item.setData(DataComponentTypes.MAX_DAMAGE, HARNESS_DURABILITY);
+            item.setData(DataComponentTypes.DAMAGE, 0);
+            changed = true;
+        }
+        if (item.getEnchantmentLevel(Enchantment.UNBREAKING) < 3) {
+            item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
+            changed = true;
+        }
+        if (!item.hasData(DataComponentTypes.REPAIRABLE)) {
+            item.setData(DataComponentTypes.REPAIRABLE, new ItemStack(Material.ELYTRA).getData(DataComponentTypes.REPAIRABLE));
+            changed = true;
+        }
+        var equippable = item.getData(DataComponentTypes.EQUIPPABLE);
+        if (equippable != null && equippable.damageOnHurt()) {
+            item.setData(DataComponentTypes.EQUIPPABLE, equippable.toBuilder().damageOnHurt(false).build());
+            changed = true;
+        }
+        return changed;
+    }
+
+    private boolean harnessUsable(ItemStack item) {
+        // Like elytra, leave the item intact at one durability so it can be repaired.
+        return item.getDataOrDefault(DataComponentTypes.DAMAGE, 0) < HARNESS_DURABILITY - 1;
+    }
+
+    private boolean tickHarness(HappyGhast ghast, Player pilot) {
+        ItemStack item = ghast.getEquipment().getItem(EquipmentSlot.BODY);
+        if (!harnessUsable(item)) {
+            return false;
+        }
+        if (ghast.isOnGround() || pilot.getGameMode() == GameMode.CREATIVE
+                || pilot.getGameMode() == GameMode.SPECTATOR) {
+            harnessFlightTicks.remove(ghast);
+            return true;
+        }
+        if (harnessFlightTicks.merge(ghast, 1, Integer::sum) < 20) {
+            return true;
+        }
+        harnessFlightTicks.remove(ghast);
+        // Non-armor Unbreaking III ignores three out of four durability attempts.
+        if (harnessRandom.nextInt(4) != 0) {
+            return true;
+        }
+        item.setData(DataComponentTypes.DAMAGE, item.getDataOrDefault(DataComponentTypes.DAMAGE, 0) + 1);
+        ghast.getEquipment().setItem(EquipmentSlot.BODY, item);
+        if (!harnessUsable(item)) {
+            syncHarness(ghast);
+            pilot.sendMessage("Your Happy Harness is worn out. Repair it with phantom membranes at an anvil.");
+            return false;
+        }
+        return true;
     }
 
     void syncSaddle(AbstractHorse mount) {
@@ -276,6 +359,9 @@ final class RaidEquipment implements Listener {
                 syncSaddleStat(camel.getAttribute(Attribute.MOVEMENT_SPEED), saddleSpeedKey, MAX_HORSE_SPEED, true);
                 boostedNow.add(camel);
             } else if (vehicle instanceof HappyGhast ghast && wears(ghast, EquipmentSlot.BODY, Tool.HAPPY_HARNESS)) {
+                if (!tickHarness(ghast, player)) {
+                    continue;
+                }
                 var speed = ghast.getAttribute(Attribute.FLYING_SPEED);
                 if (speed.getModifier(harnessSpeed.getKey()) == null) {
                     speed.addTransientModifier(harnessSpeed);
@@ -291,6 +377,7 @@ final class RaidEquipment implements Listener {
             return true;
         });
         riddenSpeedBoosts.addAll(boostedNow);
+        harnessFlightTicks.keySet().retainAll(boostedNow);
         camelDashReleases.clear();
     }
 
@@ -298,6 +385,7 @@ final class RaidEquipment implements Listener {
         riddenSpeedBoosts.forEach(this::removeRiddenSpeedModifier);
         riddenSpeedBoosts.clear();
         camelDashReleases.clear();
+        harnessFlightTicks.clear();
     }
 
     private boolean wears(LivingEntity mount, EquipmentSlot slot, Tool tool) {
