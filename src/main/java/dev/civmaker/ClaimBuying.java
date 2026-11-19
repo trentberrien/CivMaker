@@ -40,13 +40,14 @@ final class ClaimBuying implements Listener {
     private static final int BUY_SLOT = 11;
     private static final int RENAME_SLOT = 13;
     private static final int CANCEL_SLOT = 15;
+    private static final int MOVE_SLOT = 22;
 
     private static final class CapitalMenu implements InventoryHolder {
         final Village village;
         final boolean upgraded;
         final Inventory inventory;
 
-        CapitalMenu(Village village) {
+        CapitalMenu(Village village, boolean owner) {
             this.village = village;
             upgraded = village.expandedClaims;
             inventory = Bukkit.createInventory(this, 27, Component.text("Capital Beacon"));
@@ -66,6 +67,13 @@ final class ClaimBuying implements Listener {
                     "Only the faction owner can rename it.",
                     "Names must be unique and follow the naming rules."));
             inventory.setItem(CANCEL_SLOT, item(Material.BARRIER, "Cancel"));
+            if (owner) {
+                inventory.setItem(MOVE_SLOT, item(Material.BEACON, "Move capital beacon • $1,000",
+                        "Receive a replacement beacon. Only the owner can move it.",
+                        "Place it in your own plot, then confirm the move.",
+                        "Your old beacon stays until you confirm. Upgrades are kept.",
+                        "Buying another replacement invalidates the previous one."));
+            }
         }
 
         @Override
@@ -90,6 +98,7 @@ final class ClaimBuying implements Listener {
     private final Wallets wallets;
     private final NaturalVillages natural;
     private final FactionRenaming renaming;
+    final CapitalBeaconMoving beaconMoving;
     private final long price;
     private final Set<UUID> buying = new HashSet<>();
 
@@ -99,6 +108,7 @@ final class ClaimBuying implements Listener {
         this.wallets = wallets;
         this.natural = natural;
         renaming = new FactionRenaming(plugin, store);
+        beaconMoving = new CapitalBeaconMoving(plugin, store, wallets, natural);
         price = Math.max(0, plugin.getConfig().getLong("village.chunk-price"));
     }
 
@@ -148,7 +158,7 @@ final class ClaimBuying implements Listener {
             }
             event.setCancelled(true);
             if (event.getHand() == EquipmentSlot.HAND && canOpenCapital(player, capital)) {
-                player.openInventory(new CapitalMenu(capital).inventory);
+                player.openInventory(new CapitalMenu(capital, capital.owner.equals(player.getUniqueId())).inventory);
             }
             return;
         }
@@ -208,7 +218,7 @@ final class ClaimBuying implements Listener {
         event.setCancelled(true);
         int slot = event.getRawSlot();
         if (!(event.getWhoClicked() instanceof Player player) || !event.getClick().isLeftClick()
-                || (slot != BUY_SLOT && slot != RENAME_SLOT && slot != CANCEL_SLOT)) {
+                || (slot != BUY_SLOT && slot != RENAME_SLOT && slot != CANCEL_SLOT && slot != MOVE_SLOT)) {
             return;
         }
         plugin.getServer().getScheduler().runTask(plugin, () -> {
@@ -216,7 +226,9 @@ final class ClaimBuying implements Listener {
                 return;
             }
             player.closeInventory();
-            if (slot == RENAME_SLOT) {
+            if (slot == MOVE_SLOT) {
+                beaconMoving.buy(player, menu.village);
+            } else if (slot == RENAME_SLOT) {
                 renaming.open(player, menu.village);
             } else if (slot == BUY_SLOT) {
                 if (menu.upgraded) {

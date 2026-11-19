@@ -95,7 +95,10 @@ final class DefenderGolems implements Listener {
         int nextMelee;
 
         Defender(IronGolem golem, int[] coordinates, String villageId, DefenseStance.RaidAggro raidAggro) {
-            World world = golem.getWorld();
+            this(golem.getWorld(), coordinates, villageId, raidAggro);
+        }
+
+        Defender(World world, int[] coordinates, String villageId, DefenseStance.RaidAggro raidAggro) {
             this.bell = new Position(world.getUID(), coordinates[0], coordinates[1], coordinates[2]);
             this.center = new Location(world, bell.x() + 0.5, bell.y() + 0.5, bell.z() + 0.5);
             this.post = new Location(world, coordinates[3] + 0.5, coordinates[4], coordinates[5] + 0.5);
@@ -380,6 +383,9 @@ final class DefenderGolems implements Listener {
             }
             Defender defender = loaded.get(golem);
             Village village = owner(defender);
+            if (village == null && followMovedCapital(golem, defender)) {
+                continue;
+            }
             UUID assigned = village == null ? null : assigned(defender.bell, village);
             if (village == null || (assigned != null && !assigned.equals(golem.getUniqueId()))) {
                 golem.remove();
@@ -395,6 +401,34 @@ final class DefenderGolems implements Listener {
         }
     }
 
+    // Preserve the assigned capital defender when its saved anchor predates a beacon move.
+    // Wait for a safe post at the destination instead of deleting the defender or teleporting into blocks.
+    private boolean followMovedCapital(IronGolem golem, Defender previous) {
+        for (Village village : store.villages()) {
+            if (!village.id.toString().equals(previous.villageId)
+                    || village.capitalGolem == null || !village.capitalGolem.equals(golem.getUniqueId())
+                    || previous.bell.equals(village.beacon)) continue;
+            World world = Bukkit.getWorld(village.beacon.world());
+            if (world == null || !world.isChunkLoaded(village.beacon.x() >> 4, village.beacon.z() >> 4)) return true;
+            Location post = findPost(world.getBlockAt(village.beacon.x(), village.beacon.y(), village.beacon.z()));
+            if (post == null) return true;
+            int[] coordinates = {village.beacon.x(), village.beacon.y(), village.beacon.z(),
+                    post.getBlockX(), post.getBlockY(), post.getBlockZ()};
+            Defender next = new Defender(world, coordinates, village.id.toString(), previous.raidAggro);
+            loaded.put(golem, next);
+            if (golem.teleport(post)) {
+                previous.bar.removeAll();
+                golem.getPersistentDataContainer().set(postKey, PersistentDataType.INTEGER_ARRAY, coordinates);
+                golem.setTarget(null);
+            } else {
+                next.bar.removeAll();
+                loaded.put(golem, previous);
+            }
+            return true;
+        }
+        return false;
+    }
+
     boolean contests(Settlement settlement, Village village) {
         UUID assigned = settlement.defense().golem;
         if (assigned == null || !(Bukkit.getEntity(assigned) instanceof IronGolem golem)
@@ -406,7 +440,11 @@ final class DefenderGolems implements Listener {
                 && defender.villageId.equals(village.id.toString()) && defender.inBounds(golem.getLocation());
     }
 
-    private static void updateBar(IronGolem golem, Defender defender) {
+    private void updateBar(IronGolem golem, Defender defender) {
+        if (store.activeWindow(System.currentTimeMillis()) == null) {
+            defender.bar.removeAll();
+            return;
+        }
         Location location = golem.getLocation();
         var viewers = new HashSet<>(golem.getWorld().getNearbyPlayers(location, BAR_RANGE,
                 player -> !player.isDead() && player.getLocation().distanceSquared(location) <= BAR_RANGE * BAR_RANGE));

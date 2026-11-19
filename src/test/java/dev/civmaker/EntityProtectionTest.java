@@ -52,7 +52,7 @@ class EntityProtectionTest {
         natural = mock(NaturalVillages.class);
         guards = mock(PillagerGuards.class);
         defenders = mock(DefenderGolems.class);
-        protection = new EntityProtection(store, natural, guards, defenders);
+        protection = new EntityProtection(store, natural, guards, defenders, mock(FactionMobs.class));
         world = mock(World.class);
         when(world.getUID()).thenReturn(UUID.randomUUID());
         block = mock(Block.class);

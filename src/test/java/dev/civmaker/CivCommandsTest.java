@@ -22,12 +22,14 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.AdditionalMatchers.aryEq;
 import static org.mockito.Mockito.*;
 
 class CivCommandsTest {
     @TempDir Path directory;
     private CivStore store;
     private CivCommands commands;
+    private FactionMobs factionMobs;
     private Server server;
     private YamlConfiguration config;
     private CivStore.Village faction;
@@ -44,7 +46,9 @@ class CivCommandsTest {
         when(plugin.getServer()).thenReturn(server);
         config = new YamlConfiguration();
         when(plugin.getConfig()).thenReturn(config);
-        commands = new CivCommands(plugin, store, null, null, null, null, null, null, null, null, null, null, null);
+        factionMobs = mock(FactionMobs.class);
+        commands = new CivCommands(plugin, store, null, null, null, null, null, null, null, null, null, null, null,
+                factionMobs);
         owner = player("Owner");
         elder = player("Elder");
         otherElder = player("OtherElder");
@@ -88,6 +92,26 @@ class CivCommandsTest {
 
     private List<String> completions(CommandSender sender) {
         return commands.onTabComplete(sender, null, "civ", new String[]{""});
+    }
+
+    @Test void tameIsAvailableToAllSurvivalMembersAndRoutesOptionalNames() {
+        for (Player player : List.of(member, elder, owner)) {
+            assertTrue(help(player, "help").contains("/civ tame [name]"));
+            assertTrue(completions(player).contains("tame"));
+            run(player, "tame");
+            verify(factionMobs).tame(eq(player), aryEq(new String[]{"tame"}));
+        }
+        run(member, "tame", "Silver", "Wind");
+        verify(factionMobs).tame(eq(member), aryEq(new String[]{"tame", "Silver", "Wind"}));
+        assertFalse(help(outsider, "help").contains("/civ tame"));
+        assertFalse(completions(outsider).contains("tame"));
+        when(member.getGameMode()).thenReturn(GameMode.CREATIVE);
+        assertFalse(help(member, "help").contains("/civ tame"));
+        assertFalse(completions(member).contains("tame"));
+        clearInvocations(factionMobs);
+        run(member, "tame");
+        verifyNoInteractions(factionMobs);
+        verify(member).sendMessage("Switch to Survival to use this command.");
     }
 
     @Test void outsidersSeeFoundingAndPublicHelpWithoutManagementCommands() {

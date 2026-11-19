@@ -16,6 +16,8 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import static org.mockito.Mockito.*;
 
@@ -25,6 +27,7 @@ class RaidShopTest {
     private PlayerInventory inventory;
     private Inventory menu;
     private Wallets wallets;
+    private RaidEquipment equipment;
     private ItemStack radar;
     private ItemStack scaffolding;
     private ItemStack[] contents;
@@ -33,7 +36,7 @@ class RaidShopTest {
         CivMaker plugin = mock(CivMaker.class);
         when(plugin.getName()).thenReturn("CivMaker");
         when(plugin.namespace()).thenReturn("civmaker");
-        RaidEquipment equipment = mock(RaidEquipment.class);
+        equipment = mock(RaidEquipment.class);
         when(equipment.item(any(Tool.class), nullable(String.class))).thenReturn(mock(ItemStack.class));
         radar = mock(ItemStack.class);
         when(radar.getAmount()).thenReturn(1);
@@ -65,6 +68,10 @@ class RaidShopTest {
     }
 
     private ItemStack copper(int amount, boolean settlement) {
+        return currency(amount, settlement, "COPPER");
+    }
+
+    private ItemStack currency(int amount, boolean settlement, String reward) {
         ItemStack item = mock(ItemStack.class);
         when(item.getType()).thenReturn(settlement ? Material.STRUCTURE_VOID : Material.COPPER_INGOT);
         when(item.getAmount()).thenReturn(amount);
@@ -72,8 +79,8 @@ class RaidShopTest {
         when(item.getPersistentDataContainer()).thenReturn(data);
         NamespacedKey key = new NamespacedKey("civmaker", "settlement_currency");
         when(data.has(key, PersistentDataType.STRING)).thenReturn(settlement);
-        when(data.get(key, PersistentDataType.STRING)).thenReturn("COPPER");
-        when(item.asQuantity(anyInt())).thenAnswer(call -> copper(call.getArgument(0), settlement));
+        when(data.get(key, PersistentDataType.STRING)).thenReturn(reward);
+        when(item.asQuantity(anyInt())).thenAnswer(call -> currency(call.getArgument(0), settlement, reward));
         return item;
     }
 
@@ -88,6 +95,53 @@ class RaidShopTest {
         when(event.getClick()).thenReturn(click);
         when(event.getRawSlot()).thenReturn(slot);
         shop.click(event);
+    }
+
+    private ItemStack product(Tool tool, int quantity) {
+        ItemStack item = mock(ItemStack.class);
+        when(item.getAmount()).thenReturn(quantity);
+        when(item.getMaxStackSize()).thenReturn(64);
+        when(item.asQuantity(quantity)).thenReturn(item);
+        when(equipment.item(tool, null)).thenReturn(item);
+        return item;
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Tool.class, names = {"C4", "GRENADE"})
+    void explosivesChargeTwentyThousandAndRejectInsufficientCash(Tool tool) {
+        product(tool, 1);
+        int slot = tool == Tool.C4 ? 14 : 15;
+        org.junit.jupiter.api.Assertions.assertEquals(20_000L, shop.price(tool));
+        when(wallets.balance(player)).thenReturn(19_999L);
+        buy(ClickType.LEFT, slot);
+        verify(inventory, never()).setStorageContents(any());
+        verify(wallets, never()).setBalance(any(), anyLong());
+        when(wallets.balance(player)).thenReturn(25_000L);
+        buy(ClickType.LEFT, slot);
+        verify(wallets).setBalance(player, 5_000L);
+        verify(player).sendMessage("Bought " + tool.label + " for $20,000.");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Tool.class, names = {"C4", "GRENADE"})
+    void explosivesRequireTenMatchingCurrencyAndPreserveChange(Tool tool) {
+        ItemStack item = product(tool, 1);
+        int slot = tool == Tool.C4 ? 14 : 15;
+        contents[0] = currency(5, true, "GUNPOWDER");
+        buy(ClickType.RIGHT, slot);
+        contents[0] = currency(9, true, "GUNPOWDER");
+        buy(ClickType.RIGHT, slot);
+        contents[0] = copper(10, true);
+        buy(ClickType.RIGHT, slot);
+        verify(inventory, never()).setStorageContents(any());
+        contents[0] = currency(12, true, "GUNPOWDER");
+        buy(ClickType.RIGHT, slot);
+        var result = org.mockito.ArgumentCaptor.forClass(ItemStack[].class);
+        verify(inventory).setStorageContents(result.capture());
+        org.junit.jupiter.api.Assertions.assertEquals(2, result.getValue()[0].getAmount());
+        org.junit.jupiter.api.Assertions.assertSame(item, result.getValue()[1]);
+        verify(wallets, never()).setBalance(any(), anyLong());
+        verify(player).sendMessage("Bought " + tool.label + " for 10 Settlement Gunpowder.");
     }
 
     @Test void scaffoldingCostsTenThousandForAStack() {

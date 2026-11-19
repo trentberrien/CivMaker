@@ -123,7 +123,8 @@ final class FoundingBeacons implements Listener {
         var item = event.getItemInHand();
         Block block = event.getBlockPlaced();
         if (item.getType() != Material.BEACON
-                || !item.getPersistentDataContainer().has(BEACON_KEY, PersistentDataType.BYTE)) {
+                || !item.getPersistentDataContainer().has(BEACON_KEY, PersistentDataType.BYTE)
+                || item.getPersistentDataContainer().has(CapitalBeaconMoving.MOVE_KEY)) {
             return;
         }
         if (!event.canBuild() || !(block.getState(false) instanceof Beacon beacon)) {
@@ -167,6 +168,7 @@ final class FoundingBeacons implements Listener {
             }
             return;
         }
+        if (CapitalBeaconMoving.marker(block.getState(false)) != null) return;
         String token = marker(block);
         if (token == null) {
             return;
@@ -270,7 +272,7 @@ final class FoundingBeacons implements Listener {
             return "This area is reserved for a natural village. Choose a spot farther from the village.";
         }
         for (int y = block.getY() + 1; y < block.getWorld().getMaxHeight(); y++) {
-            if (!block.getWorld().getBlockAt(block.getX(), y, block.getZ()).getType().isAir()) {
+            if (!block.getWorld().getBlockAt(block.getX(), y, block.getZ()).isEmpty()) {
                 return "Clear the blocks above your Founding Beacon so it has open sky.";
             }
         }
@@ -332,9 +334,11 @@ final class FoundingBeacons implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void drop(BlockDropItemEvent event) {
         if (marker(event.getBlockState()) != null) {
+            String move = CapitalBeaconMoving.marker(event.getBlockState());
             for (var drop : event.getItems()) {
                 if (drop.getItemStack().getType() == Material.BEACON) {
-                    drop.setItemStack(item().asQuantity(drop.getItemStack().getAmount()));
+                    ItemStack replacement = move == null ? item() : CapitalBeaconMoving.item(move, minY);
+                    drop.setItemStack(replacement.asQuantity(drop.getItemStack().getAmount()));
                 }
             }
         }

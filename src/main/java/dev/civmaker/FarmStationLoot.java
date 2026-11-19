@@ -27,10 +27,12 @@ final class FarmStationLoot implements Listener {
             LootTables.BASTION_OTHER.getKey(),
             LootTables.BASTION_TREASURE.getKey());
 
+    private final CivMaker plugin;
     private final NamespacedKey stationKey;
     final NamespacedKey nameKey;
 
     FarmStationLoot(CivMaker plugin) {
+        this.plugin = plugin;
         stationKey = new NamespacedKey(plugin, "farm_station");
         nameKey = new NamespacedKey(plugin, "farm_station_name");
     }
@@ -40,7 +42,7 @@ final class FarmStationLoot implements Listener {
         var table = event.getLootTable();
         if (!event.isPlugin() && table != null && CHEST_TABLES.contains(table.getKey())
                 && ThreadLocalRandom.current().nextDouble() < DROP_CHANCE) {
-            event.getLoot().add(createStation());
+            ExplorationLoot.afterGeneration(plugin, event, java.util.List.of(createStation()));
         }
     }
 

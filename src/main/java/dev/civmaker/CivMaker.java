@@ -4,6 +4,7 @@ import org.bukkit.Location;
 import org.bukkit.entity.AbstractHorse;
 import org.bukkit.entity.HappyGhast;
 import org.bukkit.entity.IronGolem;
+import org.bukkit.entity.Mob;
 import org.bukkit.entity.Pillager;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -20,6 +21,8 @@ public class CivMaker extends JavaPlugin {
     private BeaconLabels beaconLabels;
     private VaultTracking vaultTracking;
     private RaidEquipment equipment;
+    private HarnessInventory harnessInventory;
+    private HarnessDurabilityBar harnessDurabilityBar;
     private RaidShop raidShop;
     private WanderingTraderShop wanderingTraderShop;
     private ClaimBuying claimBuying;
@@ -112,6 +115,8 @@ public class CivMaker extends JavaPlugin {
         claimBuying = new ClaimBuying(this, store, wallets, natural);
         VillageBorders villageBorders = new VillageBorders(this, store);
         equipment = new RaidEquipment(this);
+        harnessInventory = new HarnessInventory(equipment);
+        harnessDurabilityBar = new HarnessDurabilityBar(equipment);
         SettlementResources resources = new SettlementResources(this, equipment);
         settlementVaults = new SettlementVaults(this, store, resources);
         settlementBuying = new SettlementBuying(this, store, wallets, settlementVaults, natural);
@@ -120,6 +125,7 @@ public class CivMaker extends JavaPlugin {
         defenders = new DefenderGolems(this, store, guards);
         FarmStationLoot farmStationLoot = new FarmStationLoot(this);
         FarmStations farmStations = new FarmStations(this, store, farmStationLoot);
+        FactionMobs factionMobs = new FactionMobs(this, store);
         Protection protection = new Protection(store, equipment, vaultDoors, natural, defenders, farmStations);
         RaidScaffolding raidScaffolding = new RaidScaffolding(this, store, equipment);
         DragonEggs dragonEggs = new DragonEggs(this, store);
@@ -144,13 +150,16 @@ public class CivMaker extends JavaPlugin {
         var events = getServer().getPluginManager();
         events.registerEvents(new Mining(this, wallets), this);
         events.registerEvents(farmStationLoot, this);
+        events.registerEvents(new ExplorationLoot(this, resources, equipment), this);
         events.registerEvents(protection, this);
         events.registerEvents(raidScaffolding, this);
         events.registerEvents(dragonEggs, this);
-        events.registerEvents(new EntityProtection(store, natural, guards, defenders), this);
+        events.registerEvents(new EntityProtection(store, natural, guards, defenders, factionMobs), this);
+        events.registerEvents(factionMobs, this);
         events.registerEvents(farmStations, this);
         events.registerEvents(new FarmHarvests(this, farmStations), this);
         events.registerEvents(foundingBeacons, this);
+        events.registerEvents(claimBuying.beaconMoving, this);
         events.registerEvents(vaultDoors, this);
         events.registerEvents(notes, this);
         events.registerEvents(hud, this);
@@ -172,6 +181,9 @@ public class CivMaker extends JavaPlugin {
         events.registerEvents(new MoneyStorage(notes, store, equipment, resources), this);
         events.registerEvents(new SecureChestRecovery(this, store, equipment), this);
         events.registerEvents(equipment, this);
+        events.registerEvents(harnessInventory, this);
+        events.registerEvents(harnessDurabilityBar, this);
+        events.registerEvents(new HarnessRepairs(equipment), this);
         events.registerEvents(vaultTracking, this);
         events.registerEvents(combatTimeout, this);
         events.registerEvents(wilderness, this);
@@ -186,14 +198,16 @@ public class CivMaker extends JavaPlugin {
             }
             world.getEntitiesByClass(HappyGhast.class).forEach(equipment::syncHarness);
             world.getEntitiesByClass(AbstractHorse.class).forEach(equipment::syncSaddle);
+            world.getEntitiesByClass(Mob.class).forEach(factionMobs::track);
             world.getEntitiesByClass(Pillager.class).forEach(guards::track);
             world.getEntitiesByClass(IronGolem.class).forEach(defenders::track);
         }
         Objects.requireNonNull(getCommand("civ")).setExecutor(
                 new CivCommands(this, store, notes, wallets, claimBuying, settlementBuying, natural, villageBorders, raidShop,
-                        settlementVaults, shields, foundingBeacons, farmStationLoot));
+                        settlementVaults, shields, foundingBeacons, farmStationLoot, factionMobs));
         Objects.requireNonNull(getCommand("trade")).setExecutor(trading);
         Objects.requireNonNull(getCommand("wilderness")).setExecutor(wilderness);
+        Objects.requireNonNull(getCommand("harness")).setExecutor(harnessInventory);
         discordBridge = DiscordBridge.start(this, store);
         if (discordBridge != null) events.registerEvents(new DiscordRaidListener(this, store), this);
 
@@ -214,10 +228,13 @@ public class CivMaker extends JavaPlugin {
         getServer().getScheduler().runTaskTimer(this, () -> raidScaffolding.refresh(), 1, 20);
         getServer().getScheduler().runTaskTimer(this, dragonEggs::refresh, 1, 20);
         getServer().getScheduler().runTaskTimer(this, guards::refresh, 1, 40);
+        getServer().getScheduler().runTaskTimer(this, factionMobs::refresh, 1, 40);
         getServer().getScheduler().runTaskTimer(this, defenders::refresh, 1, 5);
         getServer().getScheduler().runTaskTimer(this, defenders::tickBoulders, 1, 1);
         getServer().getScheduler().runTaskTimer(this, radar::refresh, 1, 20);
         getServer().getScheduler().runTaskTimer(this, equipment::refreshRiddenSpeeds, 1, 1);
+        getServer().getScheduler().runTaskTimer(this, harnessInventory::refresh, 1, 1);
+        getServer().getScheduler().runTaskTimer(this, harnessDurabilityBar::refresh, 1, 5);
         getServer().getScheduler().runTaskTimer(this, combatTimeout::refresh, 1, 20);
         getServer().getScheduler().runTaskTimer(this, warpPortals::refresh, 1, 20);
         getServer().getScheduler().runTaskTimer(this, endPortals::discoverRooms, 1, 1);
@@ -253,6 +270,12 @@ public class CivMaker extends JavaPlugin {
         }
         if (equipment != null) {
             equipment.clearRiddenSpeeds();
+        }
+        if (harnessInventory != null) {
+            harnessInventory.closeAll();
+        }
+        if (harnessDurabilityBar != null) {
+            harnessDurabilityBar.clear();
         }
         if (trading != null) {
             trading.closeAll();

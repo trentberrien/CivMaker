@@ -86,7 +86,7 @@ class DefenderGolemsTest {
         when(golem.getWorld()).thenReturn(world);
         var village = new CivStore.Village("Defenders", UUID.randomUUID(), new CivStore.Position(world.getUID(), 0, 80, 0));
         Class<?> type = Class.forName("dev.civmaker.DefenderGolems$Defender");
-        var constructor = type.getDeclaredConstructors()[0];
+        var constructor = type.getDeclaredConstructor(IronGolem.class, int[].class, String.class, DefenseStance.RaidAggro.class);
         constructor.setAccessible(true);
         Object defender;
         try (var bukkit = mockStatic(Bukkit.class)) {
@@ -103,6 +103,66 @@ class DefenderGolemsTest {
         method.setAccessible(true);
         return (boolean) method.invoke(defenders, target, combat.defender(), combat.village(), alwaysHostile,
                 new CivStore.Window(1, Long.MAX_VALUE));
+    }
+
+    @Test void movingCapitalKeepsItsDefenderUntilTheDestinationCanBeReachedSafely() throws Exception {
+        Combat combat = combat();
+        var village = combat.village();
+        village.capitalGolem = UUID.randomUUID();
+        when(golem.getUniqueId()).thenReturn(village.capitalGolem);
+        village.beacon = new CivStore.Position(combat.world().getUID(), 32, 80, 0);
+        when(store.villages()).thenReturn(List.of(village));
+        var follow = DefenderGolems.class.getDeclaredMethod("followMovedCapital", IronGolem.class, combat.defender().getClass());
+        follow.setAccessible(true);
+        try (var bukkit = mockStatic(Bukkit.class)) {
+            assertEquals(true, follow.invoke(defenders, golem, combat.defender()));
+        }
+        verify(golem, never()).remove();
+        verify(golem, never()).teleport(any(Location.class));
+        assertNotNull(village.capitalGolem);
+    }
+
+    @ParameterizedTest @ValueSource(booleans = {true, false})
+    void movingCapitalReanchorsItsDefenderWithoutLosingHealthOrAssignment(boolean teleported) throws Exception {
+        Combat combat = combat();
+        var village = combat.village();
+        village.capitalGolem = UUID.randomUUID();
+        when(golem.getUniqueId()).thenReturn(village.capitalGolem);
+        World destination = mock(World.class);
+        when(destination.getUID()).thenReturn(UUID.randomUUID());
+        when(destination.getMaxHeight()).thenReturn(320);
+        when(destination.isChunkLoaded(anyInt(), anyInt())).thenReturn(true);
+        var beacon = mock(org.bukkit.block.Block.class);
+        when(beacon.getWorld()).thenReturn(destination);
+        when(beacon.getX()).thenReturn(32);
+        when(beacon.getY()).thenReturn(80);
+        var space = mock(org.bukkit.block.Block.class);
+        when(space.isEmpty()).thenReturn(true);
+        var data = mock(org.bukkit.block.data.BlockData.class);
+        when(space.getBlockData()).thenReturn(data);
+        when(beacon.getBlockData()).thenReturn(data);
+        when(data.isFaceSturdy(any(), any())).thenReturn(true);
+        when(destination.getBlockAt(anyInt(), anyInt(), anyInt())).thenReturn(space);
+        when(destination.getBlockAt(32, 80, 0)).thenReturn(beacon);
+        when(destination.getNearbyEntities(any(org.bukkit.util.BoundingBox.class), any())).thenReturn(List.of());
+        village.beacon = new CivStore.Position(destination.getUID(), 32, 80, 0);
+        when(store.villages()).thenReturn(List.of(village));
+        var persistent = mock(PersistentDataContainer.class);
+        when(golem.getPersistentDataContainer()).thenReturn(persistent);
+        when(golem.teleport(any(Location.class))).thenReturn(teleported);
+        var follow = DefenderGolems.class.getDeclaredMethod("followMovedCapital", IronGolem.class, combat.defender().getClass());
+        follow.setAccessible(true);
+        try (var bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(() -> Bukkit.getWorld(destination.getUID())).thenReturn(destination);
+            bukkit.when(() -> Bukkit.createBossBar(anyString(), any(BarColor.class), any(BarStyle.class)))
+                    .thenReturn(mock(BossBar.class));
+            assertEquals(true, follow.invoke(defenders, golem, combat.defender()));
+        }
+        verify(golem).teleport(argThat((Location location) -> location.getWorld() == destination));
+        verify(persistent, times(teleported ? 1 : 0)).set(any(), eq(PersistentDataType.INTEGER_ARRAY),
+                argThat(coordinates -> coordinates[0] == 32 && coordinates[1] == 80 && coordinates[2] == 0));
+        verify(golem, never()).remove();
+        verify(golem, never()).setHealth(anyDouble());
     }
 
     @ParameterizedTest @ValueSource(booleans = {false, true})
@@ -238,7 +298,8 @@ class DefenderGolemsTest {
         Combat combat = mountedCombat();
         Player enemy = rider(combat);
         HappyGhast ghast = mount(combat, enemy);
-        EntityProtection protection = new EntityProtection(store, mock(NaturalVillages.class), guards, defenders);
+        EntityProtection protection = new EntityProtection(store, mock(NaturalVillages.class), guards, defenders,
+                mock(FactionMobs.class));
         for (LivingEntity target : List.of(ghast, enemy)) {
             DamageSource source = mock(DamageSource.class);
             when(source.getCausingEntity()).thenReturn(golem);

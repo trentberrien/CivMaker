@@ -166,6 +166,8 @@ class ClaimBuyingTest {
             verify(inventory).setItem(eq(11), any(ItemStack.class));
             verify(inventory).setItem(eq(13), any(ItemStack.class));
             verify(inventory).setItem(eq(15), any(ItemStack.class));
+            verify(inventory, times(player.getUniqueId().equals(village.owner) ? 1 : 0))
+                    .setItem(eq(22), any(ItemStack.class));
         }
         when(player.getOpenInventory().getTopInventory()).thenReturn(inventory);
         return inventory;
@@ -247,6 +249,31 @@ class ClaimBuyingTest {
         verify(elder).sendMessage("Only the faction owner can rename this civilization.");
         assertEquals("Test", village.name);
         assertFalse(store.dirty);
+    }
+
+    @Test void eldersCannotMoveTheCapitalEvenBySendingTheHiddenButtonSlot() {
+        openUpgrade(elder);
+        choose(elder, 22);
+        verify(elder).sendMessage("Only the faction owner can move this capital beacon.");
+        assertNull(village.beaconMoveToken);
+        verify(wallets, never()).setBalance(any(), anyLong());
+    }
+
+    @Test void ownerCanBuyAReplacementFromTheCapitalMenu() {
+        openUpgrade(owner);
+        when(owner.getInventory().getStorageContents()).thenReturn(new ItemStack[36]);
+        when(owner.getInventory().getMaxStackSize()).thenReturn(64);
+        try (var items = mockConstruction(ItemStack.class, (item, context) -> {
+            when(item.getAmount()).thenReturn(1);
+            when(item.getMaxStackSize()).thenReturn(64);
+            when(item.asQuantity(1)).thenReturn(item);
+        })) {
+            choose(owner, 22);
+        }
+        verify(wallets).setBalance(owner, 149_000L);
+        assertNotNull(village.beaconMoveToken);
+        assertEquals(CivStore.Position.at(beacon), village.beacon);
+        verify(beacon, never()).setType(any(), anyBoolean());
     }
 
     @Test void offhandRightClicksNeverOpenOrBuyUpgrade() {

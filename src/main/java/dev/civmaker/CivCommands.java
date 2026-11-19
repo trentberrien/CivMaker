@@ -29,7 +29,7 @@ import java.util.stream.StreamSupport;
 
 final class CivCommands implements TabExecutor {
     private static final List<String> PLAYER_COMMANDS = List.of("help", "balance", "withdraw", "deposit",
-            "create", "claim", "settlement", "points", "borders", "invite", "promote", "demote", "kick", "join", "leave", "disband", "info", "villages", "raids", "shop", "banner", "raidprotection", "discord");
+            "create", "claim", "settlement", "points", "borders", "invite", "promote", "demote", "kick", "join", "leave", "disband", "info", "villages", "raids", "shop", "banner", "raidprotection", "discord", "tame");
     private static final long INVITE_DURATION = 10 * 60 * 1000;
     private static final long DISBAND_DURATION = 60_000;
 
@@ -50,6 +50,7 @@ final class CivCommands implements TabExecutor {
     private final RaidShields shields;
     private final FoundingBeacons foundingBeacons;
     private final FarmStationLoot farmStationLoot;
+    private final FactionMobs factionMobs;
     private final Map<UUID, Invite> invites = new HashMap<>();
     private final Map<UUID, DisbandConfirmation> disbandConfirmations = new HashMap<>();
     private final Map<CommandSender, DisbandConfirmation> adminDisbandConfirmations = new HashMap<>();
@@ -57,7 +58,7 @@ final class CivCommands implements TabExecutor {
     CivCommands(CivMaker plugin, CivStore store, Notes notes, Wallets wallets, ClaimBuying claimBuying,
                 SettlementBuying settlementBuying, NaturalVillages natural, VillageBorders villageBorders, RaidShop raidShop,
                 SettlementVaults settlementVaults, RaidShields shields, FoundingBeacons foundingBeacons,
-                FarmStationLoot farmStationLoot) {
+                FarmStationLoot farmStationLoot, FactionMobs factionMobs) {
         this.plugin = plugin;
         this.store = store;
         this.notes = notes;
@@ -71,6 +72,7 @@ final class CivCommands implements TabExecutor {
         this.shields = shields;
         this.foundingBeacons = foundingBeacons;
         this.farmStationLoot = farmStationLoot;
+        this.factionMobs = factionMobs;
     }
 
     @Override
@@ -129,7 +131,7 @@ final class CivCommands implements TabExecutor {
                         case "kick" -> kick(player, args);
                         case "disband" -> disband(player, args);
                         case "banner" -> setBanner(player, args);
-                        case "withdraw", "deposit", "create", "claim", "settlement", "invite", "join", "shop" -> {
+                        case "withdraw", "deposit", "create", "claim", "settlement", "invite", "join", "shop", "tame" -> {
                             require(player.getGameMode() == GameMode.SURVIVAL, "Switch to Survival to use this command.");
                             switch (action) {
                                 case "withdraw" -> withdraw(player, amount(args, true));
@@ -143,6 +145,7 @@ final class CivCommands implements TabExecutor {
                                 case "invite" -> invite(player, managed(player), args);
                                 case "join" -> join(player, village);
                                 case "shop" -> raidShop.open(player);
+                                case "tame" -> factionMobs.tame(player, args);
                             }
                         }
                         default -> help(sender);
@@ -164,6 +167,9 @@ final class CivCommands implements TabExecutor {
                 sender.sendMessage("/civ create buys a Founding Beacon for " + FoundingBeacons.PRICE_LABEL + ". Place it to start a civilization.");
             }
             sender.sendMessage("/civ info | borders");
+            if (available.contains("tame")) {
+                sender.sendMessage("/civ tame [name] (ride a mob in your faction's claim to claim or rename it)");
+            }
             sender.sendMessage("/wilderness (random safe travel inside the world border, first hour on the server only)");
             sender.sendMessage("/civ discord <link|unlink|status> (connect your Discord account)");
             if (available.contains("claim")) {
@@ -232,6 +238,7 @@ final class CivCommands implements TabExecutor {
                 case "create" -> survival && outsider;
                 case "join" -> survival && outsider && invite != null && invite.expires() > System.currentTimeMillis();
                 case "claim", "settlement", "invite" -> survival && manager;
+                case "tame" -> survival && store.memberOf(id) != null;
                 case "promote", "demote", "disband", "banner" -> owner;
                 case "kick" -> manager;
                 case "leave" -> village != null && !owner;

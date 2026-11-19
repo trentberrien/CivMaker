@@ -134,7 +134,8 @@ final class CivStore {
         final UUID id = UUID.randomUUID();
         String name;
         final UUID owner;
-        final Position beacon;
+        Position beacon;
+        String beaconMoveToken;
         int color;
         FactionBanner banner;
         final Set<UUID> members = new LinkedHashSet<>();

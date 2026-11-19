@@ -27,7 +27,6 @@ import java.util.Locale;
 final class RaidShop implements Listener {
     private static final long PRICE = 10000;
     private static final long BANNER_PRICE = 100;
-    private static final int RESOURCE_PRICE = Math.toIntExact(PRICE / SettlementResources.ITEM_VALUE);
     private static final int ROW_WIDTH = 9;
     private static final int HEADER_COLUMN = 1;
     private static final int FIRST_PRODUCT_COLUMN = 3;
@@ -79,13 +78,13 @@ final class RaidShop implements Listener {
         }
 
         private static ItemStack product(RaidEquipment equipment, RaidShields shields, Tool tool) {
-            long price = tool == Tool.RAID_SHIELD ? shields.price() : PRICE;
+            long price = tool == Tool.RAID_SHIELD ? shields.price() : basePrice(tool);
             var item = equipment.item(tool, "Left-click to pay " + cashLabel(price));
             Reward payment = Reward.paymentFor(tool);
             if (payment != null) {
                 item.editMeta(meta -> {
                     var lore = meta.lore();
-                    lore.add(Component.text("Right-click to pay " + RESOURCE_PRICE + " " + payment.label,
+                    lore.add(Component.text("Right-click to pay " + resourcePrice(tool) + " " + payment.label,
                             NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false));
                     meta.lore(lore);
                 });
@@ -206,7 +205,18 @@ final class RaidShop implements Listener {
     }
 
     long price(Tool tool) {
-        return tool == Tool.RAID_SHIELD ? shields.price() : PRICE;
+        return tool == Tool.RAID_SHIELD ? shields.price() : basePrice(tool);
+    }
+
+    private static long basePrice(Tool tool) {
+        return switch (tool) {
+            case C4, GRENADE -> 20_000;
+            default -> PRICE;
+        };
+    }
+
+    private static int resourcePrice(Tool tool) {
+        return Math.toIntExact(basePrice(tool) / SettlementResources.ITEM_VALUE);
     }
 
     boolean purchase(Player player, Tool tool, boolean alternate, long price) {
@@ -239,8 +249,9 @@ final class RaidShop implements Listener {
                 player.sendMessage("Use left-click to buy this item for " + cash + ".");
                 return false;
             }
-            priceLabel = RESOURCE_PRICE + " " + payment.label;
-            if (!resources.debit(contents, payment, RESOURCE_PRICE)) {
+            int resourcePrice = resourcePrice(tool);
+            priceLabel = resourcePrice + " " + payment.label;
+            if (!resources.debit(contents, payment, resourcePrice)) {
                 player.sendMessage("You need " + priceLabel + " in your inventory.");
                 return false;
             }

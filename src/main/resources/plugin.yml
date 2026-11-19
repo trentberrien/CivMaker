@@ -1,5 +1,5 @@
 name: CivMaker
-version: '0.21.3'
+version: '0.23.0'
 main: dev.civmaker.CivMaker
 api-version: '26.3'
 load: STARTUP
@@ -14,6 +14,9 @@ commands:
   wilderness:
     description: Teleport to a random safe location during your first hour on the server
     usage: /wilderness
+  harness:
+    description: View or swap the harness of the Happy Ghast you are riding
+    usage: /harness
 permissions:
   civmaker.trade.test:
     description: Open a test trade that offers 10 dirt

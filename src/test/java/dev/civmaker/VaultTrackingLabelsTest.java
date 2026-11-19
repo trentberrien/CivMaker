@@ -46,6 +46,7 @@ class VaultTrackingLabelsTest {
         when(plugin.getServer()).thenReturn(server);
         store = mock(CivStore.class);
         equipment = mock(RaidEquipment.class);
+        when(equipment.hasRadar(any(Player.class))).thenReturn(true);
         Notes notes = mock(Notes.class);
         tracking = new VaultTracking(plugin, store, equipment, notes);
         world = mock(World.class);
@@ -147,6 +148,35 @@ class VaultTrackingLabelsTest {
         assertView(member, false);
         assertView(enemy, false);
         assertView(unaffiliated, false);
+    }
+
+    @Test void outsidersWithoutRadarNeedAClearViewEvenDuringRaids() {
+        when(store.activeWindow(anyLong())).thenReturn(new Window(1, Long.MAX_VALUE));
+        when(equipment.hasRadar(any(Player.class))).thenReturn(false);
+        tracking.refresh();
+
+        assertView(member, false);
+        assertView(enemy, false);
+        assertView(unaffiliated, false);
+    }
+
+    @Test void gainingAndLosingRadarUpdatesThroughWallAccessDuringRaids() {
+        when(store.activeWindow(anyLong())).thenReturn(new Window(1, Long.MAX_VALUE));
+        when(equipment.hasRadar(enemy)).thenReturn(false);
+        tracking.refresh();
+        assertView(enemy, false);
+
+        clearInvocations(enemy);
+        when(equipment.hasRadar(enemy)).thenReturn(true);
+        tracking.refresh();
+        assertView(enemy, true);
+
+        clearInvocations(enemy);
+        when(equipment.hasRadar(enemy)).thenReturn(false);
+        tracking.refresh();
+        assertView(enemy, false);
+        verify(world, times(2)).spawn(any(Location.class), eq(TextDisplay.class),
+                org.mockito.ArgumentMatchers.<Consumer<TextDisplay>>any());
     }
 
     @Test void joiningAndLeavingTheFactionUpdatesThroughWallAccess() {

@@ -2,7 +2,11 @@ package dev.civmaker;
 
 import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent;
 import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.datacomponent.item.Repairable;
 import io.papermc.paper.event.entity.EntityEquipmentChangedEvent;
+import io.papermc.paper.registry.RegistryKey;
+import io.papermc.paper.registry.keys.ItemTypeKeys;
+import io.papermc.paper.registry.set.RegistrySet;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -49,8 +53,9 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.random.RandomGenerator;
 
 final class RaidEquipment implements Listener {
-    private static final String HARNESS_HEALTH_LORE = "Increases max health to five times normal.";
-    private static final int HARNESS_DURABILITY = 432;
+    private static final String HARNESS_HEALTH_LORE = "Increases max health to three times normal.";
+    // 1,800 usable points x four seconds per point with Unbreaking III = two hours.
+    static final int HARNESS_DURABILITY = 1801;
     private static final double MAX_HORSE_SPEED = 0.3375;
     private static final double MAX_HORSE_JUMP = 1.0;
     private static final double SADDLED_HORSE_MAX_HEALTH = 96.0;
@@ -82,8 +87,9 @@ final class RaidEquipment implements Listener {
                 "Right-click to throw lit TNT with a five-second fuse.", "Can be thrown from a Happy Ghast."),
         HAPPY_HARNESS("happy_harness", "Happy Harness", Material.YELLOW_HARNESS, NamedTextColor.GOLD,
                 "Doubles a Happy Ghast's flying speed under a player's control.", HARNESS_HEALTH_LORE,
-                "Elytra durability with Unbreaking III; wears during piloted flight.",
-                "Bonuses stop when worn out. Repair with phantom membranes at an anvil."),
+                "About two hours of moving flight with Unbreaking III; hovering uses no durability.",
+                "Use /harness while riding to view durability and swap harnesses.",
+                "Bonuses stop when worn out. One ghast tear fully repairs it at an anvil."),
         BLAST_ROCKET("blast_rocket", "Blast Rockets", Material.FIREWORK_ROCKET, NamedTextColor.LIGHT_PURPLE,
                 "Crossbow ammo with a TNT-sized blast.", "A close hit can take out an unarmored player."),
         SUPER_TOTEM("super_totem", "Super Totem", Material.TOTEM_OF_UNDYING, NamedTextColor.GOLD,
@@ -129,7 +135,7 @@ final class RaidEquipment implements Listener {
     private final AttributeModifier saddleHealth;
     private final Set<LivingEntity> riddenSpeedBoosts = new HashSet<>();
     private final Set<Camel> camelDashReleases = new HashSet<>();
-    private final Map<HappyGhast, Integer> harnessFlightTicks = new HashMap<>();
+    private final Map<HappyGhast, HarnessFlight> harnessFlightTicks = new HashMap<>();
     private final RandomGenerator harnessRandom;
 
     RaidEquipment(CivMaker plugin) {
@@ -143,7 +149,7 @@ final class RaidEquipment implements Listener {
         legacyHarnessSpeedKey = new NamespacedKey(plugin, "happy_harness_speed");
         harnessSpeed = new AttributeModifier(new NamespacedKey(plugin, "happy_harness_ridden_speed"), 1.0,
                 AttributeModifier.Operation.MULTIPLY_SCALAR_1);
-        harnessHealth = new AttributeModifier(new NamespacedKey(plugin, "happy_harness_health"), 4.0,
+        harnessHealth = new AttributeModifier(new NamespacedKey(plugin, "happy_harness_health"), 2.0,
                 AttributeModifier.Operation.MULTIPLY_SCALAR_1);
         saddleSpeedKey = new NamespacedKey(plugin, "super_saddle_speed");
         saddleJumpKey = new NamespacedKey(plugin, "super_saddle_jump");
@@ -153,7 +159,12 @@ final class RaidEquipment implements Listener {
 
     ItemStack item(Tool tool, String priceLabel) {
         ItemStack item = new ItemStack(tool.material,
-                tool == Tool.BLAST_ROCKET || tool == Tool.RAID_SCAFFOLDING ? 64 : 1);
+                switch (tool) {
+                    case BLAST_ROCKET -> 32;
+                    case PILLAGER_GUARD -> 2;
+                    case RAID_SCAFFOLDING -> 64;
+                    default -> 1;
+                });
         item.editMeta(meta -> {
             if (tool == Tool.BLAST_ROCKET) {
                 FireworkMeta rocket = (FireworkMeta) meta;
@@ -256,18 +267,37 @@ final class RaidEquipment implements Listener {
     // Apply durability to old harnesses when equipped or loaded, preserving existing wear.
     private boolean prepareHarness(ItemStack item) {
         boolean changed = false;
-        if (!item.hasData(DataComponentTypes.MAX_DAMAGE)) {
+        var meta = item.getItemMeta();
+        var lore = meta.lore();
+        if (lore != null && identify(item) == Tool.HAPPY_HARNESS) {
+            var updated = new ArrayList<Component>();
+            for (String line : Tool.HAPPY_HARNESS.description) {
+                updated.add(Component.text(line, NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
+            }
+            if (!lore.equals(updated)) {
+                meta.lore(updated);
+                item.setItemMeta(meta);
+                changed = true;
+            }
+        }
+        int oldMaximum = item.getDataOrDefault(DataComponentTypes.MAX_DAMAGE, 0);
+        if (oldMaximum != HARNESS_DURABILITY) {
+            int damage = rescaledHarnessDamage(item.getDataOrDefault(DataComponentTypes.DAMAGE, 0), oldMaximum);
             item.setData(DataComponentTypes.MAX_STACK_SIZE, 1);
-            item.setData(DataComponentTypes.MAX_DAMAGE, HARNESS_DURABILITY);
+            // Lower damage first so an old broken harness remains valid during migration.
             item.setData(DataComponentTypes.DAMAGE, 0);
+            item.setData(DataComponentTypes.MAX_DAMAGE, HARNESS_DURABILITY);
+            item.setData(DataComponentTypes.DAMAGE, damage);
             changed = true;
         }
         if (item.getEnchantmentLevel(Enchantment.UNBREAKING) < 3) {
             item.addUnsafeEnchantment(Enchantment.UNBREAKING, 3);
             changed = true;
         }
-        if (!item.hasData(DataComponentTypes.REPAIRABLE)) {
-            item.setData(DataComponentTypes.REPAIRABLE, new ItemStack(Material.ELYTRA).getData(DataComponentTypes.REPAIRABLE));
+        var repairable = item.getData(DataComponentTypes.REPAIRABLE);
+        if (repairable == null || repairable.types().size() != 1 || !repairable.types().contains(ItemTypeKeys.GHAST_TEAR)) {
+            item.setData(DataComponentTypes.REPAIRABLE,
+                    Repairable.repairable(RegistrySet.keySet(RegistryKey.ITEM, ItemTypeKeys.GHAST_TEAR)));
             changed = true;
         }
         var equippable = item.getData(DataComponentTypes.EQUIPPABLE);
@@ -278,9 +308,19 @@ final class RaidEquipment implements Listener {
         return changed;
     }
 
+    static int rescaledHarnessDamage(int damage, int oldMaximum) {
+        return oldMaximum <= 1 ? 0 : (int) Math.min(HARNESS_DURABILITY - 1,
+                Math.max(0, (long) damage) * (HARNESS_DURABILITY - 1) / (oldMaximum - 1));
+    }
+
     private boolean harnessUsable(ItemStack item) {
         // Like elytra, leave the item intact at one durability so it can be repaired.
         return item.getDataOrDefault(DataComponentTypes.DAMAGE, 0) < HARNESS_DURABILITY - 1;
+    }
+
+    int harnessRemaining(ItemStack item) {
+        return identify(item) != Tool.HAPPY_HARNESS ? -1
+                : Math.max(0, HARNESS_DURABILITY - 1 - item.getDataOrDefault(DataComponentTypes.DAMAGE, 0));
     }
 
     private boolean tickHarness(HappyGhast ghast, Player pilot) {
@@ -288,15 +328,12 @@ final class RaidEquipment implements Listener {
         if (!harnessUsable(item)) {
             return false;
         }
-        if (ghast.isOnGround() || pilot.getGameMode() == GameMode.CREATIVE
-                || pilot.getGameMode() == GameMode.SPECTATOR) {
-            harnessFlightTicks.remove(ghast);
+        boolean flying = !ghast.isOnGround() && pilot.getGameMode() != GameMode.CREATIVE
+                && pilot.getGameMode() != GameMode.SPECTATOR;
+        if (!harnessFlightTicks.computeIfAbsent(ghast, ignored -> new HarnessFlight())
+                .advance(ghast.getLocation(), flying)) {
             return true;
         }
-        if (harnessFlightTicks.merge(ghast, 1, Integer::sum) < 20) {
-            return true;
-        }
-        harnessFlightTicks.remove(ghast);
         // Non-armor Unbreaking III ignores three out of four durability attempts.
         if (harnessRandom.nextInt(4) != 0) {
             return true;
@@ -305,7 +342,7 @@ final class RaidEquipment implements Listener {
         ghast.getEquipment().setItem(EquipmentSlot.BODY, item);
         if (!harnessUsable(item)) {
             syncHarness(ghast);
-            pilot.sendMessage("Your Happy Harness is worn out. Repair it with phantom membranes at an anvil.");
+            pilot.sendMessage("Your Happy Harness is worn out. One ghast tear fully repairs it at an anvil.");
             return false;
         }
         return true;
@@ -418,16 +455,18 @@ final class RaidEquipment implements Listener {
 
     private void syncMountHealth(LivingEntity mount, AttributeModifier modifier, boolean equipped) {
         var maxHealth = mount.getAttribute(Attribute.MAX_HEALTH);
-        boolean boosted = maxHealth.getModifier(modifier.getKey()) != null;
-        if (equipped == boosted) {
+        AttributeModifier current = maxHealth.getModifier(modifier.getKey());
+        boolean boosted = current != null;
+        if (equipped == boosted && (!equipped || current.equals(modifier))) {
             return;
         }
         // Preserve the health fraction and save the modifier so loading does not clamp health to the base maximum.
         double healthFraction = mount.getHealth() / maxHealth.getValue();
+        if (boosted) {
+            maxHealth.removeModifier(modifier.getKey());
+        }
         if (equipped) {
             maxHealth.addModifier(modifier);
-        } else {
-            maxHealth.removeModifier(modifier.getKey());
         }
         mount.setHealth(maxHealth.getValue() * healthFraction);
     }

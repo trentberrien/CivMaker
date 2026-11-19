@@ -45,12 +45,15 @@ final class EntityProtection implements Listener {
     private final NaturalVillages natural;
     private final PillagerGuards guards;
     private final DefenderGolems defenders;
+    private final FactionMobs factionMobs;
 
-    EntityProtection(CivStore store, NaturalVillages natural, PillagerGuards guards, DefenderGolems defenders) {
+    EntityProtection(CivStore store, NaturalVillages natural, PillagerGuards guards, DefenderGolems defenders,
+                     FactionMobs factionMobs) {
         this.store = store;
         this.natural = natural;
         this.guards = guards;
         this.defenders = defenders;
+        this.factionMobs = factionMobs;
     }
 
     static UUID playerSource(Entity source) {
@@ -170,9 +173,19 @@ final class EntityProtection implements Listener {
         if (event.getRightClicked() instanceof Pillager guard && guards.owner(guard) != null) {
             return;
         }
-        // An empty-hand click mounts the horse without applying items or opening its inventory.
-        if (event.getRightClicked() instanceof Horse && !event.getPlayer().isSneaking()
+        Village mobOwner = factionMobs.owner(event.getRightClicked());
+        if (mobOwner != null
+                && event.getPlayer().getInventory().getItem(event.getHand()).getType() == Material.NAME_TAG) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage("Ride this mob in your faction's claim and use /civ tame <name> to rename it.");
+            return;
+        }
+        // Mount clicks must reach vanilla even when a faction's own mount is in an enemy claim.
+        if ((event.getRightClicked() instanceof Horse || mobOwner != null) && !event.getPlayer().isSneaking()
                 && event.getPlayer().getInventory().getItem(event.getHand()).getType() == Material.AIR) {
+            if (mobOwner != null && !factionMobs.canRide(event.getPlayer(), (Mob) event.getRightClicked(), mobOwner)) {
+                event.setCancelled(true);
+            }
             return;
         }
         if (forbidden(event.getRightClicked(), event.getPlayer().getUniqueId())) {
@@ -224,9 +237,13 @@ final class EntityProtection implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     void mount(EntityMountEvent event) {
-        if (event.getEntity() instanceof Player player && !(event.getMount() instanceof Horse)
-                && forbidden(event.getMount(), player.getUniqueId())) {
-            event.setCancelled(true);
+        if (event.getEntity() instanceof Player player) {
+            Village owner = factionMobs.owner(event.getMount());
+            if (owner != null) {
+                event.setCancelled(!factionMobs.canRide(player, (Mob) event.getMount(), owner));
+            } else if (!(event.getMount() instanceof Horse) && forbidden(event.getMount(), player.getUniqueId())) {
+                event.setCancelled(true);
+            }
         }
     }
 

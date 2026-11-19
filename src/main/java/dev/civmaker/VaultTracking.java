@@ -141,7 +141,8 @@ final class VaultTracking implements Listener {
         }
         boolean raidable = store.activeWindow(System.currentTimeMillis()) != null && store.raidCovers(position.plot());
         for (var viewer : block.getWorld().getPlayers()) {
-            boolean throughWalls = raidable && store.memberOf(viewer.getUniqueId()) != village;
+            boolean throughWalls = raidable && store.memberOf(viewer.getUniqueId()) != village
+                    && equipment.hasRadar(viewer);
             viewer.hideEntity(plugin, throughWalls ? current.normal() : current.throughWalls());
             viewer.showEntity(plugin, throughWalls ? current.throughWalls() : current.normal());
         }
